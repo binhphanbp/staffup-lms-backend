@@ -2,7 +2,7 @@
 
 > Internal Learning Management System for Staffup — built with Node.js, TypeScript, Express.js, Prisma & PostgreSQL.
 
-## ⚡ Tech Stack
+## Tech Stack
 
 | Category         | Technology                                |
 | ---------------- | ----------------------------------------- |
@@ -17,7 +17,7 @@
 | Containerization | Docker + Docker Compose                   |
 | Package Manager  | pnpm                                      |
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 src/
@@ -38,7 +38,7 @@ prisma/
 
 **Architecture:** Controller → Service → Prisma (Layered Architecture)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -69,11 +69,11 @@ docker compose exec api pnpm prisma:migrate
 curl http://localhost:3000/api/v1/health
 ```
 
-## 🧹 Code Quality
+## Code Quality
 
 > 💡 Dự án sử dụng **Husky + lint-staged** — mỗi commit sẽ tự động chạy ESLint + Prettier trên các file thay đổi.
 
-## 🐳 Docker Commands
+## Docker Commands
 
 ```bash
 docker compose up --build     # Build & start all services
@@ -83,7 +83,7 @@ docker compose logs -f api    # View API logs
 docker compose exec api sh    # Shell into API container
 ```
 
-## 🗄️ Database Commands
+## Database Commands
 
 ```bash
 docker compose exec api pnpm prisma:migrate   # Create & run migrations
@@ -91,7 +91,7 @@ docker compose exec api pnpm prisma:generate  # Regenerate Prisma Client
 docker compose exec api pnpm prisma:studio    # Open database GUI
 ```
 
-## 🔑 Environment Variables
+## Environment Variables
 
 | Variable            | Description                  | Default       |
 | ------------------- | ---------------------------- | ------------- |
