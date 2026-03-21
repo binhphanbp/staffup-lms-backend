@@ -2,6 +2,7 @@
   "name": "staffup-lms-backend",
   "version": "1.0.0",
   "description": "Staffup - Internal Learning Management System Backend",
+  "packageManager": "pnpm@10.11.0",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/server.ts",
