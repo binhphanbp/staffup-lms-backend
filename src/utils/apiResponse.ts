@@ -2,15 +2,23 @@ import type { Response } from 'express';
 import type { ApiResponse } from '@/interfaces';
 
 const normalizeJsonValue = (value: unknown): unknown => {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
   if (typeof value === 'bigint') {
     return value.toString();
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
   }
 
   if (Array.isArray(value)) {
     return value.map((item) => normalizeJsonValue(item));
   }
 
-  if (value && typeof value === 'object') {
+  if (typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value).map(([key, nestedValue]) => [key, normalizeJsonValue(nestedValue)]),
     );
