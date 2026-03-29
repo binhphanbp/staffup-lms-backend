@@ -10,6 +10,8 @@ export const authenticate = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    const db = prisma as any;
+
     // 1) Extract token from Authorization header
     const authHeader = req.headers.authorization;
     let token: string | undefined;
@@ -26,9 +28,22 @@ export const authenticate = async (
     const decoded = verifyToken(token);
 
     // 3) Check if user still exists
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, email: true, role: true, isActive: true },
+    const user = await db.user.findUnique({
+      where: { id: BigInt(decoded.userId) },
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+        userRoles: {
+          select: {
+            role: {
+              select: {
+                code: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -41,9 +56,9 @@ export const authenticate = async (
 
     // 4) Attach user payload to request
     req.user = {
-      userId: user.id,
+      userId: user.id.toString(),
       email: user.email,
-      role: user.role,
+      roleCodes: user.userRoles.map((userRole: { role: { code: string } }) => userRole.role.code),
     };
 
     next();

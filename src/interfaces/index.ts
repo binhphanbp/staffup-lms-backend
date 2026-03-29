@@ -1,5 +1,4 @@
 import type { Request } from 'express';
-import type { Role } from '@prisma/client';
 
 // ========================
 // API Response
@@ -19,7 +18,7 @@ export interface ApiResponse<T = unknown> {
 export interface JwtPayload {
   userId: string;
   email: string;
-  role: Role;
+  roleCodes: string[];
 }
 
 export interface AuthRequest extends Request {

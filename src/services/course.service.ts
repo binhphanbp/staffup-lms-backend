@@ -2,55 +2,57 @@ import { prisma } from '@/config/database';
 import { AppError } from '@/utils';
 import type { CreateCourseInput, UpdateCourseInput, CourseQuery } from '@/schemas/course.schema';
 import type { PaginatedResult } from '@/interfaces';
-import type { Course, Role } from '@prisma/client';
+
+type CourseListItem = Record<string, unknown>;
 
 export class CourseService {
   /**
    * Create a new course
    */
-  static async create(data: CreateCourseInput, instructorId: string) {
-    // Generate slug from title
+  static async create(data: CreateCourseInput, trainerUserId: string) {
+    const db = prisma as any;
+
     const slug = data.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
-    // Check for duplicate slug
-    const existingCourse = await prisma.course.findUnique({
+    const existingCourse = await db.course.findUnique({
       where: { slug },
     });
 
     const finalSlug = existingCourse ? `${slug}-${Date.now()}` : slug;
 
-    const course = await prisma.course.create({
+    return db.course.create({
       data: {
-        ...data,
+        title: data.title,
         slug: finalSlug,
-        instructorId,
+        description: data.description,
+        thumbnailUrl: data.thumbnailUrl,
+        categoryId: data.categoryId,
+        ownerDepartmentId: data.ownerDepartmentId,
+        estimatedDurationMinutes: data.estimatedDurationMinutes,
+        trainerUserId: BigInt(trainerUserId),
       },
       include: {
-        instructor: {
+        trainerUser: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            fullName: true,
             email: true,
           },
         },
       },
     });
-
-    return course;
   }
 
   /**
    * Get all courses with pagination, filtering, and search
    */
-  static async findAll(query: CourseQuery): Promise<PaginatedResult<Course>> {
+  static async findAll(query: CourseQuery): Promise<PaginatedResult<CourseListItem>> {
+    const db = prisma as any;
     const { page, limit, sortBy, sortOrder, status, search } = query;
     const skip = (page - 1) * limit;
-
-    // Build where clause
     const where: Record<string, unknown> = {};
 
     if (status) {
@@ -65,17 +67,16 @@ export class CourseService {
     }
 
     const [courses, total] = await Promise.all([
-      prisma.course.findMany({
+      db.course.findMany({
         where,
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          instructor: {
+          trainerUser: {
             select: {
               id: true,
-              firstName: true,
-              lastName: true,
+              fullName: true,
             },
           },
           _count: {
@@ -86,11 +87,11 @@ export class CourseService {
           },
         },
       }),
-      prisma.course.count({ where }),
+      db.course.count({ where }),
     ]);
 
     return {
-      data: courses as unknown as Course[],
+      data: courses,
       meta: {
         total,
         page,
@@ -104,22 +105,23 @@ export class CourseService {
    * Get a single course by ID
    */
   static async findById(id: string) {
-    const course = await prisma.course.findUnique({
-      where: { id },
+    const db = prisma as any;
+
+    const course = await db.course.findUnique({
+      where: { id: BigInt(id) },
       include: {
-        instructor: {
+        trainerUser: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            fullName: true,
             email: true,
           },
         },
         modules: {
-          orderBy: { order: 'asc' },
+          orderBy: { orderIndex: 'asc' },
           include: {
             lessons: {
-              orderBy: { order: 'asc' },
+              orderBy: { orderIndex: 'asc' },
             },
           },
         },
@@ -141,55 +143,64 @@ export class CourseService {
   /**
    * Update a course
    */
-  static async update(id: string, data: UpdateCourseInput, userId: string, userRole: Role) {
-    const course = await prisma.course.findUnique({
-      where: { id },
+  static async update(id: string, data: UpdateCourseInput, userId: string, roleCodes: string[]) {
+    const db = prisma as any;
+
+    const course = await db.course.findUnique({
+      where: { id: BigInt(id) },
     });
 
     if (!course) {
       throw new AppError('Course not found.', 404);
     }
 
-    // ADMIN can update any course; instructors can only update their own
-    if (userRole !== 'ADMIN' && course.instructorId !== userId) {
+    if (!roleCodes.includes('admin') && course.trainerUserId !== BigInt(userId)) {
       throw new AppError('You can only update your own courses.', 403);
     }
 
-    const updatedCourse = await prisma.course.update({
-      where: { id },
-      data,
+    return db.course.update({
+      where: { id: BigInt(id) },
+      data: {
+        title: data.title,
+        description: data.description,
+        thumbnailUrl: data.thumbnailUrl,
+        categoryId: data.categoryId,
+        ownerDepartmentId: data.ownerDepartmentId,
+        estimatedDurationMinutes: data.estimatedDurationMinutes,
+        status: data.status,
+      },
       include: {
-        instructor: {
+        trainerUser: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            fullName: true,
             email: true,
           },
         },
       },
     });
-
-    return updatedCourse;
   }
 
   /**
    * Delete a course
    */
-  static async delete(id: string, userId: string, userRole: Role) {
-    const course = await prisma.course.findUnique({
-      where: { id },
+  static async delete(id: string, userId: string, roleCodes: string[]) {
+    const db = prisma as any;
+
+    const course = await db.course.findUnique({
+      where: { id: BigInt(id) },
     });
 
     if (!course) {
       throw new AppError('Course not found.', 404);
     }
 
-    // ADMIN can delete any course; instructors can only delete their own
-    if (userRole !== 'ADMIN' && course.instructorId !== userId) {
+    if (!roleCodes.includes('admin') && course.trainerUserId !== BigInt(userId)) {
       throw new AppError('You can only delete your own courses.', 403);
     }
 
-    await prisma.course.delete({ where: { id } });
+    await db.course.delete({
+      where: { id: BigInt(id) },
+    });
   }
 }

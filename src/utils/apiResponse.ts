@@ -1,14 +1,34 @@
 import type { Response } from 'express';
 import type { ApiResponse } from '@/interfaces';
 
+const normalizeJsonValue = (value: unknown): unknown => {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeJsonValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, normalizeJsonValue(nestedValue)]),
+    );
+  }
+
+  return value;
+};
+
 export const sendResponse = <T>(
   res: Response,
   statusCode: number,
   data: Omit<ApiResponse<T>, 'success'>,
 ): void => {
+  const normalizedData = normalizeJsonValue(data) as Omit<ApiResponse<T>, 'success'>;
+
   res.status(statusCode).json({
     success: statusCode < 400,
-    ...data,
+    ...normalizedData,
   });
 };
 

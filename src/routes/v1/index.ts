@@ -1,8 +1,8 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import authRoutes from '@/routes/v1/auth.routes';
 import courseRoutes from '@/routes/v1/course.routes';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // Health check
 router.get('/health', (_req, res) => {
