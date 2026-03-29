@@ -88,19 +88,35 @@ docker compose exec api sh    # Shell into API container
 ```bash
 docker compose exec api pnpm prisma:migrate   # Create & run migrations
 docker compose exec api pnpm prisma:generate  # Regenerate Prisma Client
+docker compose exec api pnpm prisma:seed      # Seed default RBAC + first admin
 docker compose exec api pnpm prisma:studio    # Open database GUI
 ```
 
 ## Environment Variables
 
-| Variable            | Description                  | Default       |
-| ------------------- | ---------------------------- | ------------- |
-| `NODE_ENV`          | Environment                  | `development` |
-| `PORT`              | Server port                  | `3000`        |
-| `DATABASE_URL`      | PostgreSQL connection string | —             |
-| `POSTGRES_USER`     | DB username (Docker)         | `admin`       |
-| `POSTGRES_PASSWORD` | DB password (Docker)         | —             |
-| `POSTGRES_DB`       | DB name (Docker)             | `staffup_lms` |
-| `JWT_SECRET`        | Token signing secret         | —             |
-| `JWT_EXPIRES_IN`    | Token expiration             | `7d`          |
-| `CORS_ORIGIN`       | Allowed CORS origin          | `*`           |
+| Variable                     | Description                  | Default                |
+| ---------------------------- | ---------------------------- | ---------------------- |
+| `NODE_ENV`                   | Environment                  | `development`          |
+| `PORT`                       | Server port                  | `3000`                 |
+| `DATABASE_URL`               | PostgreSQL connection string | —                      |
+| `POSTGRES_USER`              | DB username (Docker)         | `admin`                |
+| `POSTGRES_PASSWORD`          | DB password (Docker)         | —                      |
+| `POSTGRES_DB`                | DB name (Docker)             | `staffup_lms`          |
+| `JWT_SECRET`                 | Token signing secret         | —                      |
+| `JWT_EXPIRES_IN`             | Token expiration             | `7d`                   |
+| `CORS_ORIGIN`                | Allowed CORS origin          | `*`                    |
+| `SEED_ADMIN_DEPARTMENT_NAME` | Seed admin department name   | `General`              |
+| `SEED_ADMIN_FULL_NAME`       | Seed admin full name         | `System Administrator` |
+| `SEED_ADMIN_POSITION_TITLE`  | Seed admin title             | `Administrator`        |
+| `SEED_ADMIN_EMAIL`           | Seed admin email             | `admin@staffup.local`  |
+| `SEED_ADMIN_PASSWORD`        | Seed admin password          | `ChangeMe123`          |
+
+## Default Seed Data
+
+Running `pnpm prisma:seed` will create or update:
+
+- System roles: `admin`, `manager`, `trainer`, `employee`
+- Base RBAC permissions and role-permission mappings
+- The first admin user from `SEED_ADMIN_*` environment variables
+
+The seed script is idempotent, so it can be run multiple times without creating duplicate RBAC records.
