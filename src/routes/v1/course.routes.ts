@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import { CourseController } from '@/controllers/course.controller';
 import { authenticate, restrictTo, validate } from '@/middlewares';
 import {
@@ -8,7 +8,7 @@ import {
   courseQuerySchema,
 } from '@/schemas/course.schema';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // All course routes require authentication
 router.use(authenticate);
@@ -16,19 +16,19 @@ router.use(authenticate);
 router
   .route('/')
   .get(validate(courseQuerySchema, 'query'), CourseController.findAll)
-  .post(restrictTo('ADMIN', 'INSTRUCTOR'), validate(createCourseSchema), CourseController.create);
+  .post(restrictTo('admin', 'trainer'), validate(createCourseSchema), CourseController.create);
 
 router
   .route('/:id')
   .get(validate(courseIdParamSchema, 'params'), CourseController.findById)
   .patch(
-    restrictTo('ADMIN', 'INSTRUCTOR'),
+    restrictTo('admin', 'trainer'),
     validate(courseIdParamSchema, 'params'),
     validate(updateCourseSchema),
     CourseController.update,
   )
   .delete(
-    restrictTo('ADMIN', 'INSTRUCTOR'),
+    restrictTo('admin', 'trainer'),
     validate(courseIdParamSchema, 'params'),
     CourseController.delete,
   );

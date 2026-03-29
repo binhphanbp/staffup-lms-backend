@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -8,7 +8,7 @@ import { errorHandler } from '@/middlewares';
 import { AppError } from '@/utils';
 import v1Routes from '@/routes/v1';
 
-const app = express();
+const app: Express = express();
 
 // ========================
 // Global Middleware

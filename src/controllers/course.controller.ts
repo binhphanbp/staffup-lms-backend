@@ -37,7 +37,7 @@ export class CourseController {
       req.params.id as string,
       req.body,
       req.user!.userId,
-      req.user!.role,
+      req.user!.roleCodes,
     );
     sendSuccess(res, course, 'Course updated successfully');
   });
@@ -46,7 +46,7 @@ export class CourseController {
    * DELETE /api/v1/courses/:id
    */
   static delete = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    await CourseService.delete(req.params.id as string, req.user!.userId, req.user!.role);
+    await CourseService.delete(req.params.id as string, req.user!.userId, req.user!.roleCodes);
     sendNoContent(res);
   });
 }

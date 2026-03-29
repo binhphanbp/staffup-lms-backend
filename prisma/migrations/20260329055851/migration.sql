@@ -1,0 +1,4 @@
+-- No-op.
+-- The index rename captured here belonged to an intermediate schema state that
+-- does not exist in a clean migration history. The canonical index is created
+-- by 20260329130000_refactor_lms_rbac_schema.

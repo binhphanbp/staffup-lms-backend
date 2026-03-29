@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,121 +6,605 @@ datasource db {
   provider = "postgresql"
 }
 
-// ========================
-// Enums
-// ========================
-
-enum Role {
-  ADMIN
-  INSTRUCTOR
-  STUDENT
+enum roadmap_assignment_status {
+  assigned
+  in_progress
+  completed
+  dropped
 }
 
-enum EnrollmentStatus {
-  ACTIVE
-  COMPLETED
-  DROPPED
+enum course_status {
+  draft
+  published
+  archived
 }
 
-enum CourseStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
+enum lesson_kind {
+  video
+  article
+  quiz
 }
 
-// ========================
-// Models
-// ========================
+enum lesson_progress_status {
+  not_started
+  in_progress
+  completed
+  skipped
+}
+
+enum enrollment_status {
+  assigned
+  in_progress
+  completed
+  cancelled
+  expired
+}
+
+enum question_kind {
+  single_choice
+  multiple_choice
+  essay
+}
+
+enum quiz_selection_mode {
+  fixed
+  random_pool
+}
+
+enum quiz_attempt_status {
+  in_progress
+  submitted
+  graded
+  expired
+  abandoned
+}
+
+enum risk_level {
+  low
+  medium
+  high
+}
+
+model Department {
+  id            BigInt   @id @default(autoincrement())
+  name          String   @unique @db.VarChar(150)
+  managerUserId BigInt?  @map("manager_user_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  manager      User?      @relation("DepartmentManager", fields: [managerUserId], references: [id])
+  users        User[]     @relation("DepartmentUsers")
+  roadmaps     Roadmap[]
+  ownedCourses Course[]   @relation("DepartmentOwnedCourses")
+
+  @@map("departments")
+}
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
-  role      Role     @default(STUDENT)
-  avatar    String?
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            BigInt   @id @default(autoincrement())
+  departmentId  BigInt   @map("department_id")
+  fullName      String   @map("full_name") @db.VarChar(150)
+  positionTitle String?  @map("position_title") @db.VarChar(150)
+  email         String   @unique @db.Citext
+  passwordHash  String   @map("password_hash") @db.VarChar(255)
+  avatarUrl     String?  @map("avatar_url") @db.VarChar(500)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Relations
-  instructedCourses Course[]     @relation("InstructorCourses")
-  enrollments       Enrollment[]
+  department                Department               @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  managedDepartments        Department[]             @relation("DepartmentManager")
+  userRoles                 UserRole[]
+  assignedUserRoles         UserRole[]               @relation("UserRoleAssignedBy")
+  createdRoadmaps           Roadmap[]                @relation("RoadmapCreatedBy")
+  roadmapAssignments        RoadmapAssignment[]      @relation("RoadmapAssignmentUser")
+  assignedRoadmaps          RoadmapAssignment[]      @relation("RoadmapAssignmentAssignedBy")
+  trainerCourses            Course[]                 @relation("CourseTrainer")
+  questionBanks             QuestionBank[]
+  assignedEnrollments       Enrollment[]             @relation("EnrollmentAssignedBy")
+  enrollments               Enrollment[]             @relation("EnrollmentUser")
+  gradedQuizAttempts        QuizAttempt[]            @relation("QuizAttemptGradedBy")
+  gradedAttemptResponses    AttemptResponse[]        @relation("AttemptResponseGradedBy")
 
+  @@index([departmentId])
   @@map("users")
 }
 
+model Role {
+  id              BigInt           @id @default(autoincrement())
+  code            String           @unique @db.VarChar(50)
+  name            String           @db.VarChar(100)
+  description     String?
+  isSystem        Boolean          @default(true) @map("is_system")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              BigInt           @id @default(autoincrement())
+  code            String           @unique @db.VarChar(100)
+  module          String           @db.VarChar(50)
+  action          String           @db.VarChar(50)
+  description     String?
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  id               BigInt    @id @default(autoincrement())
+  userId           BigInt    @map("user_id")
+  roleId           BigInt    @map("role_id")
+  assignedByUserId BigInt?   @map("assigned_by_user_id")
+  assignedAt       DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(6)
+
+  user             User      @relation(fields: [userId], references: [id])
+  role             Role      @relation(fields: [roleId], references: [id])
+  assignedByUser   User?     @relation("UserRoleAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id            BigInt      @id @default(autoincrement())
+  roleId        BigInt      @map("role_id")
+  permissionId  BigInt      @map("permission_id")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  role          Role        @relation(fields: [roleId], references: [id])
+  permission    Permission  @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Category {
+  id               BigInt         @id @default(autoincrement())
+  parentId         BigInt?        @map("parent_id")
+  name             String         @db.VarChar(150)
+  slug             String         @unique @db.VarChar(160)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  parent           Category?      @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children         Category[]     @relation("CategoryHierarchy")
+  roadmaps         Roadmap[]
+  courses          Course[]
+  questionBanks    QuestionBank[]
+
+  @@unique([parentId, name])
+  @@map("categories")
+}
+
+model Tag {
+  id           BigInt      @id @default(autoincrement())
+  name         String      @unique @db.VarChar(100)
+  slug         String      @unique @db.VarChar(120)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  courseTags   CourseTag[]
+
+  @@map("tags")
+}
+
+model Roadmap {
+  id                BigInt                @id @default(autoincrement())
+  departmentId      BigInt                @map("department_id")
+  categoryId        BigInt?               @map("category_id")
+  title             String                @db.VarChar(200)
+  description       String?
+  targetPosition    String?               @map("target_position") @db.VarChar(150)
+  isActive          Boolean               @default(true) @map("is_active")
+  createdByUserId   BigInt?               @map("created_by_user_id")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  department        Department            @relation(fields: [departmentId], references: [id])
+  category          Category?             @relation(fields: [categoryId], references: [id])
+  createdByUser     User?                 @relation("RoadmapCreatedBy", fields: [createdByUserId], references: [id])
+  roadmapCourses    RoadmapCourse[]
+  assignments       RoadmapAssignment[]
+
+  @@map("roadmaps")
+}
+
+model RoadmapCourse {
+  id            BigInt      @id @default(autoincrement())
+  roadmapId     BigInt      @map("roadmap_id")
+  courseId      BigInt      @map("course_id")
+  orderIndex    Int         @map("order_index")
+  isRequired    Boolean     @default(true) @map("is_required")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  roadmap       Roadmap     @relation(fields: [roadmapId], references: [id])
+  course        Course      @relation(fields: [courseId], references: [id])
+
+  @@unique([roadmapId, courseId])
+  @@unique([roadmapId, orderIndex])
+  @@map("roadmap_courses")
+}
+
+model RoadmapAssignment {
+  id               BigInt                    @id @default(autoincrement())
+  userId           BigInt                    @map("user_id")
+  roadmapId        BigInt                    @map("roadmap_id")
+  assignedByUserId BigInt?                   @map("assigned_by_user_id")
+  status           roadmap_assignment_status @default(assigned)
+  assignedAt       DateTime                  @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  startedAt        DateTime?                 @map("started_at") @db.Timestamptz(6)
+  completedAt      DateTime?                 @map("completed_at") @db.Timestamptz(6)
+  droppedAt        DateTime?                 @map("dropped_at") @db.Timestamptz(6)
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user             User                      @relation("RoadmapAssignmentUser", fields: [userId], references: [id])
+  roadmap          Roadmap                   @relation(fields: [roadmapId], references: [id])
+  assignedByUser   User?                     @relation("RoadmapAssignmentAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@unique([userId, roadmapId])
+  @@map("roadmap_assignments")
+}
+
 model Course {
-  id          String       @id @default(uuid())
-  title       String
-  slug        String       @unique
-  description String?
-  thumbnail   String?
-  status      CourseStatus @default(DRAFT)
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  id                         BigInt          @id @default(autoincrement())
+  ownerDepartmentId          BigInt?         @map("owner_department_id")
+  trainerUserId              BigInt          @map("trainer_user_id")
+  categoryId                 BigInt?         @map("category_id")
+  title                      String          @db.VarChar(200)
+  slug                       String          @unique @db.VarChar(220)
+  description                String?
+  thumbnailUrl               String?         @map("thumbnail_url") @db.VarChar(500)
+  status                     course_status   @default(draft)
+  estimatedDurationMinutes   Int?            @map("estimated_duration_minutes")
+  publishedAt                DateTime?       @map("published_at") @db.Timestamptz(6)
+  createdAt                  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Relations
-  instructorId String       @map("instructor_id")
-  instructor   User         @relation("InstructorCourses", fields: [instructorId], references: [id])
-  modules      Module[]
-  enrollments  Enrollment[]
+  ownerDepartment            Department?     @relation("DepartmentOwnedCourses", fields: [ownerDepartmentId], references: [id])
+  trainerUser                User            @relation("CourseTrainer", fields: [trainerUserId], references: [id])
+  category                   Category?       @relation(fields: [categoryId], references: [id])
+  courseTags                 CourseTag[]
+  modules                    Module[]
+  enrollments                Enrollment[]
+  quizzes                    Quiz[]
+  roadmapCourses             RoadmapCourse[]
 
-  @@index([instructorId])
-  @@index([status])
   @@map("courses")
 }
 
+model CourseTag {
+  id           BigInt      @id @default(autoincrement())
+  courseId     BigInt      @map("course_id")
+  tagId        BigInt      @map("tag_id")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  course       Course      @relation(fields: [courseId], references: [id])
+  tag          Tag         @relation(fields: [tagId], references: [id])
+
+  @@unique([courseId, tagId])
+  @@map("course_tags")
+}
+
 model Module {
-  id        String   @id @default(uuid())
-  title     String
-  order     Int
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           BigInt      @id @default(autoincrement())
+  courseId     BigInt      @map("course_id")
+  title        String      @db.VarChar(200)
+  orderIndex   Int         @map("order_index")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Relations
-  courseId String   @map("course_id")
-  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons Lesson[]
+  course       Course      @relation(fields: [courseId], references: [id])
+  lessons      Lesson[]
 
-  @@index([courseId])
+  @@unique([courseId, orderIndex])
   @@map("modules")
 }
 
 model Lesson {
-  id        String   @id @default(uuid())
-  title     String
-  content   String?
-  videoUrl  String?  @map("video_url")
-  order     Int
-  duration  Int?     // in minutes
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                   BigInt                  @id @default(autoincrement())
+  moduleId             BigInt                  @map("module_id")
+  title                String                  @db.VarChar(200)
+  lessonType           lesson_kind             @map("lesson_type")
+  contentText          String?                 @map("content_text")
+  videoUrl             String?                 @map("video_url") @db.VarChar(500)
+  durationSeconds      Int                     @default(0) @map("duration_seconds")
+  orderIndex           Int                     @map("order_index")
+  isPreview            Boolean                 @default(false) @map("is_preview")
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Relations
-  moduleId String @map("module_id")
-  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module               Module                  @relation(fields: [moduleId], references: [id])
+  resources            LessonResource[]
+  progress             LessonProgress[]
+  quiz                 Quiz?
 
-  @@index([moduleId])
+  @@unique([moduleId, orderIndex])
   @@map("lessons")
 }
 
+model LessonResource {
+  id            BigInt      @id @default(autoincrement())
+  lessonId      BigInt      @map("lesson_id")
+  fileName      String      @map("file_name") @db.VarChar(255)
+  fileUrl       String      @map("file_url") @db.VarChar(500)
+  resourceType  String?     @map("resource_type") @db.VarChar(50)
+  orderIndex    Int         @default(1) @map("order_index")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lesson        Lesson      @relation(fields: [lessonId], references: [id])
+
+  @@unique([lessonId, orderIndex])
+  @@map("lesson_resources")
+}
+
 model Enrollment {
-  id        String           @id @default(uuid())
-  status    EnrollmentStatus @default(ACTIVE)
-  progress  Float            @default(0) // percentage 0-100
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
+  id                           BigInt                 @id @default(autoincrement())
+  userId                       BigInt                 @map("user_id")
+  courseId                     BigInt                 @map("course_id")
+  assignedByUserId             BigInt?                @map("assigned_by_user_id")
+  status                       enrollment_status      @default(assigned)
+  progressPercentCache         Decimal                @default(0) @map("progress_percent_cache") @db.Decimal(5, 2)
+  completedLessonsCountCache   Int                    @default(0) @map("completed_lessons_count_cache")
+  timeSpentSecondsCache        Int                    @default(0) @map("time_spent_seconds_cache")
+  assignmentNote               String?                @map("assignment_note")
+  dueAt                        DateTime?              @map("due_at") @db.Timestamptz(6)
+  enrolledAt                   DateTime               @default(now()) @map("enrolled_at") @db.Timestamptz(6)
+  startedAt                    DateTime?              @map("started_at") @db.Timestamptz(6)
+  completedAt                  DateTime?              @map("completed_at") @db.Timestamptz(6)
+  lastActivityAt               DateTime?              @map("last_activity_at") @db.Timestamptz(6)
+  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Relations
-  studentId String @map("student_id")
-  student   User   @relation(fields: [studentId], references: [id])
-  courseId   String @map("course_id")
-  course    Course @relation(fields: [courseId], references: [id])
+  user                         User                   @relation("EnrollmentUser", fields: [userId], references: [id])
+  course                       Course                 @relation(fields: [courseId], references: [id])
+  assignedByUser               User?                  @relation("EnrollmentAssignedBy", fields: [assignedByUserId], references: [id])
+  lessonProgress               LessonProgress[]
+  quizAttempts                 QuizAttempt[]
+  certificate                  Certificate?
+  learnerRiskAssessments       LearnerRiskAssessment[]
 
-  @@unique([studentId, courseId])
-  @@index([studentId])
-  @@index([courseId])
+  @@unique([userId, courseId])
   @@map("enrollments")
+}
+
+model LessonProgress {
+  id                  BigInt                 @id @default(autoincrement())
+  enrollmentId        BigInt                 @map("enrollment_id")
+  lessonId            BigInt                 @map("lesson_id")
+  status              lesson_progress_status @default(not_started)
+  watchTimeSeconds    Int                    @default(0) @map("watch_time_seconds")
+  lastPositionSeconds Int                    @default(0) @map("last_position_seconds")
+  startedAt           DateTime?              @map("started_at") @db.Timestamptz(6)
+  completedAt         DateTime?              @map("completed_at") @db.Timestamptz(6)
+  lastAccessedAt      DateTime?              @map("last_accessed_at") @db.Timestamptz(6)
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  enrollment          Enrollment             @relation(fields: [enrollmentId], references: [id])
+  lesson              Lesson                 @relation(fields: [lessonId], references: [id])
+
+  @@unique([enrollmentId, lessonId])
+  @@map("lesson_progress")
+}
+
+model QuestionBank {
+  id              BigInt      @id @default(autoincrement())
+  categoryId      BigInt?     @map("category_id")
+  ownerTrainerId  BigInt      @map("owner_trainer_id")
+  title           String      @db.VarChar(200)
+  description     String?
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category        Category?   @relation(fields: [categoryId], references: [id])
+  ownerTrainer    User        @relation(fields: [ownerTrainerId], references: [id])
+  questions       Question[]
+
+  @@map("question_banks")
+}
+
+model Question {
+  id                 BigInt            @id @default(autoincrement())
+  questionBankId     BigInt            @map("question_bank_id")
+  questionType       question_kind     @map("question_type")
+  content            String
+  explanation        String?
+  defaultPoints      Int               @default(1) @map("default_points")
+  isActive           Boolean           @default(true) @map("is_active")
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  questionBank       QuestionBank      @relation(fields: [questionBankId], references: [id])
+  options            QuestionOption[]
+  quizQuestions      QuizQuestion[]
+  attemptQuestions   QuizAttemptQuestion[]
+
+  @@map("questions")
+}
+
+model QuestionOption {
+  id                BigInt                  @id @default(autoincrement())
+  questionId        BigInt                  @map("question_id")
+  content           String
+  isCorrect         Boolean                 @default(false) @map("is_correct")
+  orderIndex        Int                     @map("order_index")
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  question          Question                @relation(fields: [questionId], references: [id])
+  responseOptions   AttemptResponseOption[]
+
+  @@unique([questionId, orderIndex])
+  @@map("question_options")
+}
+
+model Quiz {
+  id                BigInt               @id @default(autoincrement())
+  courseId          BigInt               @map("course_id")
+  lessonId          BigInt?              @unique @map("lesson_id")
+  title             String               @db.VarChar(200)
+  description       String?
+  selectionMode     quiz_selection_mode  @default(fixed) @map("selection_mode")
+  passScorePercent  Decimal              @default(70.00) @map("pass_score_percent") @db.Decimal(5, 2)
+  timeLimitMinutes  Int?                 @map("time_limit_minutes")
+  maxAttempts       Int?                 @map("max_attempts")
+  questionsToPull   Int?                 @map("questions_to_pull")
+  shuffleQuestions  Boolean              @default(true) @map("shuffle_questions")
+  shuffleOptions    Boolean              @default(true) @map("shuffle_options")
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  course            Course               @relation(fields: [courseId], references: [id])
+  lesson            Lesson?              @relation(fields: [lessonId], references: [id])
+  quizQuestions     QuizQuestion[]
+  attempts          QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id              BigInt      @id @default(autoincrement())
+  quizId          BigInt      @map("quiz_id")
+  questionId      BigInt      @map("question_id")
+  orderIndex      Int?        @map("order_index")
+  points          Int         @default(1)
+  isRequired      Boolean     @default(true) @map("is_required")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quiz            Quiz        @relation(fields: [quizId], references: [id])
+  question        Question    @relation(fields: [questionId], references: [id])
+  attemptQuestions QuizAttemptQuestion[]
+
+  @@unique([quizId, questionId])
+  @@unique([quizId, orderIndex])
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id                BigInt               @id @default(autoincrement())
+  enrollmentId      BigInt               @map("enrollment_id")
+  quizId            BigInt               @map("quiz_id")
+  attemptNo         Int                  @map("attempt_no")
+  status            quiz_attempt_status  @default(in_progress)
+  objectiveScore    Decimal?             @map("objective_score") @db.Decimal(6, 2)
+  manualScore       Decimal?             @map("manual_score") @db.Decimal(6, 2)
+  totalScore        Decimal?             @map("total_score") @db.Decimal(6, 2)
+  isPassed          Boolean?             @map("is_passed")
+  startedAt         DateTime             @default(now()) @map("started_at") @db.Timestamptz(6)
+  submittedAt       DateTime?            @map("submitted_at") @db.Timestamptz(6)
+  gradedAt          DateTime?            @map("graded_at") @db.Timestamptz(6)
+  gradedByUserId    BigInt?              @map("graded_by_user_id")
+  timeSpentSeconds  Int                  @default(0) @map("time_spent_seconds")
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  enrollment        Enrollment           @relation(fields: [enrollmentId], references: [id])
+  quiz              Quiz                 @relation(fields: [quizId], references: [id])
+  gradedByUser      User?                @relation("QuizAttemptGradedBy", fields: [gradedByUserId], references: [id])
+  attemptQuestions  QuizAttemptQuestion[]
+
+  @@unique([enrollmentId, quizId, attemptNo])
+  @@map("quiz_attempts")
+}
+
+model QuizAttemptQuestion {
+  id                BigInt           @id @default(autoincrement())
+  attemptId         BigInt           @map("attempt_id")
+  quizQuestionId    BigInt?          @map("quiz_question_id")
+  questionId        BigInt           @map("question_id")
+  displayOrder      Int              @map("display_order")
+  maxPoints         Int              @default(1) @map("max_points")
+  questionSnapshot  Json             @map("question_snapshot")
+  optionsSnapshot   Json?            @map("options_snapshot")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  attempt           QuizAttempt      @relation(fields: [attemptId], references: [id])
+  quizQuestion      QuizQuestion?    @relation(fields: [quizQuestionId], references: [id])
+  question          Question         @relation(fields: [questionId], references: [id])
+  response          AttemptResponse?
+
+  @@unique([attemptId, displayOrder])
+  @@unique([attemptId, questionId])
+  @@map("quiz_attempt_questions")
+}
+
+model AttemptResponse {
+  id                BigInt             @id @default(autoincrement())
+  attemptQuestionId BigInt             @unique @map("attempt_question_id")
+  responseText      String?            @map("response_text")
+  isCorrect         Boolean?           @map("is_correct")
+  awardedPoints     Decimal            @default(0) @map("awarded_points") @db.Decimal(6, 2)
+  gradedByUserId    BigInt?            @map("graded_by_user_id")
+  gradedAt          DateTime?          @map("graded_at") @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  attemptQuestion   QuizAttemptQuestion @relation(fields: [attemptQuestionId], references: [id])
+  gradedByUser      User?               @relation("AttemptResponseGradedBy", fields: [gradedByUserId], references: [id])
+  selectedOptions   AttemptResponseOption[]
+
+  @@map("attempt_responses")
+}
+
+model AttemptResponseOption {
+  id                 BigInt           @id @default(autoincrement())
+  attemptResponseId  BigInt           @map("attempt_response_id")
+  questionOptionId   BigInt           @map("question_option_id")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  attemptResponse    AttemptResponse  @relation(fields: [attemptResponseId], references: [id])
+  questionOption     QuestionOption   @relation(fields: [questionOptionId], references: [id])
+
+  @@unique([attemptResponseId, questionOptionId])
+  @@map("attempt_response_options")
+}
+
+model Certificate {
+  id               BigInt      @id @default(autoincrement())
+  enrollmentId     BigInt      @unique @map("enrollment_id")
+  certificateCode  String      @unique @map("certificate_code") @db.VarChar(100)
+  pdfUrl           String?     @map("pdf_url") @db.VarChar(500)
+  issuedAt         DateTime    @map("issued_at") @db.Timestamptz(6)
+  revokedAt        DateTime?   @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  enrollment       Enrollment  @relation(fields: [enrollmentId], references: [id])
+
+  @@map("certificates")
+}
+
+model LearnerRiskAssessment {
+  id               BigInt      @id @default(autoincrement())
+  enrollmentId     BigInt      @map("enrollment_id")
+  riskScore        Decimal     @map("risk_score") @db.Decimal(5, 2)
+  riskLevel        risk_level  @map("risk_level")
+  modelVersion     String?     @map("model_version") @db.VarChar(50)
+  reasons          Json?
+  recommendations  String?
+  interventions    String?
+  calculatedAt     DateTime    @map("calculated_at") @db.Timestamptz(6)
+  expiresAt        DateTime?   @map("expires_at") @db.Timestamptz(6)
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  enrollment       Enrollment  @relation(fields: [enrollmentId], references: [id])
+
+  @@index([enrollmentId, calculatedAt])
+  @@map("learner_risk_assessments")
 }

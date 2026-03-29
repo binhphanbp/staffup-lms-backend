@@ -52,6 +52,6 @@ FROM base AS development
 ENV NODE_ENV=development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm prisma:generate
+# RUN pnpm prisma:generate
 EXPOSE 3000
 CMD ["pnpm", "dev"]
