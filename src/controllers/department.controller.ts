@@ -21,6 +21,29 @@ export class DepartmentController {
   });
 
   /**
+   * Get paginated users in a department with optional isActive filter
+   * Query params: page, limit, isActive (true | false)
+   */
+  static getDepartmentUsers = catchAsync(
+    async (req: Request, res: Response, _next: NextFunction) => {
+      const { id } = req.params;
+      // Validated & transformed by getDepartmentUsersQuerySchema via validate middleware
+      const { page, limit, isActive } = req.query as unknown as {
+        page: number;
+        limit: number;
+        isActive?: boolean;
+      };
+
+      const result = await DepartmentService.getUsersByDepartment(id as string, {
+        page,
+        limit,
+        isActive,
+      });
+      sendSuccess(res, result, 'Department users retrieved successfully');
+    },
+  );
+
+  /**
    * Create a new department
    */
   static createDepartment = catchAsync(async (req: Request, res: Response, _next: NextFunction) => {

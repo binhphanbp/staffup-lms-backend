@@ -5,6 +5,7 @@ import {
   createDepartmentSchema,
   updateDepartmentSchema,
   departmentIdParamSchema,
+  getDepartmentUsersQuerySchema,
 } from '@/schemas/department.schema';
 
 const router: ExpressRouter = Router();
@@ -20,6 +21,12 @@ router
     validate(createDepartmentSchema),
     DepartmentController.createDepartment,
   );
+
+// GET /:id/users — list users in a department with pagination & isActive filter
+router
+  .route('/:id/users')
+  .all(validate(departmentIdParamSchema, 'params'))
+  .get(validate(getDepartmentUsersQuerySchema, 'query'), DepartmentController.getDepartmentUsers);
 
 router
   .route('/:id')
