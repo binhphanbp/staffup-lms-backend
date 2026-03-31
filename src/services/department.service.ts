@@ -84,6 +84,66 @@ export class DepartmentService {
   }
 
   /**
+   * Get paginated users belonging to a department, with optional isActive filter
+   */
+  static async getUsersByDepartment(
+    id: string,
+    options: { page: number; limit: number; isActive?: boolean },
+  ) {
+    const departmentId = BigInt(id);
+    const { page, limit, isActive } = options;
+
+    // Verify department exists
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { id: true, name: true },
+    });
+
+    if (!department) {
+      throw new AppError('Department not found', 404);
+    }
+
+    const where = {
+      departmentId,
+      ...(isActive !== undefined && { isActive }),
+    };
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          isActive: true,
+          roles: {
+            select: {
+              role: {
+                select: { code: true, name: true },
+              },
+            },
+          },
+          createdAt: true,
+        },
+        orderBy: { fullName: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data: users,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
    * Create a new department
    */
   static async createDepartment(data: {
