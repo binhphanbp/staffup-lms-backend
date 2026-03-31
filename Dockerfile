@@ -18,7 +18,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm prisma:generate
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm prisma:generate
 RUN pnpm build
 
 # ================================
@@ -52,6 +52,6 @@ FROM base AS development
 ENV NODE_ENV=development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# RUN pnpm prisma:generate
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm prisma:generate
 EXPOSE 3000
 CMD ["pnpm", "dev"]
