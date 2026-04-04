@@ -3,6 +3,7 @@ import authRoutes from '@/routes/v1/auth.routes';
 import courseRoutes from '@/routes/v1/course.routes';
 import departmentRoutes from '@/routes/v1/department.routes';
 import roadmapRoutes from '@/routes/v1/roadmap.routes';
+import enrollmentRoutes from '@/routes/v1/enrollment.routes';
 import { openApiDocument } from '@/docs/openapi';
 import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
@@ -39,4 +40,5 @@ router.use('/auth', authRoutes);
 router.use('/courses', courseRoutes);
 router.use('/departments', departmentRoutes);
 router.use('/roadmaps', roadmapRoutes);
+router.use('/enrollments', enrollmentRoutes);
 export default router;

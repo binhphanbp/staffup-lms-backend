@@ -49,3 +49,11 @@ export interface PaginatedResult<T> {
     totalPages: number;
   };
 }
+
+// ========================
+// Module Exports
+// ========================
+
+export * from './course.types';
+export * from './roadmap.types';
+export * from './enrollment.types';
