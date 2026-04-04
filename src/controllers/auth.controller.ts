@@ -33,6 +33,14 @@ export class AuthController {
     sendSuccess(res, null, 'Logout successful');
   });
 
+  static changePassword = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      await AuthService.changePassword(req.user!.userId, req.body);
+      clearRefreshTokenCookie(res);
+      sendSuccess(res, null, 'Password changed successfully. Please log in again.');
+    },
+  );
+
   static getProfile = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
     const user = await AuthService.getProfile(req.user!.userId);
     sendSuccess(res, user, 'Profile retrieved successfully');
@@ -67,6 +75,7 @@ export class AuthController {
       refreshTokenExpiresAt: result.refreshTokenExpiresAt,
     };
   }
+
   static updateStatus = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
     const { id } = req.params;
     const { isActive } = req.body;

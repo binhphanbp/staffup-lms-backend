@@ -21,8 +21,12 @@ export interface JwtPayload {
   roleCodes: string[];
 }
 
+export interface AuthenticatedUser extends JwtPayload {
+  isActive: boolean;
+}
+
 export interface AuthRequest extends Request {
-  user?: JwtPayload;
+  user?: AuthenticatedUser;
 }
 
 // ========================

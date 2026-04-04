@@ -21,7 +21,8 @@ export const openApiDocument = {
     },
     {
       name: 'Auth',
-      description: 'Authentication, refresh/logout session flow, and current user profile.',
+      description:
+        'Authentication, password changes, refresh/logout session flow, and current user profile.',
     },
     {
       name: 'Courses',
@@ -124,6 +125,23 @@ export const openApiDocument = {
             type: 'string',
             description:
               'Optional refresh token override. When omitted, the API reads the httpOnly refresh cookie.',
+          },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: {
+            type: 'string',
+            example: 'ChangeMe123',
+          },
+          newPassword: {
+            type: 'string',
+            minLength: 8,
+            example: 'NewSecure123',
+            description:
+              'Must contain at least one lowercase letter, one uppercase letter, and one number.',
           },
         },
       },
@@ -1032,6 +1050,69 @@ export const openApiDocument = {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/MessageSuccessResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/change-password`]: {
+      patch: {
+        tags: ['Auth'],
+        summary: 'Change the current user password',
+        description:
+          'Requires a valid access token. Verifies the current password, updates the password hash, revokes all refresh sessions for the user, and clears the refresh cookie.',
+        operationId: 'changePassword',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ChangePasswordRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Password changed successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/MessageSuccessResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description:
+              'Validation failed, current password is incorrect, or new password matches current password.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Account is deactivated.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
                 },
               },
             },

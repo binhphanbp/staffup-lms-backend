@@ -34,7 +34,7 @@ export type TransactionClient = Prisma.TransactionClient;
 interface TransactionOptions {
   timeout?: number;
   maxWait?: number;
-  isolationLevel?: any;
+  isolationLevel?: Prisma.TransactionIsolationLevel;
 }
 
 export const withTransaction = async <T>(

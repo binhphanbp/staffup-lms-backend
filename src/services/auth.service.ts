@@ -4,7 +4,7 @@ import { getRefreshTokenExpiryDate } from '@/config/auth-cookie.config';
 import { prisma } from '@/config/database';
 import { signToken } from '@/config/jwt.config';
 import { AppError } from '@/utils';
-import type { LoginInput, RegisterInput } from '@/schemas/auth.schema';
+import type { ChangePasswordInput, LoginInput, RegisterInput } from '@/schemas/auth.schema';
 
 interface SessionContext {
   ipAddress?: string | null;
@@ -240,6 +240,61 @@ export class AuthService {
   }
 
   /**
+   * Change the password for the currently authenticated user
+   */
+  static async changePassword(userId: string, data: ChangePasswordInput) {
+    const db = prisma;
+
+    const user = await db.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: {
+        id: true,
+        isActive: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found.', 404);
+    }
+
+    if (!user.isActive) {
+      throw new AppError('Your account has been deactivated.', 403);
+    }
+
+    const isCurrentPasswordValid = await argon2.verify(user.passwordHash, data.currentPassword);
+
+    if (!isCurrentPasswordValid) {
+      throw new AppError('Current password is incorrect.', 400);
+    }
+
+    if (data.currentPassword === data.newPassword) {
+      throw new AppError('New password must be different from current password.', 400);
+    }
+
+    const nextPasswordHash = await argon2.hash(data.newPassword);
+    const revokedAt = new Date();
+
+    await db.$transaction([
+      db.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: nextPasswordHash,
+        },
+      }),
+      db.authSession.updateMany({
+        where: {
+          userId: user.id,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt,
+        },
+      }),
+    ]);
+  }
+
+  /**
    * Get current user profile
    */
   static async getProfile(userId: string) {
@@ -345,7 +400,7 @@ export class AuthService {
    * Update user active status
    */
   static async updateUserStatus(userId: string, isActive: boolean) {
-    const db = prisma as any;
+    const db = prisma;
 
     const user = await db.user.findUnique({
       where: { id: BigInt(userId) },
