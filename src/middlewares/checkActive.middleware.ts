@@ -4,10 +4,10 @@ import type { AuthRequest } from '@/interfaces';
 
 /**
  * Middleware to check if the authenticated user is active.
- * Should be used AFTER the authenticate middleware.
+ * Use this only when another middleware attaches req.user without enforcing active status.
  */
 export const checkActive = (req: AuthRequest, _res: Response, next: NextFunction) => {
-  if (req.user && (req.user as any).isActive === false) {
+  if (req.user?.isActive === false) {
     return next(new AppError('Your account has been deactivated. Please contact support.', 403));
   }
 
