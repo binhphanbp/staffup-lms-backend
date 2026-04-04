@@ -21,15 +21,20 @@ export const openApiDocument = {
     },
     {
       name: 'Auth',
-      description: 'Authentication, refresh/logout session flow, and current user profile.',
+      description:
+        'Authentication, password changes, refresh/logout session flow, and current user profile.',
     },
     {
       name: 'Courses',
       description: 'Course management endpoints.',
     },
     {
-      name: 'Departments',
-      description: 'Department and organizational structure management.',
+      name: 'Roadmaps',
+      description: 'Learning roadmap endpoints.',
+    },
+    {
+      name: 'Enrollments',
+      description: 'Enrollment and learning progress endpoints.',
     },
     {
       name: 'Categories',
@@ -128,6 +133,23 @@ export const openApiDocument = {
             type: 'string',
             description:
               'Optional refresh token override. When omitted, the API reads the httpOnly refresh cookie.',
+          },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: {
+            type: 'string',
+            example: 'ChangeMe123',
+          },
+          newPassword: {
+            type: 'string',
+            minLength: 8,
+            example: 'NewSecure123',
+            description:
+              'Must contain at least one lowercase letter, one uppercase letter, and one number.',
           },
         },
       },
@@ -1091,6 +1113,69 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/auth/change-password`]: {
+      patch: {
+        tags: ['Auth'],
+        summary: 'Change the current user password',
+        description:
+          'Requires a valid access token. Verifies the current password, updates the password hash, revokes all refresh sessions for the user, and clears the refresh cookie.',
+        operationId: 'changePassword',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ChangePasswordRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Password changed successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/MessageSuccessResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description:
+              'Validation failed, current password is incorrect, or new password matches current password.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Account is deactivated.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/auth/me`]: {
       get: {
         tags: ['Auth'],
@@ -1452,19 +1537,178 @@ export const openApiDocument = {
         },
       },
     },
-    [`${API_PREFIX}/departments`]: {
+    [`${API_PREFIX}/courses/{id}/detail`]: {
       get: {
-        tags: ['Departments'],
-        summary: 'List all departments',
-        operationId: 'listDepartments',
+        tags: ['Courses'],
+        summary: 'Get course detail with user enrollment',
+        description:
+          'Get detailed course information including modules, lessons, and user-specific enrollment data',
+        operationId: 'getCourseDetail',
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Course ID',
+          },
+        ],
         responses: {
           '200': {
-            description: 'Departments retrieved successfully.',
+            description: 'Course detail retrieved successfully',
             content: {
               'application/json': {
                 schema: {
-                  $ref: '#/components/schemas/DepartmentListResponse',
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        title: { type: 'string' },
+                        slug: { type: 'string' },
+                        description: { type: 'string', nullable: true },
+                        thumbnailUrl: { type: 'string', nullable: true },
+                        status: { type: 'string', enum: ['draft', 'published', 'archived'] },
+                        estimatedDurationMinutes: { type: 'number', nullable: true },
+                        publishedAt: { type: 'string', format: 'date-time', nullable: true },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                        trainer: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            fullName: { type: 'string' },
+                            email: { type: 'string' },
+                            avatarUrl: { type: 'string', nullable: true },
+                          },
+                        },
+                        category: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' },
+                            slug: { type: 'string' },
+                          },
+                        },
+                        ownerDepartment: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' },
+                          },
+                        },
+                        tags: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              name: { type: 'string' },
+                              slug: { type: 'string' },
+                            },
+                          },
+                        },
+                        modules: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              title: { type: 'string' },
+                              orderIndex: { type: 'number' },
+                              lessons: {
+                                type: 'array',
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    id: { type: 'string' },
+                                    title: { type: 'string' },
+                                    lessonType: {
+                                      type: 'string',
+                                      enum: ['video', 'article', 'quiz'],
+                                    },
+                                    durationSeconds: { type: 'number' },
+                                    orderIndex: { type: 'number' },
+                                    isPreview: { type: 'boolean' },
+                                    videoUrl: { type: 'string', nullable: true },
+                                    contentText: { type: 'string', nullable: true },
+                                    resources: {
+                                      type: 'array',
+                                      items: {
+                                        type: 'object',
+                                        properties: {
+                                          id: { type: 'string' },
+                                          fileName: { type: 'string' },
+                                          fileUrl: { type: 'string' },
+                                          resourceType: { type: 'string', nullable: true },
+                                          orderIndex: { type: 'number' },
+                                        },
+                                      },
+                                    },
+                                    quiz: {
+                                      type: 'object',
+                                      nullable: true,
+                                      properties: {
+                                        id: { type: 'string' },
+                                        title: { type: 'string' },
+                                        description: { type: 'string', nullable: true },
+                                        totalQuestions: { type: 'number' },
+                                        passScorePercent: { type: 'number' },
+                                        timeLimitMinutes: { type: 'number', nullable: true },
+                                        maxAttempts: { type: 'number', nullable: true },
+                                        shuffleQuestions: { type: 'boolean' },
+                                        shuffleOptions: { type: 'boolean' },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        stats: {
+                          type: 'object',
+                          properties: {
+                            totalModules: { type: 'number' },
+                            totalLessons: { type: 'number' },
+                            totalDurationMinutes: { type: 'number' },
+                            totalEnrollments: { type: 'number' },
+                          },
+                        },
+                        userEnrollment: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            enrollmentId: { type: 'string' },
+                            status: {
+                              type: 'string',
+                              enum: [
+                                'assigned',
+                                'in_progress',
+                                'completed',
+                                'cancelled',
+                                'expired',
+                              ],
+                            },
+                            progressPercent: { type: 'number' },
+                            completedLessonsCount: { type: 'number' },
+                            timeSpentSeconds: { type: 'number' },
+                            enrolledAt: { type: 'string', format: 'date-time' },
+                            startedAt: { type: 'string', format: 'date-time', nullable: true },
+                            completedAt: { type: 'string', format: 'date-time', nullable: true },
+                            assignmentNote: { type: 'string', nullable: true },
+                            dueAt: { type: 'string', format: 'date-time', nullable: true },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string' },
+                  },
                 },
               },
             },
@@ -1479,41 +1723,353 @@ export const openApiDocument = {
               },
             },
           },
-        },
-      },
-      post: {
-        tags: ['Departments'],
-        summary: 'Create a new department',
-        description: 'Requires the `admin` role.',
-        operationId: 'createDepartment',
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                $ref: '#/components/schemas/CreateDepartmentRequest',
-              },
-            },
-          },
-        },
-        responses: {
-          '201': {
-            description: 'Department created successfully.',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/DepartmentDetailResponse',
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation failed or name already exists.',
+          '404': {
+            description: 'Course not found',
             content: {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/roadmaps/{id}/detail`]: {
+      get: {
+        tags: ['Roadmaps'],
+        summary: 'Get roadmap detail with courses and user assignment',
+        description:
+          'Get detailed roadmap information including courses, user assignment status, and enrollment progress',
+        operationId: 'getRoadmapDetail',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Roadmap ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Roadmap detail retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        title: { type: 'string' },
+                        description: { type: 'string', nullable: true },
+                        targetPosition: { type: 'string', nullable: true },
+                        isActive: { type: 'boolean' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                        department: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' },
+                          },
+                        },
+                        category: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' },
+                            slug: { type: 'string' },
+                          },
+                        },
+                        createdBy: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string' },
+                            fullName: { type: 'string' },
+                            email: { type: 'string' },
+                          },
+                        },
+                        courses: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              title: { type: 'string' },
+                              slug: { type: 'string' },
+                              description: { type: 'string', nullable: true },
+                              thumbnailUrl: { type: 'string', nullable: true },
+                              status: { type: 'string', enum: ['draft', 'published', 'archived'] },
+                              estimatedDurationMinutes: { type: 'number', nullable: true },
+                              orderIndex: { type: 'number' },
+                              isRequired: { type: 'boolean' },
+                              trainer: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string' },
+                                  fullName: { type: 'string' },
+                                  avatarUrl: { type: 'string', nullable: true },
+                                },
+                              },
+                              stats: {
+                                type: 'object',
+                                properties: {
+                                  totalModules: { type: 'number' },
+                                  totalLessons: { type: 'number' },
+                                  totalEnrollments: { type: 'number' },
+                                },
+                              },
+                              userEnrollment: {
+                                type: 'object',
+                                nullable: true,
+                                properties: {
+                                  enrollmentId: { type: 'string' },
+                                  status: {
+                                    type: 'string',
+                                    enum: [
+                                      'assigned',
+                                      'in_progress',
+                                      'completed',
+                                      'cancelled',
+                                      'expired',
+                                    ],
+                                  },
+                                  progressPercent: { type: 'number' },
+                                  completedLessonsCount: { type: 'number' },
+                                  enrolledAt: { type: 'string', format: 'date-time' },
+                                  startedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                  },
+                                  completedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        userAssignment: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            assignmentId: { type: 'string' },
+                            status: {
+                              type: 'string',
+                              enum: ['assigned', 'in_progress', 'completed', 'dropped'],
+                            },
+                            assignedAt: { type: 'string', format: 'date-time' },
+                            startedAt: { type: 'string', format: 'date-time', nullable: true },
+                            completedAt: { type: 'string', format: 'date-time', nullable: true },
+                            droppedAt: { type: 'string', format: 'date-time', nullable: true },
+                            assignedBy: {
+                              type: 'object',
+                              nullable: true,
+                              properties: {
+                                id: { type: 'string' },
+                                fullName: { type: 'string' },
+                              },
+                            },
+                          },
+                        },
+                        stats: {
+                          type: 'object',
+                          properties: {
+                            totalCourses: { type: 'number' },
+                            requiredCourses: { type: 'number' },
+                            optionalCourses: { type: 'number' },
+                            totalEstimatedMinutes: { type: 'number' },
+                            totalAssignments: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Roadmap not found',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/enrollments/{id}/detail`]: {
+      get: {
+        tags: ['Enrollments'],
+        summary: 'Get enrollment detail',
+        description:
+          'Get detailed enrollment information including progress summary and certificate state',
+        operationId: 'getEnrollmentDetail',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Enrollment ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Enrollment detail retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        userId: { type: 'string' },
+                        courseId: { type: 'string' },
+                        status: {
+                          type: 'string',
+                          enum: ['assigned', 'in_progress', 'completed', 'cancelled', 'expired'],
+                        },
+                        enrolledAt: { type: 'string', format: 'date-time' },
+                        startedAt: { type: 'string', format: 'date-time', nullable: true },
+                        completedAt: { type: 'string', format: 'date-time', nullable: true },
+                        lastActivityAt: { type: 'string', format: 'date-time', nullable: true },
+                        dueAt: { type: 'string', format: 'date-time', nullable: true },
+                        course: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            title: { type: 'string' },
+                            slug: { type: 'string' },
+                            description: { type: 'string' },
+                            thumbnailUrl: { type: 'string', nullable: true },
+                            estimatedDurationMinutes: { type: 'number' },
+                            trainer: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                fullName: { type: 'string' },
+                                email: { type: 'string' },
+                                avatarUrl: { type: 'string', nullable: true },
+                              },
+                            },
+                          },
+                        },
+                        progressSummary: {
+                          type: 'object',
+                          properties: {
+                            progressPercent: { type: 'number' },
+                            completedLessonsCount: { type: 'number' },
+                            totalLessonsCount: { type: 'number' },
+                            timeSpentSeconds: { type: 'number' },
+                            timeSpentFormatted: { type: 'string', example: '2h 30m' },
+                            lastAccessedLesson: {
+                              type: 'object',
+                              nullable: true,
+                              properties: {
+                                id: { type: 'string' },
+                                title: { type: 'string' },
+                                moduleTitle: { type: 'string' },
+                                lastAccessedAt: { type: 'string', format: 'date-time' },
+                              },
+                            },
+                            quizProgress: {
+                              type: 'object',
+                              properties: {
+                                totalQuizzes: { type: 'number' },
+                                completedQuizzes: { type: 'number' },
+                                passedQuizzes: { type: 'number' },
+                                averageScore: { type: 'number', nullable: true },
+                              },
+                            },
+                          },
+                        },
+                        certificate: {
+                          type: 'object',
+                          properties: {
+                            isEligible: { type: 'boolean' },
+                            isIssued: { type: 'boolean' },
+                            certificateId: { type: 'string', nullable: true },
+                            certificateCode: { type: 'string', nullable: true },
+                            issuedAt: { type: 'string', format: 'date-time', nullable: true },
+                            pdfUrl: { type: 'string', nullable: true },
+                            isRevoked: { type: 'boolean' },
+                            revokedAt: { type: 'string', format: 'date-time', nullable: true },
+                            requirements: {
+                              type: 'object',
+                              properties: {
+                                minProgressPercent: { type: 'number' },
+                                currentProgressPercent: { type: 'number' },
+                                minTimeSpentMinutes: { type: 'number' },
+                                currentTimeSpentMinutes: { type: 'number' },
+                                allLessonsCompleted: { type: 'boolean' },
+                                allQuizzesPassed: { type: 'boolean' },
+                              },
+                            },
+                          },
+                        },
+                        assignment: {
+                          type: 'object',
+                          properties: {
+                            assignedBy: {
+                              type: 'object',
+                              nullable: true,
+                              properties: {
+                                id: { type: 'string' },
+                                fullName: { type: 'string' },
+                                email: { type: 'string' },
+                              },
+                            },
+                            assignmentNote: { type: 'string', nullable: true },
+                            dueAt: { type: 'string', format: 'date-time', nullable: true },
+                            isOverdue: { type: 'boolean' },
+                          },
+                        },
+                        riskAssessment: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            riskScore: { type: 'number' },
+                            riskLevel: { type: 'string', enum: ['low', 'medium', 'high'] },
+                            reasons: { type: 'object' },
+                            recommendations: { type: 'string', nullable: true },
+                            calculatedAt: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string' },
+                  },
                 },
               },
             },
@@ -1529,7 +2085,7 @@ export const openApiDocument = {
             },
           },
           '403': {
-            description: 'Insufficient role.',
+            description: 'Permission denied',
             content: {
               'application/json': {
                 schema: {
@@ -1538,164 +2094,12 @@ export const openApiDocument = {
               },
             },
           },
-        },
-      },
-    },
-    [`${API_PREFIX}/departments/{id}`]: {
-      get: {
-        tags: ['Departments'],
-        summary: 'Get department details',
-        operationId: 'getDepartmentById',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'string',
-              pattern: '^\\d+$',
-            },
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Department details returned.',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/DepartmentDetailResponse',
-                },
-              },
-            },
-          },
           '404': {
-            description: 'Department not found.',
+            description: 'Enrollment not found',
             content: {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
-          },
-        },
-      },
-      put: {
-        tags: ['Departments'],
-        summary: 'Update a department',
-        description: 'Requires the `admin` or `manager` role.',
-        operationId: 'updateDepartment',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'string',
-              pattern: '^\\d+$',
-            },
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                $ref: '#/components/schemas/UpdateDepartmentRequest',
-              },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Department updated successfully.',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/DepartmentDetailResponse',
-                },
-              },
-            },
-          },
-          '403': {
-            description: 'Insufficient role.',
-          },
-          '404': {
-            description: 'Department or Manager not found.',
-          },
-        },
-      },
-      delete: {
-        tags: ['Departments'],
-        summary: 'Delete a department',
-        description: 'Requires the `admin` role.',
-        operationId: 'deleteDepartment',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'string',
-              pattern: '^\\d+$',
-            },
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Department deleted successfully.',
-          },
-          '400': {
-            description: 'Cannot delete department due to content.',
-          },
-          '403': {
-            description: 'Insufficient role.',
-          },
-        },
-      },
-    },
-    [`${API_PREFIX}/departments/{id}/users`]: {
-      get: {
-        tags: ['Departments'],
-        summary: 'List users in a department',
-        operationId: 'getDepartmentUsers',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'string',
-              pattern: '^\\d+$',
-            },
-          },
-          {
-            name: 'page',
-            in: 'query',
-            schema: { type: 'integer', default: 1 },
-          },
-          {
-            name: 'limit',
-            in: 'query',
-            schema: { type: 'integer', default: 10 },
-          },
-          {
-            name: 'isActive',
-            in: 'query',
-            schema: { type: 'string', enum: ['true', 'false'] },
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Department users returned successfully.',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/DepartmentUsersResponse',
                 },
               },
             },

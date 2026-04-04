@@ -21,8 +21,12 @@ export interface JwtPayload {
   roleCodes: string[];
 }
 
+export interface AuthenticatedUser extends JwtPayload {
+  isActive: boolean;
+}
+
 export interface AuthRequest extends Request {
-  user?: JwtPayload;
+  user?: AuthenticatedUser;
 }
 
 // ========================
@@ -45,3 +49,11 @@ export interface PaginatedResult<T> {
     totalPages: number;
   };
 }
+
+// ========================
+// Module Exports
+// ========================
+
+export * from './course.types';
+export * from './roadmap.types';
+export * from './enrollment.types';
