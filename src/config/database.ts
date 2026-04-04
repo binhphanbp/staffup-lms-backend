@@ -1,8 +1,6 @@
-import * as Prisma from '@prisma/client';
-const PrismaClient = (Prisma as { PrismaClient?: new (...args: any[]) => unknown })
-  .PrismaClient as any;
-import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient, type Prisma } from '@prisma/client';
+import { Pool } from 'pg';
 import { AppError } from '@/utils';
 
 const globalForPrisma = globalThis as unknown as {
@@ -10,10 +8,14 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: typeof PrismaClient;
 };
 
-const connectionString = process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL;
 
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
+if (!databaseUrl) {
+  throw new AppError('DATABASE_URL is required to initialize Prisma.', 500);
+}
+
+const pgPool = globalForPrisma.pgPool ?? new Pool({ connectionString: databaseUrl });
+const adapter = new PrismaPg(pgPool);
 
 export const prisma =
   globalForPrisma.prisma ??
@@ -27,12 +29,12 @@ if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
-export type TransactionClient = any;
+export type TransactionClient = Prisma.TransactionClient;
 
 interface TransactionOptions {
   timeout?: number;
   maxWait?: number;
-  isolationLevel?: unknown;
+  isolationLevel?: Prisma.TransactionIsolationLevel;
 }
 
 export const withTransaction = async <T>(
@@ -43,5 +45,5 @@ export const withTransaction = async <T>(
     throw new AppError('Prisma client is not initialized. Run `prisma generate` first.', 500);
   }
 
-  return prisma.$transaction((tx: TransactionClient) => operation(tx), options);
+  return prisma.$transaction((tx) => operation(tx as TransactionClient), options);
 };

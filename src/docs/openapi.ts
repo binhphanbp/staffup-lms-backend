@@ -6,7 +6,7 @@ export const openApiDocument = {
     title: 'Staffup LMS Backend API',
     version: '1.0.0',
     description:
-      'OpenAPI document for the Staffup LMS backend. This spec currently covers health, authentication, and course endpoints.',
+      'OpenAPI document for the Staffup LMS backend. This spec currently covers health, authentication, refresh/logout session flow, and course endpoints.',
   },
   servers: [
     {
@@ -21,7 +21,8 @@ export const openApiDocument = {
     },
     {
       name: 'Auth',
-      description: 'Authentication and current user profile.',
+      description:
+        'Authentication, password changes, refresh/logout session flow, and current user profile.',
     },
     {
       name: 'Courses',
@@ -121,6 +122,33 @@ export const openApiDocument = {
           },
         },
       },
+      RefreshRequest: {
+        type: 'object',
+        properties: {
+          refreshToken: {
+            type: 'string',
+            description:
+              'Optional refresh token override. When omitted, the API reads the httpOnly refresh cookie.',
+          },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: {
+            type: 'string',
+            example: 'ChangeMe123',
+          },
+          newPassword: {
+            type: 'string',
+            minLength: 8,
+            example: 'NewSecure123',
+            description:
+              'Must contain at least one lowercase letter, one uppercase letter, and one number.',
+          },
+        },
+      },
       AuthUser: {
         type: 'object',
         required: ['id', 'email', 'fullName', 'roleCodes'],
@@ -160,6 +188,11 @@ export const openApiDocument = {
           token: {
             type: 'string',
             description: 'JWT access token.',
+          },
+          refreshTokenExpiresAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Expiration time of the rotated refresh session cookie.',
           },
         },
       },
@@ -256,6 +289,18 @@ export const openApiDocument = {
           message: { type: 'string', example: 'Profile retrieved successfully' },
           data: {
             $ref: '#/components/schemas/ProfileUser',
+          },
+        },
+      },
+      MessageSuccessResponse: {
+        type: 'object',
+        required: ['success', 'message'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Logout successful' },
+          data: {
+            nullable: true,
+            example: null,
           },
         },
       },
@@ -580,6 +625,230 @@ export const openApiDocument = {
           },
         },
       },
+      Department: {
+        type: 'object',
+        required: ['id', 'name', 'isActive', 'createdAt', 'updatedAt'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '1',
+          },
+          name: {
+            type: 'string',
+            example: 'Engineering',
+          },
+          isActive: {
+            type: 'boolean',
+            example: true,
+          },
+          managerUserId: {
+            type: 'string',
+            pattern: '^\\d+$',
+            nullable: true,
+            example: '1',
+          },
+          manager: {
+            anyOf: [{ $ref: '#/components/schemas/TrainerSummary' }, { type: 'null' }],
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+      DepartmentUser: {
+        type: 'object',
+        required: ['id', 'fullName', 'email', 'isActive', 'createdAt'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '5',
+          },
+          fullName: {
+            type: 'string',
+            example: 'John Doe',
+          },
+          email: {
+            type: 'string',
+            format: 'email',
+            example: 'john.doe@staffup.local',
+          },
+          isActive: {
+            type: 'boolean',
+            example: true,
+          },
+          roles: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                role: { $ref: '#/components/schemas/RoleSummary' },
+              },
+            },
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+      DepartmentRoadmap: {
+        type: 'object',
+        required: ['id', 'title'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '1',
+          },
+          title: {
+            type: 'string',
+            example: 'Backend Roadmap',
+          },
+        },
+      },
+      DepartmentCourse: {
+        type: 'object',
+        required: ['id', 'title', 'slug', 'status'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '10',
+          },
+          title: {
+            type: 'string',
+            example: 'Node.js Basics',
+          },
+          slug: {
+            type: 'string',
+            example: 'node-js-basics',
+          },
+          thumbnailUrl: {
+            type: 'string',
+            format: 'uri',
+            nullable: true,
+          },
+          status: {
+            type: 'string',
+            enum: ['draft', 'published', 'archived'],
+          },
+          estimatedDurationMinutes: {
+            type: 'integer',
+            nullable: true,
+          },
+        },
+      },
+      DepartmentDetail: {
+        allOf: [
+          { $ref: '#/components/schemas/Department' },
+          {
+            type: 'object',
+            properties: {
+              users: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/TrainerSummary' },
+              },
+              roadmaps: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/DepartmentRoadmap' },
+              },
+              ownedCourses: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/DepartmentCourse' },
+              },
+            },
+          },
+        ],
+      },
+      PaginatedDepartmentUsers: {
+        type: 'object',
+        required: ['data', 'meta'],
+        properties: {
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/DepartmentUser' },
+          },
+          meta: {
+            $ref: '#/components/schemas/PaginationMeta',
+          },
+        },
+      },
+      CreateDepartmentRequest: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 100,
+            example: 'Marketing',
+          },
+          isActive: {
+            type: 'boolean',
+            default: true,
+          },
+          managerUserId: {
+            type: 'string',
+            pattern: '^\\d+$',
+            nullable: true,
+          },
+        },
+      },
+      UpdateDepartmentRequest: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 100,
+          },
+          isActive: {
+            type: 'boolean',
+          },
+          managerUserId: {
+            type: 'string',
+            pattern: '^\\d+$',
+            nullable: true,
+          },
+        },
+      },
+      DepartmentListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Departments retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Department' },
+          },
+        },
+      },
+      DepartmentDetailResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Department retrieved successfully' },
+          data: { $ref: '#/components/schemas/DepartmentDetail' },
+        },
+      },
+      DepartmentUsersResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Department users retrieved successfully' },
+          data: { $ref: '#/components/schemas/PaginatedDepartmentUsers' },
+        },
+      },
     },
   },
   paths: {
@@ -689,6 +958,151 @@ export const openApiDocument = {
           },
           '401': {
             description: 'Invalid credentials.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Account is deactivated.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/refresh`]: {
+      post: {
+        tags: ['Auth'],
+        summary: 'Refresh the access token',
+        description:
+          'Rotates the refresh session and returns a fresh access token. By default the API reads the refresh token from the httpOnly cookie.',
+        operationId: 'refreshAccessToken',
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/RefreshRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Token refreshed successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/AuthSuccessResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing, invalid, or expired refresh token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Account is deactivated.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/logout`]: {
+      post: {
+        tags: ['Auth'],
+        summary: 'Log out the current refresh session',
+        description:
+          'Revokes the current refresh session when a refresh token cookie or request body token is present, then clears the cookie.',
+        operationId: 'logoutUser',
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/RefreshRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Logout completed successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/MessageSuccessResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/change-password`]: {
+      patch: {
+        tags: ['Auth'],
+        summary: 'Change the current user password',
+        description:
+          'Requires a valid access token. Verifies the current password, updates the password hash, revokes all refresh sessions for the user, and clears the refresh cookie.',
+        operationId: 'changePassword',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ChangePasswordRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Password changed successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/MessageSuccessResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description:
+              'Validation failed, current password is incorrect, or new password matches current password.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
             content: {
               'application/json': {
                 schema: {
