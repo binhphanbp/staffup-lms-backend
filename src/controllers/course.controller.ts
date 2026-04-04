@@ -3,7 +3,6 @@ import { CourseService } from '@/services/course.service';
 import { catchAsync, sendSuccess, sendCreated, sendNoContent } from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 import type { CourseQuery } from '@/schemas/course.schema';
-
 export class CourseController {
   /**
    * POST /api/v1/courses
@@ -49,4 +48,13 @@ export class CourseController {
     await CourseService.delete(req.params.id as string, req.user!.userId, req.user!.roleCodes);
     sendNoContent(res);
   });
+  /**
+   * GET /api/v1/courses/:id/detail
+   */
+  static getCourseDetail = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const course = await CourseService.getCourseDetail(req.params.id as string);
+      sendSuccess(res, course, 'Course detail retrieved successfully');
+    },
+  );
 }
