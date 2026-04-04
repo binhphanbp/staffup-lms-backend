@@ -341,4 +341,35 @@ export class AuthService {
   private static hashRefreshToken(refreshToken: string): string {
     return createHash('sha256').update(refreshToken).digest('hex');
   }
+  /**
+   * Update user active status
+   */
+  static async updateUserStatus(userId: string, isActive: boolean) {
+    const db = prisma as any;
+
+    const user = await db.user.findUnique({
+      where: { id: BigInt(userId) },
+    });
+
+    if (!user) {
+      throw new AppError('User not found.', 404);
+    }
+
+    const updatedUser = await db.user.update({
+      where: { id: BigInt(userId) },
+      data: { isActive },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        isActive: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      ...updatedUser,
+      id: updatedUser.id.toString(),
+    };
+  }
 }
