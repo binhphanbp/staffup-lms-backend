@@ -34,7 +34,7 @@ export type TransactionClient = any;
 interface TransactionOptions {
   timeout?: number;
   maxWait?: number;
-  isolationLevel?: unknown;
+  isolationLevel?: any;
 }
 
 export const withTransaction = async <T>(

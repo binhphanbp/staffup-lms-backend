@@ -18,4 +18,11 @@ export class AuthController {
     const user = await AuthService.getProfile(req.user!.userId);
     sendSuccess(res, user, 'Profile retrieved successfully');
   });
+
+  static updateStatus = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const { id } = req.params;
+    const { isActive } = req.body;
+    const result = await AuthService.updateUserStatus(id as string, isActive);
+    sendSuccess(res, result, 'User status updated successfully');
+  });
 }
