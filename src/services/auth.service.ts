@@ -40,6 +40,14 @@ export class AuthService {
       throw new AppError('A user with this email already exists.', 409);
     }
 
+    const existingDepartment = await db.department.findUnique({
+      where: { id: data.departmentId },
+    });
+
+    if (!existingDepartment) {
+      throw new AppError('The specified department does not exist.', 400);
+    }
+
     const passwordHash = await argon2.hash(data.password);
 
     const defaultRole = await db.role.findUnique({

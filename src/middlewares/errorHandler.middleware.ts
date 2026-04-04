@@ -79,6 +79,10 @@ export const errorHandler = (
     response.error =
       err.name === 'ZodError' ? (err as unknown as { issues: unknown }).issues : err.message;
     response.stack = err.stack;
+
+    if (statusCode === 500) {
+      console.error('🔥 Unhandled Error:', err);
+    }
   }
 
   res.status(statusCode).json(response);

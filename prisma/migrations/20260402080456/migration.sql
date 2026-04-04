@@ -1,2 +1,0 @@
--- RenameIndex
-ALTER INDEX "attempt_response_options_attempt_response_id_question_option_id" RENAME TO "attempt_response_options_attempt_response_id_question_optio_key";
