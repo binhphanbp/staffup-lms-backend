@@ -36,6 +36,10 @@ export const openApiDocument = {
       name: 'Enrollments',
       description: 'Enrollment and learning progress endpoints.',
     },
+    {
+      name: 'Categories',
+      description: 'Category management for Courses and Roadmaps.',
+    },
   ],
   components: {
     securitySchemes: {
@@ -847,6 +851,54 @@ export const openApiDocument = {
           success: { type: 'boolean', example: true },
           message: { type: 'string', example: 'Department users retrieved successfully' },
           data: { $ref: '#/components/schemas/PaginatedDepartmentUsers' },
+        },
+      },
+      Category: {
+        type: 'object',
+        required: ['id', 'name', 'slug', 'createdAt', 'updatedAt'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '1' },
+          parentId: { type: 'string', pattern: '^\\d+$', nullable: true, example: null },
+          name: { type: 'string', example: 'Software Engineering' },
+          slug: { type: 'string', example: 'software-engineering' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateCategoryRequest: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 150, example: 'Mobile Development' },
+          parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+        },
+      },
+      UpdateCategoryRequest: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 150 },
+          parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+        },
+      },
+      CategoryListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Categories retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Category' },
+          },
+        },
+      },
+      CategoryResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Category operation successful' },
+          data: { $ref: '#/components/schemas/Category' },
         },
       },
     },
@@ -2052,6 +2104,133 @@ export const openApiDocument = {
               },
             },
           },
+        },
+      },
+    },
+    [`${API_PREFIX}/categories`]: {
+      get: {
+        tags: ['Categories'],
+        summary: 'List all categories',
+        operationId: 'listCategories',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Categories retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoryListResponse' },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Categories'],
+        summary: 'Create a new category',
+        description: 'Requires the `admin` role. Slug is auto-generated.',
+        operationId: 'createCategory',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateCategoryRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Category created successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoryResponse' },
+              },
+            },
+          },
+          '401': { description: 'Unauthorized' },
+          '403': { description: 'Forbidden' },
+        },
+      },
+    },
+    [`${API_PREFIX}/categories/{id}`]: {
+      get: {
+        tags: ['Categories'],
+        summary: 'Get category details',
+        operationId: 'getCategoryById',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Category details returned.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoryResponse' },
+              },
+            },
+          },
+          '404': { description: 'Category not found' },
+        },
+      },
+      put: {
+        tags: ['Categories'],
+        summary: 'Update a category',
+        description: 'Requires the `admin` role.',
+        operationId: 'updateCategory',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateCategoryRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Category updated successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoryResponse' },
+              },
+            },
+          },
+          '403': { description: 'Forbidden' },
+          '404': { description: 'Category not found' },
+        },
+      },
+      delete: {
+        tags: ['Categories'],
+        summary: 'Delete a category',
+        description: 'Requires the `admin` role. Cannot delete if category has children or items.',
+        operationId: 'deleteCategory',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '204': { description: 'Category deleted successfully' },
+          '403': { description: 'Forbidden' },
+          '404': { description: 'Category not found' },
         },
       },
     },
