@@ -53,5 +53,6 @@ FROM base AS development
 ENV NODE_ENV=development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm prisma:generate
 EXPOSE 3000
 CMD ["sh", "-c", "pnpm prisma:generate && pnpm dev"]

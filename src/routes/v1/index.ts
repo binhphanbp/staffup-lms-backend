@@ -7,6 +7,13 @@ import { scalarCsp, scalarHtml } from '@/docs/scalar';
 const router: ExpressRouter = Router();
 
 // Health check
+router.get(['/', ''], (_req, res) => {
+  res.json({
+    success: true,
+    message: 'Welcome to Staffup LMS API v1',
+  });
+});
+
 router.get('/health', (_req, res) => {
   res.json({
     success: true,
@@ -28,5 +35,6 @@ router.get('/docs', (_req, res) => {
 // Mount module routes
 router.use('/auth', authRoutes);
 router.use('/courses', courseRoutes);
-
+router.use('/departments', departmentRoutes);
+router.use('/roadmaps', roadmapRoutes);
 export default router;

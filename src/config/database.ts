@@ -1,6 +1,8 @@
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import * as Prisma from '@prisma/client';
+const PrismaClient = (Prisma as { PrismaClient?: new (...args: any[]) => unknown })
+  .PrismaClient as any;
 import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { AppError } from '@/utils';
 
 const globalForPrisma = globalThis as unknown as {
@@ -8,14 +10,10 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
-const databaseUrl = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL;
 
-if (!databaseUrl) {
-  throw new AppError('DATABASE_URL is required to initialize Prisma.', 500);
-}
-
-const pgPool = globalForPrisma.pgPool ?? new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pgPool);
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
 
 export const prisma =
   globalForPrisma.prisma ??
