@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import authRoutes from '@/routes/v1/auth.routes';
 import courseRoutes from '@/routes/v1/course.routes';
 import departmentRoutes from '@/routes/v1/department.routes';
+import roadmapRoutes from './roadmap.routes';
 const router: ExpressRouter = Router();
 
 // Health check
@@ -24,4 +25,5 @@ router.get('/health', (_req, res) => {
 router.use('/auth', authRoutes);
 router.use('/courses', courseRoutes);
 router.use('/departments', departmentRoutes);
+router.use('/roadmaps', roadmapRoutes);
 export default router;

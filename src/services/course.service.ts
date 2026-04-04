@@ -2,7 +2,7 @@ import { prisma } from '@/config/database';
 import { AppError } from '@/utils';
 import type { CreateCourseInput, UpdateCourseInput, CourseQuery } from '@/schemas/course.schema';
 import type { PaginatedResult } from '@/interfaces';
-
+import type { CourseDetailResponse } from '@/interfaces/course.types';
 type CourseListItem = Record<string, unknown>;
 
 export class CourseService {
@@ -202,5 +202,201 @@ export class CourseService {
     await db.course.delete({
       where: { id: BigInt(id) },
     });
+  }
+  /**
+   * Get course detail with full structure for learning UI
+   */
+  static async getCourseDetail(id: string): Promise<CourseDetailResponse> {
+    const db = prisma as any;
+    const course = await db.course.findUnique({
+      where: { id: BigInt(id) },
+      include: {
+        trainerUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        ownerDepartment: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        courseTags: {
+          include: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        modules: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            lessons: {
+              orderBy: { orderIndex: 'asc' },
+              include: {
+                resources: {
+                  orderBy: { orderIndex: 'asc' },
+                  select: {
+                    id: true,
+                    fileName: true,
+                    fileUrl: true,
+                    resourceType: true,
+                    orderIndex: true,
+                  },
+                },
+                quiz: {
+                  select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    passScorePercent: true,
+                    timeLimitMinutes: true,
+                    maxAttempts: true,
+                    shuffleQuestions: true,
+                    shuffleOptions: true,
+                    _count: {
+                      select: {
+                        quizQuestions: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found.', 404);
+    }
+
+    // Calculate stats
+    const totalModules = course.modules.length;
+    const totalLessons = course.modules.reduce(
+      (sum: number, module: any) => sum + module.lessons.length,
+      0,
+    );
+    const totalDurationSeconds = course.modules.reduce(
+      (sum: number, module: any) =>
+        sum +
+        module.lessons.reduce(
+          (lessonSum: number, lesson: any) => lessonSum + lesson.durationSeconds,
+          0,
+        ),
+      0,
+    );
+
+    // Transform response
+    return {
+      id: course.id.toString(),
+      title: course.title,
+      slug: course.slug,
+      description: course.description,
+      thumbnailUrl: course.thumbnailUrl,
+      status: course.status,
+      estimatedDurationMinutes: course.estimatedDurationMinutes,
+      publishedAt: course.publishedAt?.toISOString() || null,
+      createdAt: course.createdAt.toISOString(),
+      updatedAt: course.updatedAt.toISOString(),
+
+      trainer: {
+        id: course.trainerUser.id.toString(),
+        fullName: course.trainerUser.fullName,
+        email: course.trainerUser.email,
+        avatarUrl: course.trainerUser.avatarUrl,
+      },
+
+      category: course.category
+        ? {
+            id: course.category.id.toString(),
+            name: course.category.name,
+            slug: course.category.slug,
+          }
+        : null,
+
+      ownerDepartment: course.ownerDepartment
+        ? {
+            id: course.ownerDepartment.id.toString(),
+            name: course.ownerDepartment.name,
+          }
+        : null,
+
+      tags: course.courseTags.map((ct: any) => ({
+        id: ct.tag.id.toString(),
+        name: ct.tag.name,
+        slug: ct.tag.slug,
+      })),
+
+      modules: course.modules.map((module: any) => ({
+        id: module.id.toString(),
+        title: module.title,
+        orderIndex: module.orderIndex,
+        lessons: module.lessons.map((lesson: any) => {
+          const lessonData: any = {
+            id: lesson.id.toString(),
+            title: lesson.title,
+            lessonType: lesson.lessonType,
+            durationSeconds: lesson.durationSeconds,
+            orderIndex: lesson.orderIndex,
+            isPreview: lesson.isPreview,
+            videoUrl: lesson.videoUrl,
+            contentText: lesson.contentText,
+            resources: lesson.resources.map((resource: any) => ({
+              id: resource.id.toString(),
+              fileName: resource.fileName,
+              fileUrl: resource.fileUrl,
+              resourceType: resource.resourceType,
+              orderIndex: resource.orderIndex,
+            })),
+          };
+
+          // Add quiz info if exists
+          if (lesson.quiz) {
+            lessonData.quiz = {
+              id: lesson.quiz.id.toString(),
+              title: lesson.quiz.title,
+              description: lesson.quiz.description,
+              totalQuestions: lesson.quiz._count.quizQuestions,
+              passScorePercent: Number(lesson.quiz.passScorePercent),
+              timeLimitMinutes: lesson.quiz.timeLimitMinutes,
+              maxAttempts: lesson.quiz.maxAttempts,
+              shuffleQuestions: lesson.quiz.shuffleQuestions,
+              shuffleOptions: lesson.quiz.shuffleOptions,
+            };
+          }
+
+          return lessonData;
+        }),
+      })),
+
+      stats: {
+        totalModules,
+        totalLessons,
+        totalDurationMinutes: Math.ceil(totalDurationSeconds / 60),
+        totalEnrollments: course._count.enrollments,
+      },
+    };
   }
 }

@@ -18,6 +18,12 @@ router
   .get(validate(courseQuerySchema, 'query'), CourseController.findAll)
   .post(restrictTo('admin', 'trainer'), validate(createCourseSchema), CourseController.create);
 
+router.get(
+  '/:id/detail',
+  validate(courseIdParamSchema, 'params'),
+  CourseController.getCourseDetail,
+);
+
 router
   .route('/:id')
   .get(validate(courseIdParamSchema, 'params'), CourseController.findById)

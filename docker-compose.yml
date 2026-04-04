@@ -34,6 +34,9 @@ services:
     env_file: .env.docker
     ports:
       - '${PORT:-3000}:${PORT:-3000}'
+      - '5555:5555'
+    environment:
+      - BROWSER=none
     depends_on:
       db:
         condition: service_healthy
