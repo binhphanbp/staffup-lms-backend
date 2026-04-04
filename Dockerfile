@@ -18,7 +18,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm prisma:generate
+RUN DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres?schema=public pnpm prisma:generate
 RUN pnpm build
 
 # ================================
@@ -30,8 +30,9 @@ ENV NODE_ENV=production
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Copy only what's needed
-COPY --from=deps /app/node_modules ./node_modules
+# Copy only what's needed. Use the build-stage dependencies so the generated
+# Prisma client is included in the final image.
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
@@ -54,4 +55,4 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm prisma:generate
 EXPOSE 3000
-CMD ["pnpm", "dev"]
+CMD ["sh", "-c", "pnpm prisma:generate && pnpm dev"]

@@ -6,7 +6,8 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { AppError } from '@/utils';
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: any;
+  pgPool?: Pool;
+  prisma?: PrismaClient;
 };
 
 const connectionString = process.env.DATABASE_URL;
@@ -22,6 +23,7 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.pgPool = pgPool;
   globalForPrisma.prisma = prisma;
 }
 
