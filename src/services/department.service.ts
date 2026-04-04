@@ -117,7 +117,7 @@ export class DepartmentService {
           fullName: true,
           email: true,
           isActive: true,
-          roles: {
+          userRoles: {
             select: {
               role: {
                 select: { code: true, name: true },

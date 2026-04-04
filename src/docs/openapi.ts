@@ -27,6 +27,10 @@ export const openApiDocument = {
       name: 'Courses',
       description: 'Course management endpoints.',
     },
+    {
+      name: 'Departments',
+      description: 'Department and organizational structure management.',
+    },
   ],
   components: {
     securitySchemes: {
@@ -572,6 +576,230 @@ export const openApiDocument = {
           },
         },
       },
+      Department: {
+        type: 'object',
+        required: ['id', 'name', 'isActive', 'createdAt', 'updatedAt'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '1',
+          },
+          name: {
+            type: 'string',
+            example: 'Engineering',
+          },
+          isActive: {
+            type: 'boolean',
+            example: true,
+          },
+          managerUserId: {
+            type: 'string',
+            pattern: '^\\d+$',
+            nullable: true,
+            example: '1',
+          },
+          manager: {
+            anyOf: [{ $ref: '#/components/schemas/TrainerSummary' }, { type: 'null' }],
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+      DepartmentUser: {
+        type: 'object',
+        required: ['id', 'fullName', 'email', 'isActive', 'createdAt'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '5',
+          },
+          fullName: {
+            type: 'string',
+            example: 'John Doe',
+          },
+          email: {
+            type: 'string',
+            format: 'email',
+            example: 'john.doe@staffup.local',
+          },
+          isActive: {
+            type: 'boolean',
+            example: true,
+          },
+          roles: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                role: { $ref: '#/components/schemas/RoleSummary' },
+              },
+            },
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+      DepartmentRoadmap: {
+        type: 'object',
+        required: ['id', 'title'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '1',
+          },
+          title: {
+            type: 'string',
+            example: 'Backend Roadmap',
+          },
+        },
+      },
+      DepartmentCourse: {
+        type: 'object',
+        required: ['id', 'title', 'slug', 'status'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '10',
+          },
+          title: {
+            type: 'string',
+            example: 'Node.js Basics',
+          },
+          slug: {
+            type: 'string',
+            example: 'node-js-basics',
+          },
+          thumbnailUrl: {
+            type: 'string',
+            format: 'uri',
+            nullable: true,
+          },
+          status: {
+            type: 'string',
+            enum: ['draft', 'published', 'archived'],
+          },
+          estimatedDurationMinutes: {
+            type: 'integer',
+            nullable: true,
+          },
+        },
+      },
+      DepartmentDetail: {
+        allOf: [
+          { $ref: '#/components/schemas/Department' },
+          {
+            type: 'object',
+            properties: {
+              users: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/TrainerSummary' },
+              },
+              roadmaps: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/DepartmentRoadmap' },
+              },
+              ownedCourses: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/DepartmentCourse' },
+              },
+            },
+          },
+        ],
+      },
+      PaginatedDepartmentUsers: {
+        type: 'object',
+        required: ['data', 'meta'],
+        properties: {
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/DepartmentUser' },
+          },
+          meta: {
+            $ref: '#/components/schemas/PaginationMeta',
+          },
+        },
+      },
+      CreateDepartmentRequest: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 100,
+            example: 'Marketing',
+          },
+          isActive: {
+            type: 'boolean',
+            default: true,
+          },
+          managerUserId: {
+            type: 'string',
+            pattern: '^\\d+$',
+            nullable: true,
+          },
+        },
+      },
+      UpdateDepartmentRequest: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 100,
+          },
+          isActive: {
+            type: 'boolean',
+          },
+          managerUserId: {
+            type: 'string',
+            pattern: '^\\d+$',
+            nullable: true,
+          },
+        },
+      },
+      DepartmentListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Departments retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Department' },
+          },
+        },
+      },
+      DepartmentDetailResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Department retrieved successfully' },
+          data: { $ref: '#/components/schemas/DepartmentDetail' },
+        },
+      },
+      DepartmentUsersResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Department users retrieved successfully' },
+          data: { $ref: '#/components/schemas/PaginatedDepartmentUsers' },
+        },
+      },
     },
   },
   paths: {
@@ -1056,6 +1284,257 @@ export const openApiDocument = {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/departments`]: {
+      get: {
+        tags: ['Departments'],
+        summary: 'List all departments',
+        operationId: 'listDepartments',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Departments retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/DepartmentListResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Departments'],
+        summary: 'Create a new department',
+        description: 'Requires the `admin` role.',
+        operationId: 'createDepartment',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/CreateDepartmentRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Department created successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/DepartmentDetailResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation failed or name already exists.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/departments/{id}`]: {
+      get: {
+        tags: ['Departments'],
+        summary: 'Get department details',
+        operationId: 'getDepartmentById',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Department details returned.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/DepartmentDetailResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Department not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ['Departments'],
+        summary: 'Update a department',
+        description: 'Requires the `admin` or `manager` role.',
+        operationId: 'updateDepartment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/UpdateDepartmentRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Department updated successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/DepartmentDetailResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+          },
+          '404': {
+            description: 'Department or Manager not found.',
+          },
+        },
+      },
+      delete: {
+        tags: ['Departments'],
+        summary: 'Delete a department',
+        description: 'Requires the `admin` role.',
+        operationId: 'deleteDepartment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Department deleted successfully.',
+          },
+          '400': {
+            description: 'Cannot delete department due to content.',
+          },
+          '403': {
+            description: 'Insufficient role.',
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/departments/{id}/users`]: {
+      get: {
+        tags: ['Departments'],
+        summary: 'List users in a department',
+        operationId: 'getDepartmentUsers',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+          {
+            name: 'page',
+            in: 'query',
+            schema: { type: 'integer', default: 1 },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'integer', default: 10 },
+          },
+          {
+            name: 'isActive',
+            in: 'query',
+            schema: { type: 'string', enum: ['true', 'false'] },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Department users returned successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/DepartmentUsersResponse',
                 },
               },
             },
