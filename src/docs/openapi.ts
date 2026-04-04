@@ -6,7 +6,7 @@ export const openApiDocument = {
     title: 'Staffup LMS Backend API',
     version: '1.0.0',
     description:
-      'OpenAPI document for the Staffup LMS backend. This spec currently covers health, authentication, and course endpoints.',
+      'OpenAPI document for the Staffup LMS backend. This spec currently covers health, authentication, refresh/logout session flow, and course endpoints.',
   },
   servers: [
     {
@@ -21,7 +21,7 @@ export const openApiDocument = {
     },
     {
       name: 'Auth',
-      description: 'Authentication and current user profile.',
+      description: 'Authentication, refresh/logout session flow, and current user profile.',
     },
     {
       name: 'Courses',
@@ -113,6 +113,16 @@ export const openApiDocument = {
           },
         },
       },
+      RefreshRequest: {
+        type: 'object',
+        properties: {
+          refreshToken: {
+            type: 'string',
+            description:
+              'Optional refresh token override. When omitted, the API reads the httpOnly refresh cookie.',
+          },
+        },
+      },
       AuthUser: {
         type: 'object',
         required: ['id', 'email', 'fullName', 'roleCodes'],
@@ -152,6 +162,11 @@ export const openApiDocument = {
           token: {
             type: 'string',
             description: 'JWT access token.',
+          },
+          refreshTokenExpiresAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Expiration time of the rotated refresh session cookie.',
           },
         },
       },
@@ -248,6 +263,18 @@ export const openApiDocument = {
           message: { type: 'string', example: 'Profile retrieved successfully' },
           data: {
             $ref: '#/components/schemas/ProfileUser',
+          },
+        },
+      },
+      MessageSuccessResponse: {
+        type: 'object',
+        required: ['success', 'message'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Logout successful' },
+          data: {
+            nullable: true,
+            example: null,
           },
         },
       },
@@ -695,6 +722,88 @@ export const openApiDocument = {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/refresh`]: {
+      post: {
+        tags: ['Auth'],
+        summary: 'Refresh the access token',
+        description:
+          'Rotates the refresh session and returns a fresh access token. By default the API reads the refresh token from the httpOnly cookie.',
+        operationId: 'refreshAccessToken',
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/RefreshRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Token refreshed successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/AuthSuccessResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing, invalid, or expired refresh token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Account is deactivated.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/logout`]: {
+      post: {
+        tags: ['Auth'],
+        summary: 'Log out the current refresh session',
+        description:
+          'Revokes the current refresh session when a refresh token cookie or request body token is present, then clears the cookie.',
+        operationId: 'logoutUser',
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/RefreshRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Logout completed successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/MessageSuccessResponse',
                 },
               },
             },
