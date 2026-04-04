@@ -22,10 +22,13 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token cannot be empty').optional(),
 export const updateUserStatusSchema = z.object({
   isActive: z.boolean(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;

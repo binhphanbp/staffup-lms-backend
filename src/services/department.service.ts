@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils';
 
@@ -133,7 +134,14 @@ export class DepartmentService {
     ]);
 
     return {
-      data: users,
+      data: users.map((user) => {
+        const { userRoles, ...rest } = user;
+
+        return {
+          ...rest,
+          roles: userRoles.map((userRole) => userRole.role),
+        };
+      }),
       meta: {
         total,
         page,
@@ -250,9 +258,9 @@ export class DepartmentService {
       await prisma.department.delete({
         where: { id: departmentId },
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Handle Foreign Key constraint errors (P2003)
-      if (err.code === 'P2003') {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
         throw new AppError(
           'Cannot delete department because it has associated users or courses. Please reassign or delete them first.',
           400,

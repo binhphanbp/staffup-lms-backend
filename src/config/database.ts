@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Prisma } from '@prisma/client';
 import { Pool } from 'pg';
 import { AppError } from '@/utils';
 
@@ -29,7 +29,7 @@ if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
-export type TransactionClient = any;
+export type TransactionClient = Prisma.TransactionClient;
 
 interface TransactionOptions {
   timeout?: number;
@@ -45,5 +45,5 @@ export const withTransaction = async <T>(
     throw new AppError('Prisma client is not initialized. Run `prisma generate` first.', 500);
   }
 
-  return prisma.$transaction((tx: TransactionClient) => operation(tx), options);
+  return prisma.$transaction((tx) => operation(tx as TransactionClient), options);
 };

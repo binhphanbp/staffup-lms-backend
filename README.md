@@ -4,18 +4,18 @@
 
 ## Tech Stack
 
-| Category         | Technology                                |
-| ---------------- | ----------------------------------------- |
-| Runtime          | Node.js 20+ with TypeScript (strict mode) |
-| Framework        | Express.js v5                             |
-| Database         | PostgreSQL 16                             |
-| ORM              | Prisma v7                                 |
-| Auth             | JWT + Argon2 password hashing             |
-| Validation       | Zod                                       |
-| Security         | Helmet, CORS, RBAC                        |
-| Logging          | Winston + Morgan                          |
-| Containerization | Docker + Docker Compose                   |
-| Package Manager  | pnpm                                      |
+| Category         | Technology                                    |
+| ---------------- | --------------------------------------------- |
+| Runtime          | Node.js 20+ with TypeScript (strict mode)     |
+| Framework        | Express.js v5                                 |
+| Database         | PostgreSQL 16                                 |
+| ORM              | Prisma v7                                     |
+| Auth             | JWT access tokens + rotating refresh sessions |
+| Validation       | Zod                                           |
+| Security         | Helmet, CORS, RBAC                            |
+| Logging          | Winston + Morgan                              |
+| Containerization | Docker + Docker Compose                       |
+| Package Manager  | pnpm                                          |
 
 ## Project Structure
 
@@ -76,6 +76,9 @@ curl http://localhost:3000/api/v1/health
 
 The API reference is rendered with Scalar and reads from the local OpenAPI document served by this app.
 
+Auth endpoints currently include `register`, `login`, `refresh`, `logout`, and `me`.
+`login` and `refresh` rotate an httpOnly refresh token cookie scoped to `/api/v1/auth`.
+
 ## Code Quality
 
 > 💡 Dự án sử dụng **Husky + lint-staged** — mỗi commit sẽ tự động chạy ESLint + Prettier trên các file thay đổi.
@@ -101,22 +104,24 @@ docker compose exec api pnpm prisma:studio    # Open database GUI
 
 ## Environment Variables
 
-| Variable                     | Description                  | Default                |
-| ---------------------------- | ---------------------------- | ---------------------- |
-| `NODE_ENV`                   | Environment                  | `development`          |
-| `PORT`                       | Server port                  | `3000`                 |
-| `DATABASE_URL`               | PostgreSQL connection string | —                      |
-| `POSTGRES_USER`              | DB username (Docker)         | `admin`                |
-| `POSTGRES_PASSWORD`          | DB password (Docker)         | —                      |
-| `POSTGRES_DB`                | DB name (Docker)             | `staffup_lms`          |
-| `JWT_SECRET`                 | Token signing secret         | —                      |
-| `JWT_EXPIRES_IN`             | Token expiration             | `7d`                   |
-| `CORS_ORIGIN`                | Allowed CORS origin          | `*`                    |
-| `SEED_ADMIN_DEPARTMENT_NAME` | Seed admin department name   | `General`              |
-| `SEED_ADMIN_FULL_NAME`       | Seed admin full name         | `System Administrator` |
-| `SEED_ADMIN_POSITION_TITLE`  | Seed admin title             | `Administrator`        |
-| `SEED_ADMIN_EMAIL`           | Seed admin email             | `admin@staffup.local`  |
-| `SEED_ADMIN_PASSWORD`        | Seed admin password          | `ChangeMe123`          |
+| Variable                        | Description                  | Default                 |
+| ------------------------------- | ---------------------------- | ----------------------- |
+| `NODE_ENV`                      | Environment                  | `development`           |
+| `PORT`                          | Server port                  | `3000`                  |
+| `DATABASE_URL`                  | PostgreSQL connection string | —                       |
+| `POSTGRES_USER`                 | DB username (Docker)         | `admin`                 |
+| `POSTGRES_PASSWORD`             | DB password (Docker)         | —                       |
+| `POSTGRES_DB`                   | DB name (Docker)             | `staffup_lms`           |
+| `JWT_SECRET`                    | Token signing secret         | —                       |
+| `JWT_EXPIRES_IN`                | Token expiration             | `7d`                    |
+| `REFRESH_TOKEN_EXPIRES_IN_DAYS` | Refresh session duration     | `30`                    |
+| `REFRESH_TOKEN_COOKIE_NAME`     | Refresh cookie name          | `staffup_refresh_token` |
+| `CORS_ORIGIN`                   | Allowed CORS origin          | `*`                     |
+| `SEED_ADMIN_DEPARTMENT_NAME`    | Seed admin department name   | `General`               |
+| `SEED_ADMIN_FULL_NAME`          | Seed admin full name         | `System Administrator`  |
+| `SEED_ADMIN_POSITION_TITLE`     | Seed admin title             | `Administrator`         |
+| `SEED_ADMIN_EMAIL`              | Seed admin email             | `admin@staffup.local`   |
+| `SEED_ADMIN_PASSWORD`           | Seed admin password          | `ChangeMe123`           |
 
 ## Default Seed Data
 
