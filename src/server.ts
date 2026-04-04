@@ -11,6 +11,8 @@ const startServer = async (): Promise<void> => {
 
     // Start Express server
     app.listen(env.PORT, () => {
+      logger.info(`Docs URL: http://localhost:${env.PORT}/api/v1/docs`);
+      logger.info(`OpenAPI URL: http://localhost:${env.PORT}/api/v1/openapi.json`);
       logger.info(`🚀 Server is running on port ${env.PORT}`);
       logger.info(`📝 Environment: ${env.NODE_ENV}`);
       logger.info(`🔗 API URL: http://localhost:${env.PORT}/api/v1`);

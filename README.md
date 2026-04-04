@@ -69,6 +69,13 @@ docker compose exec api pnpm prisma:migrate
 curl http://localhost:3000/api/v1/health
 ```
 
+## API Docs
+
+- Scalar UI: `http://localhost:3000/api/v1/docs`
+- OpenAPI JSON: `http://localhost:3000/api/v1/openapi.json`
+
+The API reference is rendered with Scalar and reads from the local OpenAPI document served by this app.
+
 ## Code Quality
 
 > 💡 Dự án sử dụng **Husky + lint-staged** — mỗi commit sẽ tự động chạy ESLint + Prettier trên các file thay đổi.

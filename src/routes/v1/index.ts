@@ -1,6 +1,8 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import authRoutes from '@/routes/v1/auth.routes';
 import courseRoutes from '@/routes/v1/course.routes';
+import { openApiDocument } from '@/docs/openapi';
+import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
 const router: ExpressRouter = Router();
 
@@ -11,6 +13,16 @@ router.get('/health', (_req, res) => {
     message: 'Staffup LMS API is running 🚀',
     timestamp: new Date().toISOString(),
   });
+});
+
+// OpenAPI and interactive docs
+router.get('/openapi.json', (_req, res) => {
+  res.json(openApiDocument);
+});
+
+router.get('/docs', (_req, res) => {
+  res.setHeader('Content-Security-Policy', scalarCsp);
+  res.type('html').send(scalarHtml);
 });
 
 // Mount module routes
