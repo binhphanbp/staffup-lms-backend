@@ -50,7 +50,6 @@ app.use('/api/v1', v1Routes);
 // ========================
 
 // Handle 404 — unmatched routes
-app.all('/{*path}', (req, _res, next) => {
 app.use((req, _res, next) => {
   next(new AppError(`Cannot find ${req.method} ${req.originalUrl} on this server.`, 404));
 });
