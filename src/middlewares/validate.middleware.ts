@@ -1,16 +1,18 @@
 import type { Request, Response, NextFunction } from 'express';
 import { type ZodSchema, ZodError } from 'zod';
 
-type ValidationTarget = 'body' | 'query' | 'params';
+type ValidationTarget = 'body' | 'query' | 'params' | 'all';
 
 /**
  * Generic Zod validation middleware.
  *
  * @param schema - Zod schema to validate against
- * @param target - Which part of the request to validate (body, query, or params)
+ * @param target - Which part of the request to validate (body, query, params, or all)
  *
  * @example
  * router.post('/courses', validate(createCourseSchema, 'body'), createCourse);
+ * router.get('/courses/:id', validate(courseIdParamSchema, 'params'), getCourse);
+ * router.get('/enrollments/:id/detail', validate(getEnrollmentDetailSchema, 'all'), getDetail);
  */
 export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') => {
   return (req: Request, res: Response, next: NextFunction): void => {

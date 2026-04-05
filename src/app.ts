@@ -49,7 +49,7 @@ app.use('/api/v1', v1Routes);
 // Error Handling
 // ========================
 
-// Handle 404 for any unmatched route.
+// Handle 404 — unmatched routes
 app.use((req, _res, next) => {
   next(new AppError(`Cannot find ${req.method} ${req.originalUrl} on this server.`, 404));
 });
