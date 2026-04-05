@@ -16,7 +16,19 @@ export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') =
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
       const parsed = schema.parse(req[target]);
-      req[target] = parsed;
+
+      if (target === 'body') {
+        req.body = parsed;
+      } else {
+        const currentTarget = req[target] as Record<string, unknown>;
+
+        for (const key of Object.keys(currentTarget)) {
+          delete currentTarget[key];
+        }
+
+        Object.assign(currentTarget, parsed);
+      }
+
       next();
     } catch (error) {
       if (error instanceof ZodError) {

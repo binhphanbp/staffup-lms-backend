@@ -6,7 +6,7 @@ export const openApiDocument = {
     title: 'Staffup LMS Backend API',
     version: '1.0.0',
     description:
-      'OpenAPI document for the Staffup LMS backend. This spec currently covers health, authentication, refresh/logout session flow, and course endpoints.',
+      'OpenAPI document for the Staffup LMS backend. This spec currently covers health, authentication, roles, departments, and course endpoints.',
   },
   servers: [
     {
@@ -31,6 +31,10 @@ export const openApiDocument = {
     {
       name: 'Departments',
       description: 'Department and organizational structure management.',
+    },
+    {
+      name: 'Roles',
+      description: 'RBAC role management and permission mapping.',
     },
   ],
   components: {
@@ -843,6 +847,172 @@ export const openApiDocument = {
           success: { type: 'boolean', example: true },
           message: { type: 'string', example: 'Department users retrieved successfully' },
           data: { $ref: '#/components/schemas/PaginatedDepartmentUsers' },
+        },
+      },
+      RolePermission: {
+        type: 'object',
+        required: ['id', 'code', 'module', 'action'],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '1',
+          },
+          code: {
+            type: 'string',
+            example: 'course.read',
+          },
+          module: {
+            type: 'string',
+            example: 'course',
+          },
+          action: {
+            type: 'string',
+            example: 'read',
+          },
+          description: {
+            type: 'string',
+            nullable: true,
+            example: 'Read course data',
+          },
+        },
+      },
+      RoleEntity: {
+        type: 'object',
+        required: [
+          'id',
+          'code',
+          'name',
+          'isSystem',
+          'userCount',
+          'permissionCount',
+          'permissions',
+          'createdAt',
+          'updatedAt',
+        ],
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '5',
+          },
+          code: {
+            type: 'string',
+            example: 'qa_lead',
+          },
+          name: {
+            type: 'string',
+            example: 'QA Lead',
+          },
+          description: {
+            type: 'string',
+            nullable: true,
+            example: 'Owns test strategy and release quality gates.',
+          },
+          isSystem: {
+            type: 'boolean',
+            example: false,
+          },
+          userCount: {
+            type: 'integer',
+            example: 2,
+          },
+          permissionCount: {
+            type: 'integer',
+            example: 3,
+          },
+          permissions: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/RolePermission' },
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+      CreateRoleRequest: {
+        type: 'object',
+        required: ['code', 'name'],
+        properties: {
+          code: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9_]*$',
+            example: 'qa_lead',
+          },
+          name: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 100,
+            example: 'QA Lead',
+          },
+          description: {
+            type: 'string',
+            maxLength: 500,
+            nullable: true,
+            example: 'Owns test strategy and release quality gates.',
+          },
+          permissionCodes: {
+            type: 'array',
+            items: {
+              type: 'string',
+              example: 'course.read',
+            },
+            example: ['course.read', 'user.read'],
+          },
+        },
+      },
+      UpdateRoleRequest: {
+        type: 'object',
+        properties: {
+          code: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9_]*$',
+            example: 'qa_manager',
+          },
+          name: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 100,
+            example: 'QA Manager',
+          },
+          description: {
+            type: 'string',
+            maxLength: 500,
+            nullable: true,
+          },
+          permissionCodes: {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+            example: ['course.read', 'course.update', 'user.read'],
+          },
+        },
+      },
+      RoleListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Roles retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/RoleEntity' },
+          },
+        },
+      },
+      RoleDetailResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Role retrieved successfully' },
+          data: { $ref: '#/components/schemas/RoleEntity' },
         },
       },
     },
@@ -1725,6 +1895,353 @@ export const openApiDocument = {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/DepartmentUsersResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/roles`]: {
+      get: {
+        tags: ['Roles'],
+        summary: 'List roles',
+        description: 'Requires the `admin` role.',
+        operationId: 'listRoles',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'search',
+            in: 'query',
+            schema: {
+              type: 'string',
+            },
+            description: 'Case-insensitive search across role code, name, and description.',
+          },
+          {
+            name: 'isSystem',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: ['true', 'false'],
+            },
+            description: 'Filter roles by system flag.',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Roles retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/RoleListResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Roles'],
+        summary: 'Create a role',
+        description: 'Requires the `admin` role.',
+        operationId: 'createRole',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/CreateRoleRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Role created successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/RoleDetailResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation failed or one or more permission codes are invalid.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '409': {
+            description: 'Role code already exists.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/roles/{id}`]: {
+      get: {
+        tags: ['Roles'],
+        summary: 'Get role details',
+        description: 'Requires the `admin` role.',
+        operationId: 'getRoleById',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Role retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/RoleDetailResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Role not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ['Roles'],
+        summary: 'Update a role',
+        description:
+          'Requires the `admin` role. System roles cannot change their code, and permission mappings are replaced when `permissionCodes` is provided.',
+        operationId: 'updateRole',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/UpdateRoleRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Role updated successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/RoleDetailResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description:
+              'Validation failed, permission codes are invalid, or a system role code change was attempted.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Role not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '409': {
+            description: 'Role code already exists.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Roles'],
+        summary: 'Delete a role',
+        description:
+          'Requires the `admin` role. System roles cannot be deleted, and roles assigned to users must be unassigned first.',
+        operationId: 'deleteRole',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        responses: {
+          '204': {
+            description: 'Role deleted successfully.',
+          },
+          '400': {
+            description: 'Role cannot be deleted due to system or assignment constraints.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Role not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
                 },
               },
             },
