@@ -17,34 +17,18 @@ type ValidationTarget = 'body' | 'query' | 'params' | 'all';
 export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      let dataToValidate: any;
+      const parsed = schema.parse(req[target]);
 
-      if (target === 'all') {
-        // For schemas with nested structure like { params: {...}, query: {...}, body: {...} }
-        dataToValidate = {
-          body: req.body,
-          query: req.query,
-          params: req.params,
-        };
+      if (target === 'body') {
+        req.body = parsed;
       } else {
-        // For simple schemas that validate a single part
-        dataToValidate = req[target];
-      }
+        const currentTarget = req[target] as Record<string, unknown>;
 
-      const parsed = schema.parse(dataToValidate);
+        for (const key of Object.keys(currentTarget)) {
+          delete currentTarget[key];
+        }
 
-      if (target === 'all') {
-        const parsedAll = parsed as any;
-        // Only update body and params (query is read-only in Express)
-        if (parsedAll.body !== undefined) {
-          req.body = parsedAll.body;
-        }
-        if (parsedAll.params !== undefined) {
-          req.params = parsedAll.params;
-        }
-        // Query is validated but not reassigned (read-only)
-      } else {
-        req[target] = parsed;
+        Object.assign(currentTarget, parsed);
       }
 
       next();

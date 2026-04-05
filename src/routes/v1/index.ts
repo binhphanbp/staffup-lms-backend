@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import authRoutes from '@/routes/v1/auth.routes';
 import courseRoutes from '@/routes/v1/course.routes';
 import departmentRoutes from '@/routes/v1/department.routes';
+import roleRoutes from '@/routes/v1/role.routes';
 import roadmapRoutes from '@/routes/v1/roadmap.routes';
 import categoryRoutes from '@/routes/v1/category.routes';
 import enrollmentRoutes from '@/routes/v1/enrollment.routes';
@@ -40,6 +41,7 @@ router.get('/docs', (_req, res) => {
 router.use('/auth', authRoutes);
 router.use('/courses', courseRoutes);
 router.use('/departments', departmentRoutes);
+router.use('/roles', roleRoutes);
 router.use('/roadmaps', roadmapRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/enrollments', enrollmentRoutes);
