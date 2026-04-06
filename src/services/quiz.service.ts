@@ -351,4 +351,141 @@ export class QuizService {
       startedAt: result.attempt.startedAt.toISOString(),
     };
   }
+
+  /**
+   * Save or update quiz attempt response
+   * Supports both text answers (essay/short_answer) and selected options (choice questions)
+   */
+  static async saveQuizResponse(
+    attemptQuestionId: string,
+    userId: string,
+    responseText: string | null | undefined,
+    selectedOptionIds: string[] | undefined,
+  ) {
+    const db = prisma as any;
+
+    // 1. Get attempt question with attempt and enrollment info
+    const attemptQuestion = await db.quizAttemptQuestion.findUnique({
+      where: { id: BigInt(attemptQuestionId) },
+      include: {
+        attempt: {
+          include: {
+            enrollment: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        },
+        question: {
+          select: {
+            questionType: true,
+          },
+        },
+      },
+    });
+
+    if (!attemptQuestion) {
+      throw new AppError('Quiz attempt question not found', 404);
+    }
+
+    // 2. Verify user owns this attempt
+    if (attemptQuestion.attempt.enrollment.userId.toString() !== userId) {
+      throw new AppError('You do not have permission to answer this question', 403);
+    }
+
+    // 3. Verify attempt is still in progress
+    if (attemptQuestion.attempt.status !== 'in_progress') {
+      throw new AppError('Cannot save response. Quiz attempt is not in progress', 400);
+    }
+
+    // 4. Validate response based on question type
+    const questionType = attemptQuestion.question.questionType;
+    const isChoiceQuestion = ['single_choice', 'multiple_choice', 'true_false'].includes(
+      questionType,
+    );
+    const isTextQuestion = ['short_answer', 'essay'].includes(questionType);
+
+    if (isChoiceQuestion && (!selectedOptionIds || selectedOptionIds.length === 0)) {
+      throw new AppError('Selected options are required for choice questions', 400);
+    }
+
+    if (isTextQuestion && !responseText) {
+      throw new AppError('Response text is required for text-based questions', 400);
+    }
+
+    // 5. For single_choice and true_false, ensure only one option is selected
+    if (
+      ['single_choice', 'true_false'].includes(questionType) &&
+      selectedOptionIds &&
+      selectedOptionIds.length > 1
+    ) {
+      throw new AppError('Only one option can be selected for this question type', 400);
+    }
+
+    // 6. Upsert response using transaction
+    const result = await db.$transaction(async (tx: any) => {
+      // Check if response already exists
+      const existingResponse = await tx.quizAttemptResponse.findUnique({
+        where: { attemptQuestionId: BigInt(attemptQuestionId) },
+      });
+
+      let response;
+
+      if (existingResponse) {
+        // Update existing response
+        response = await tx.quizAttemptResponse.update({
+          where: { id: existingResponse.id },
+          data: {
+            responseText: responseText || null,
+            answeredAt: new Date(),
+          },
+        });
+
+        // Delete old selected options
+        await tx.quizAttemptResponseOption.deleteMany({
+          where: { responseId: existingResponse.id },
+        });
+      } else {
+        // Create new response
+        response = await tx.quizAttemptResponse.create({
+          data: {
+            attemptQuestionId: BigInt(attemptQuestionId),
+            responseText: responseText || null,
+            answeredAt: new Date(),
+          },
+        });
+      }
+
+      // Create selected options for choice questions
+      if (isChoiceQuestion && selectedOptionIds && selectedOptionIds.length > 0) {
+        await tx.quizAttemptResponseOption.createMany({
+          data: selectedOptionIds.map((optionId) => ({
+            responseId: response.id,
+            questionOptionId: BigInt(optionId),
+          })),
+        });
+      }
+
+      // Fetch complete response with selected options
+      return tx.quizAttemptResponse.findUnique({
+        where: { id: response.id },
+        include: {
+          selectedOptions: {
+            select: {
+              questionOptionId: true,
+            },
+          },
+        },
+      });
+    });
+
+    return {
+      id: result.id.toString(),
+      attemptQuestionId: result.attemptQuestionId.toString(),
+      responseText: result.responseText,
+      selectedOptionIds: result.selectedOptions.map((so: any) => so.questionOptionId.toString()),
+      answeredAt: result.answeredAt.toISOString(),
+    };
+  }
 }

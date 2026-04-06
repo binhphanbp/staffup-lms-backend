@@ -20,3 +20,17 @@ export const startQuizAttempt = catchAsync(async (req: AuthRequest, res: Respons
 
   sendSuccess(res, attempt, 'Quiz attempt started successfully');
 });
+
+export const saveQuizResponse = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { attemptQuestionId, responseText, selectedOptionIds } = req.body;
+  const userId = req.user!.userId;
+
+  const response = await QuizService.saveQuizResponse(
+    attemptQuestionId,
+    userId,
+    responseText,
+    selectedOptionIds,
+  );
+
+  sendSuccess(res, response, 'Response saved successfully');
+});

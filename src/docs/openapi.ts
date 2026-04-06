@@ -3747,5 +3747,178 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/quiz-attempts/responses`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Save or update quiz attempt response',
+        operationId: 'saveQuizResponse',
+        description:
+          'Upsert response for a quiz question. Supports both text answers (essay/short_answer) and selected options (choice questions). Can be called multiple times to update answer.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['attemptQuestionId'],
+                properties: {
+                  attemptQuestionId: {
+                    type: 'string',
+                    pattern: '^\\d+$',
+                    example: '501',
+                    description: 'Quiz attempt question ID (from getQuizAttemptDetail response)',
+                  },
+                  responseText: {
+                    type: 'string',
+                    maxLength: 10000,
+                    nullable: true,
+                    example: 'Node.js is a JavaScript runtime built on Chrome V8 engine...',
+                    description: 'Text answer for short_answer or essay questions',
+                  },
+                  selectedOptionIds: {
+                    type: 'array',
+                    items: {
+                      type: 'string',
+                      pattern: '^\\d+$',
+                    },
+                    example: ['1001'],
+                    description:
+                      'Array of selected option IDs for choice questions (single_choice, multiple_choice, true_false)',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Response saved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'id',
+                        'attemptQuestionId',
+                        'responseText',
+                        'selectedOptionIds',
+                        'answeredAt',
+                      ],
+                      properties: {
+                        id: {
+                          type: 'string',
+                          example: '2001',
+                          description: 'Quiz attempt response ID',
+                        },
+                        attemptQuestionId: {
+                          type: 'string',
+                          example: '501',
+                        },
+                        responseText: {
+                          type: 'string',
+                          nullable: true,
+                          example: 'Node.js is a JavaScript runtime...',
+                        },
+                        selectedOptionIds: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          example: ['1001'],
+                          description: 'Empty array for text-based questions',
+                        },
+                        answeredAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T15:10:30.154Z',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Response saved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Bad request - validation failed or attempt not in progress',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      enum: [
+                        'Selected options are required for choice questions',
+                        'Response text is required for text-based questions',
+                        'Only one option can be selected for this question type',
+                        'Cannot save response. Quiz attempt is not in progress',
+                      ],
+                      example: 'Selected options are required for choice questions',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - attempt does not belong to user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to answer this question',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt question not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt question not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
 };

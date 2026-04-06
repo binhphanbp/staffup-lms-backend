@@ -14,3 +14,12 @@ export const startQuizAttemptSchema = z.object({
 });
 
 export type StartQuizAttemptInput = z.infer<typeof startQuizAttemptSchema>;
+
+// Save quiz attempt response
+export const saveQuizResponseSchema = z.object({
+  attemptQuestionId: z.string().regex(/^\d+$/, 'Attempt question ID must be a numeric string'),
+  responseText: z.string().max(10000).optional().nullable(),
+  selectedOptionIds: z.array(z.string().regex(/^\d+$/)).optional(),
+});
+
+export type SaveQuizResponseInput = z.infer<typeof saveQuizResponseSchema>;
