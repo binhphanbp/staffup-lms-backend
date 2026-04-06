@@ -3926,5 +3926,286 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/quiz-attempts/{attemptId}/submit`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Submit quiz attempt',
+        operationId: 'submitQuizAttempt',
+        description:
+          'Submit quiz attempt and mark as completed. Calculates time spent. Auto-grades objective questions if no essay/short_answer questions exist. Otherwise keeps status as submitted for manual grading.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'attemptId',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Quiz attempt ID as numeric string',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Quiz attempt submitted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'attemptId',
+                        'status',
+                        'submittedAt',
+                        'timeSpentSeconds',
+                        'autoGraded',
+                        'requiresManualGrading',
+                      ],
+                      properties: {
+                        attemptId: { type: 'string', example: '124' },
+                        status: {
+                          type: 'string',
+                          enum: ['submitted', 'graded'],
+                          example: 'graded',
+                          description:
+                            'graded if auto-graded (no essays), submitted if requires manual grading',
+                        },
+                        submittedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T15:30:00.154Z',
+                        },
+                        timeSpentSeconds: {
+                          type: 'number',
+                          example: 1200,
+                          description: 'Total time spent on quiz in seconds',
+                        },
+                        objectiveScore: {
+                          type: 'number',
+                          nullable: true,
+                          example: 8,
+                          description: 'Auto-graded score if no essays, null otherwise',
+                        },
+                        autoGraded: {
+                          type: 'boolean',
+                          example: true,
+                          description: 'Whether quiz was auto-graded immediately',
+                        },
+                        requiresManualGrading: {
+                          type: 'boolean',
+                          example: false,
+                          description: 'Whether quiz has essay/short_answer questions',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt submitted successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Quiz attempt has already been submitted',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt has already been submitted',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to submit this attempt',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/{attemptId}/grade`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Auto-grade objective questions',
+        operationId: 'autoGradeObjectiveQuestions',
+        description:
+          'Automatically grade objective questions (single_choice, multiple_choice, true_false). Calculates isCorrect and awardedPoints for each response. Updates attempt with objective_score. Skips essay and short_answer questions.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'attemptId',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Quiz attempt ID as numeric string',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Objective questions graded successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: ['attemptId', 'objectiveScore', 'gradedQuestionsCount', 'status'],
+                      properties: {
+                        attemptId: { type: 'string', example: '124' },
+                        objectiveScore: {
+                          type: 'number',
+                          example: 8,
+                          description: 'Total score from objective questions',
+                        },
+                        gradedQuestionsCount: {
+                          type: 'number',
+                          example: 3,
+                          description: 'Number of objective questions graded',
+                        },
+                        status: {
+                          type: 'string',
+                          example: 'graded',
+                          description: 'Updated attempt status',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Objective questions graded successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Cannot grade attempt that is still in progress',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Cannot grade attempt that is still in progress',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to grade this attempt',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
 };
