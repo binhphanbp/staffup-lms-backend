@@ -4,6 +4,7 @@ import {
   getQuizAttemptDetail,
   saveQuizResponse,
   startQuizAttempt,
+  submitQuizAttempt,
 } from '@/controllers/quiz.controller';
 import { authenticate } from '@/middlewares/auth.middleware';
 import { validate } from '@/middlewares/validate.middleware';
@@ -12,6 +13,7 @@ import {
   getQuizAttemptDetailSchema,
   saveQuizResponseSchema,
   startQuizAttemptSchema,
+  submitQuizAttemptSchema,
 } from '@/schemas/quiz.schema';
 
 const router: ExpressRouter = Router();
@@ -39,6 +41,13 @@ router.get('/:id/detail', validate(getQuizAttemptDetailSchema, 'params'), getQui
  * @access  Private (user must own the attempt)
  */
 router.post('/responses', validate(saveQuizResponseSchema), saveQuizResponse);
+
+/**
+ * @route   POST /api/v1/quiz-attempts/:attemptId/submit
+ * @desc    Submit quiz attempt (auto-grade if no essay questions)
+ * @access  Private (user must own the attempt)
+ */
+router.post('/:attemptId/submit', validate(submitQuizAttemptSchema, 'params'), submitQuizAttempt);
 
 /**
  * @route   POST /api/v1/quiz-attempts/:attemptId/grade

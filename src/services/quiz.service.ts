@@ -628,4 +628,89 @@ export class QuizService {
 
     return result;
   }
+
+  /**
+   * Submit quiz attempt
+   * Marks attempt as submitted, calculates time spent
+   * Auto-grades if no essay questions, otherwise waits for manual grading
+   */
+  static async submitQuizAttempt(attemptId: string, userId: string) {
+    const db = prisma as any;
+
+    // 1. Get attempt with questions
+    const attempt = await db.quizAttempt.findUnique({
+      where: { id: BigInt(attemptId) },
+      include: {
+        enrollment: {
+          select: {
+            userId: true,
+          },
+        },
+        quiz: {
+          select: {
+            timeLimitMinutes: true,
+          },
+        },
+        attemptQuestions: {
+          include: {
+            question: {
+              select: {
+                questionType: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new AppError('Quiz attempt not found', 404);
+    }
+
+    // 2. Verify user owns this attempt
+    if (attempt.enrollment.userId.toString() !== userId) {
+      throw new AppError('You do not have permission to submit this attempt', 403);
+    }
+
+    // 3. Verify attempt is in progress
+    if (attempt.status !== 'in_progress') {
+      throw new AppError('Quiz attempt has already been submitted', 400);
+    }
+
+    // 4. Calculate time spent
+    const startedAt = new Date(attempt.startedAt);
+    const submittedAt = new Date();
+    const timeSpentSeconds = Math.floor((submittedAt.getTime() - startedAt.getTime()) / 1000);
+
+    // 5. Check if there are any essay/short_answer questions
+    const hasManualGradingQuestions = attempt.attemptQuestions.some((aq: any) =>
+      ['essay', 'short_answer'].includes(aq.question.questionType),
+    );
+
+    // 6. Submit attempt
+    const updatedAttempt = await db.quizAttempt.update({
+      where: { id: BigInt(attemptId) },
+      data: {
+        status: 'submitted',
+        submittedAt,
+        timeSpentSeconds,
+      },
+    });
+
+    // 7. Auto-grade if no manual grading needed
+    let gradingResult = null;
+    if (!hasManualGradingQuestions) {
+      gradingResult = await this.autoGradeObjectiveQuestions(attemptId, userId);
+    }
+
+    return {
+      attemptId: updatedAttempt.id.toString(),
+      status: gradingResult ? gradingResult.status : updatedAttempt.status,
+      submittedAt: updatedAttempt.submittedAt.toISOString(),
+      timeSpentSeconds: updatedAttempt.timeSpentSeconds,
+      objectiveScore: gradingResult ? gradingResult.objectiveScore : null,
+      autoGraded: !hasManualGradingQuestions,
+      requiresManualGrading: hasManualGradingQuestions,
+    };
+  }
 }

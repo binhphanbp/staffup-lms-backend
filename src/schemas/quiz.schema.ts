@@ -30,3 +30,10 @@ export const autoGradeObjectiveSchema = z.object({
 });
 
 export type AutoGradeObjectiveInput = z.infer<typeof autoGradeObjectiveSchema>;
+
+// Submit quiz attempt
+export const submitQuizAttemptSchema = z.object({
+  attemptId: z.string().regex(/^\d+$/, 'Attempt ID must be a numeric string'),
+});
+
+export type SubmitQuizAttemptInput = z.infer<typeof submitQuizAttemptSchema>;
