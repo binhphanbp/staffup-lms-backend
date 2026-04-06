@@ -95,33 +95,47 @@ export class QuizService {
     }
 
     // Map questions with responses
-    const questions = attempt.attemptQuestions.map((aq: any) => ({
-      id: aq.id.toString(),
-      displayOrder: aq.displayOrder,
-      maxPoints: aq.maxPoints,
-      questionSnapshot: aq.questionSnapshot as {
+    // Hide correct answers and scores when attempt is in progress
+    const isInProgress = attempt.status === 'in_progress';
+
+    const questions = attempt.attemptQuestions.map((aq: any) => {
+      const questionSnapshot = aq.questionSnapshot as {
         questionText: string;
         questionType: 'single_choice' | 'multiple_choice' | 'true_false' | 'short_answer' | 'essay';
         explanation: string | null;
-      },
-      optionsSnapshot: aq.optionsSnapshot as Array<{
-        optionId: string;
-        optionText: string;
-        orderIndex: number;
-      }> | null,
-      response: aq.response
-        ? {
-            id: aq.response.id.toString(),
-            responseText: aq.response.responseText,
-            selectedOptionIds: aq.response.selectedOptions.map((so: any) =>
-              so.questionOptionId.toString(),
-            ),
-            isCorrect: aq.response.isCorrect,
-            awardedPoints: Number(aq.response.awardedPoints),
-            gradedAt: aq.response.gradedAt ? aq.response.gradedAt.toISOString() : null,
-          }
-        : null,
-    }));
+      };
+
+      // Hide explanation when in progress
+      const sanitizedSnapshot = {
+        ...questionSnapshot,
+        explanation: isInProgress ? null : questionSnapshot.explanation,
+      };
+
+      return {
+        id: aq.id.toString(),
+        displayOrder: aq.displayOrder,
+        maxPoints: aq.maxPoints,
+        questionSnapshot: sanitizedSnapshot,
+        optionsSnapshot: aq.optionsSnapshot as Array<{
+          optionId: string;
+          optionText: string;
+          orderIndex: number;
+        }> | null,
+        response: aq.response
+          ? {
+              id: aq.response.id.toString(),
+              responseText: aq.response.responseText,
+              selectedOptionIds: aq.response.selectedOptions.map((so: any) =>
+                so.questionOptionId.toString(),
+              ),
+              // Hide correct answer info when in progress
+              isCorrect: isInProgress ? null : aq.response.isCorrect,
+              awardedPoints: isInProgress ? null : Number(aq.response.awardedPoints),
+              gradedAt: aq.response.gradedAt ? aq.response.gradedAt.toISOString() : null,
+            }
+          : null,
+      };
+    });
 
     return {
       id: attempt.id.toString(),
@@ -158,6 +172,183 @@ export class QuizService {
             email: attempt.gradedByUser.email,
           }
         : null,
+    };
+  }
+
+  /**
+   * Start a new quiz attempt
+   * Validates max attempts, creates quiz_attempt, generates attempt_no
+   */
+  static async startQuizAttempt(quizId: string, enrollmentId: string, userId: string) {
+    const db = prisma as any;
+
+    // 1. Verify enrollment belongs to user (outside transaction for validation)
+    const enrollment = await db.enrollment.findUnique({
+      where: { id: BigInt(enrollmentId) },
+      include: {
+        course: {
+          include: {
+            quizzes: {
+              where: { id: BigInt(quizId) },
+            },
+          },
+        },
+      },
+    });
+
+    if (!enrollment) {
+      throw new AppError('Enrollment not found', 404);
+    }
+
+    if (enrollment.userId.toString() !== userId) {
+      throw new AppError('You do not have permission to access this enrollment', 403);
+    }
+
+    // 2. Verify quiz belongs to this course
+    if (enrollment.course.quizzes.length === 0) {
+      throw new AppError('Quiz not found in this course', 404);
+    }
+
+    const quiz = enrollment.course.quizzes[0];
+
+    // 3. Check if there's an in-progress attempt
+    const inProgressAttempt = await db.quizAttempt.findFirst({
+      where: {
+        enrollmentId: BigInt(enrollmentId),
+        quizId: BigInt(quizId),
+        status: 'in_progress',
+      },
+    });
+
+    if (inProgressAttempt) {
+      throw new AppError(
+        'You already have an in-progress attempt for this quiz. Please complete or abandon it first.',
+        400,
+      );
+    }
+
+    // 4. Check max attempts limit
+    if (quiz.maxAttempts !== null) {
+      const previousAttempts = await db.quizAttempt.count({
+        where: {
+          enrollmentId: BigInt(enrollmentId),
+          quizId: BigInt(quizId),
+        },
+      });
+
+      if (previousAttempts >= quiz.maxAttempts) {
+        throw new AppError(`Maximum attempts (${quiz.maxAttempts}) reached for this quiz`, 400);
+      }
+    }
+
+    // 5. Get quiz questions (outside transaction for validation)
+    const quizQuestions = await db.quizQuestion.findMany({
+      where: { quizId: BigInt(quizId) },
+      include: {
+        question: {
+          include: {
+            options: {
+              orderBy: { orderIndex: 'asc' },
+            },
+          },
+        },
+      },
+      orderBy: { orderIndex: 'asc' },
+    });
+
+    if (quizQuestions.length === 0) {
+      throw new AppError('This quiz has no questions', 400);
+    }
+
+    // 6. Shuffle questions if needed
+    let orderedQuestions = quizQuestions;
+    if (quiz.shuffleQuestions) {
+      orderedQuestions = [...quizQuestions].sort(() => Math.random() - 0.5);
+    }
+
+    // 7. Use transaction to create attempt and snapshot questions atomically
+    const result = await db.$transaction(async (tx: any) => {
+      // Generate attempt_no
+      const lastAttempt = await tx.quizAttempt.findFirst({
+        where: {
+          enrollmentId: BigInt(enrollmentId),
+          quizId: BigInt(quizId),
+        },
+        orderBy: {
+          attemptNo: 'desc',
+        },
+      });
+
+      const attemptNo = lastAttempt ? lastAttempt.attemptNo + 1 : 1;
+
+      // Create quiz attempt
+      const attempt = await tx.quizAttempt.create({
+        data: {
+          enrollmentId: BigInt(enrollmentId),
+          quizId: BigInt(quizId),
+          attemptNo,
+          status: 'in_progress',
+          startedAt: new Date(),
+        },
+      });
+
+      // Create attempt questions with snapshots
+      const attemptQuestions = await Promise.all(
+        orderedQuestions.map(async (qq: any, index: number) => {
+          const question = qq.question;
+
+          // Shuffle options if needed
+          let options = question.options;
+          if (quiz.shuffleOptions && options.length > 0) {
+            options = [...options].sort(() => Math.random() - 0.5);
+          }
+
+          // Create question snapshot
+          const questionSnapshot = {
+            questionText: question.questionText,
+            questionType: question.questionType,
+            explanation: question.explanation,
+          };
+
+          // Create options snapshot (only for choice-based questions)
+          const optionsSnapshot = ['single_choice', 'multiple_choice', 'true_false'].includes(
+            question.questionType,
+          )
+            ? options.map((opt: any) => ({
+                optionId: opt.id.toString(),
+                optionText: opt.optionText,
+                orderIndex: opt.orderIndex,
+              }))
+            : null;
+
+          return tx.quizAttemptQuestion.create({
+            data: {
+              attemptId: attempt.id,
+              quizQuestionId: qq.id,
+              questionId: question.id,
+              displayOrder: index + 1,
+              maxPoints: qq.points,
+              questionSnapshot,
+              optionsSnapshot,
+            },
+          });
+        }),
+      );
+
+      return {
+        attempt,
+        attemptQuestions,
+      };
+    });
+
+    return {
+      attemptId: result.attempt.id.toString(),
+      attemptNo: result.attempt.attemptNo,
+      quizId: quiz.id.toString(),
+      quizTitle: quiz.title,
+      timeLimitMinutes: quiz.timeLimitMinutes,
+      totalQuestions: result.attemptQuestions.length,
+      startedAt: result.attempt.startedAt.toISOString(),
     };
   }
 }

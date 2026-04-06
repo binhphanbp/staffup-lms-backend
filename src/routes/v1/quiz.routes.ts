@@ -1,13 +1,20 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import { getQuizAttemptDetail } from '@/controllers/quiz.controller';
+import { getQuizAttemptDetail, startQuizAttempt } from '@/controllers/quiz.controller';
 import { authenticate } from '@/middlewares/auth.middleware';
 import { validate } from '@/middlewares/validate.middleware';
-import { getQuizAttemptDetailSchema } from '@/schemas/quiz.schema';
+import { getQuizAttemptDetailSchema, startQuizAttemptSchema } from '@/schemas/quiz.schema';
 
 const router: ExpressRouter = Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+/**
+ * @route   POST /api/v1/quiz-attempts/start
+ * @desc    Start a new quiz attempt
+ * @access  Private (student/employee)
+ */
+router.post('/start', validate(startQuizAttemptSchema), startQuizAttempt);
 
 /**
  * @route   GET /api/v1/quiz-attempts/:id/detail

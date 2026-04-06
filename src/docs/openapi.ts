@@ -48,6 +48,14 @@ export const openApiDocument = {
       name: 'Tags',
       description: 'Tag management for Course organization.',
     },
+    {
+      name: 'Quiz Attempts',
+      description: 'Quiz attempt management and submission endpoints.',
+    },
+    {
+      name: 'Dashboard',
+      description: 'Dashboard statistics for different user roles.',
+    },
   ],
   components: {
     securitySchemes: {
@@ -3255,6 +3263,483 @@ export const openApiDocument = {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/start`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Start a new quiz attempt',
+        operationId: 'startQuizAttempt',
+        description:
+          'Start a new quiz attempt for a student. Validates max attempts, creates quiz_attempt record, generates attempt_no, and creates question snapshots.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['quizId', 'enrollmentId'],
+                properties: {
+                  quizId: {
+                    type: 'string',
+                    pattern: '^\\d+$',
+                    example: '51',
+                    description: 'Quiz ID as numeric string',
+                  },
+                  enrollmentId: {
+                    type: 'string',
+                    pattern: '^\\d+$',
+                    example: '167',
+                    description: 'Enrollment ID as numeric string',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Quiz attempt started successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'attemptId',
+                        'attemptNo',
+                        'quizId',
+                        'quizTitle',
+                        'totalQuestions',
+                        'startedAt',
+                      ],
+                      properties: {
+                        attemptId: {
+                          type: 'string',
+                          example: '124',
+                          description: 'Created quiz attempt ID',
+                        },
+                        attemptNo: {
+                          type: 'number',
+                          example: 1,
+                          description: 'Attempt number (1, 2, 3...)',
+                        },
+                        quizId: {
+                          type: 'string',
+                          example: '51',
+                        },
+                        quizTitle: {
+                          type: 'string',
+                          example: 'Node.js Fundamentals - Final Quiz',
+                        },
+                        timeLimitMinutes: {
+                          type: 'number',
+                          nullable: true,
+                          example: 30,
+                          description: 'Time limit in minutes, null if no limit',
+                        },
+                        totalQuestions: {
+                          type: 'number',
+                          example: 5,
+                          description: 'Number of questions in this attempt',
+                        },
+                        startedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T14:56:00.154Z',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt started successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Bad request - validation failed or business rule violated',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      enum: [
+                        'You already have an in-progress attempt for this quiz. Please complete or abandon it first.',
+                        'Maximum attempts (3) reached for this quiz',
+                        'This quiz has no questions',
+                      ],
+                      example:
+                        'You already have an in-progress attempt for this quiz. Please complete or abandon it first.',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - enrollment does not belong to user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to access this enrollment',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Enrollment or quiz not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      enum: ['Enrollment not found', 'Quiz not found in this course'],
+                      example: 'Enrollment not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/{id}/detail`]: {
+      get: {
+        tags: ['Quiz Attempts'],
+        summary: 'Get quiz attempt detail for taking quiz',
+        operationId: 'getQuizAttemptDetail',
+        description:
+          'Get detailed quiz attempt information including questions with snapshots and saved responses. Does NOT expose correct answers or scores when attempt is in_progress.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Quiz attempt ID as numeric string',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Quiz attempt detail retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'id',
+                        'enrollmentId',
+                        'quizId',
+                        'attemptNo',
+                        'status',
+                        'startedAt',
+                        'timeSpentSeconds',
+                        'isTimedOut',
+                        'quiz',
+                        'questions',
+                      ],
+                      properties: {
+                        id: { type: 'string', example: '124' },
+                        enrollmentId: { type: 'string', example: '167' },
+                        quizId: { type: 'string', example: '51' },
+                        attemptNo: { type: 'number', example: 1 },
+                        status: {
+                          type: 'string',
+                          enum: ['in_progress', 'submitted', 'graded'],
+                          example: 'in_progress',
+                        },
+                        objectiveScore: {
+                          type: 'number',
+                          nullable: true,
+                          example: null,
+                          description: 'Auto-graded score, null if not submitted',
+                        },
+                        manualScore: {
+                          type: 'number',
+                          nullable: true,
+                          example: null,
+                          description: 'Manual score for essay/short answer, null if not graded',
+                        },
+                        totalScore: {
+                          type: 'number',
+                          nullable: true,
+                          example: null,
+                          description: 'Total score (objective + manual), null if not graded',
+                        },
+                        isPassed: {
+                          type: 'boolean',
+                          nullable: true,
+                          example: null,
+                          description: 'Whether student passed, null if not graded',
+                        },
+                        startedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T14:56:00.154Z',
+                        },
+                        submittedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                          example: null,
+                        },
+                        gradedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                          example: null,
+                        },
+                        timeSpentSeconds: {
+                          type: 'number',
+                          example: 0,
+                          description: 'Time spent so far in seconds',
+                        },
+                        timeLimitSeconds: {
+                          type: 'number',
+                          nullable: true,
+                          example: 1800,
+                          description: 'Time limit in seconds, null if no limit',
+                        },
+                        timeRemainingSeconds: {
+                          type: 'number',
+                          nullable: true,
+                          example: 1800,
+                          description:
+                            'Time remaining in seconds (only for in_progress), null if no limit or not in progress',
+                        },
+                        isTimedOut: {
+                          type: 'boolean',
+                          example: false,
+                          description: 'Whether time limit has been exceeded',
+                        },
+                        quiz: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '51' },
+                            title: { type: 'string', example: 'Node.js Fundamentals - Final Quiz' },
+                            description: {
+                              type: 'string',
+                              nullable: true,
+                              example: 'Assessment quiz for Node.js Fundamentals',
+                            },
+                            passScorePercent: { type: 'number', example: 70 },
+                            timeLimitMinutes: { type: 'number', nullable: true, example: 30 },
+                            maxAttempts: { type: 'number', nullable: true, example: 3 },
+                            shuffleQuestions: { type: 'boolean', example: true },
+                            shuffleOptions: { type: 'boolean', example: true },
+                          },
+                        },
+                        questions: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: {
+                                type: 'string',
+                                example: '501',
+                                description: 'Quiz attempt question ID',
+                              },
+                              displayOrder: { type: 'number', example: 1 },
+                              maxPoints: { type: 'number', example: 10 },
+                              questionSnapshot: {
+                                type: 'object',
+                                properties: {
+                                  questionText: {
+                                    type: 'string',
+                                    example: 'What is Node.js?',
+                                  },
+                                  questionType: {
+                                    type: 'string',
+                                    enum: [
+                                      'single_choice',
+                                      'multiple_choice',
+                                      'true_false',
+                                      'short_answer',
+                                      'essay',
+                                    ],
+                                    example: 'single_choice',
+                                  },
+                                  explanation: {
+                                    type: 'string',
+                                    nullable: true,
+                                    example: null,
+                                    description:
+                                      'Explanation of correct answer. NULL when status=in_progress to prevent cheating',
+                                  },
+                                },
+                              },
+                              optionsSnapshot: {
+                                type: 'array',
+                                nullable: true,
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    optionId: { type: 'string', example: '1001' },
+                                    optionText: {
+                                      type: 'string',
+                                      example: 'A JavaScript runtime',
+                                    },
+                                    orderIndex: { type: 'number', example: 0 },
+                                  },
+                                },
+                                description:
+                                  'Shuffled options snapshot. NULL for short_answer/essay questions',
+                              },
+                              response: {
+                                type: 'object',
+                                nullable: true,
+                                properties: {
+                                  id: { type: 'string', example: '2001' },
+                                  responseText: {
+                                    type: 'string',
+                                    nullable: true,
+                                    example: null,
+                                    description: 'Text answer for short_answer/essay',
+                                  },
+                                  selectedOptionIds: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    example: ['1001'],
+                                    description: 'Selected option IDs for choice questions',
+                                  },
+                                  isCorrect: {
+                                    type: 'boolean',
+                                    nullable: true,
+                                    example: null,
+                                    description:
+                                      'Whether answer is correct. NULL when status=in_progress to prevent cheating',
+                                  },
+                                  awardedPoints: {
+                                    type: 'number',
+                                    nullable: true,
+                                    example: null,
+                                    description:
+                                      'Points awarded. NULL when status=in_progress to prevent cheating',
+                                  },
+                                  gradedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                    example: null,
+                                  },
+                                },
+                                description: 'Saved response if student has answered this question',
+                              },
+                            },
+                          },
+                        },
+                        gradedBy: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string', example: '5' },
+                            fullName: { type: 'string', example: 'Teacher Name' },
+                            email: { type: 'string', example: 'teacher@example.com' },
+                          },
+                          description: 'Grader info if manually graded',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt detail retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - attempt does not belong to user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to view this quiz attempt',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt not found',
+                    },
+                  },
                 },
               },
             },

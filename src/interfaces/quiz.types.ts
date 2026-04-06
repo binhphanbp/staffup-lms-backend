@@ -57,7 +57,7 @@ export interface QuizAttemptQuestionDetail {
     responseText: string | null;
     selectedOptionIds: string[];
     isCorrect: boolean | null;
-    awardedPoints: number;
+    awardedPoints: number | null;
     gradedAt: string | null;
   } | null;
 }

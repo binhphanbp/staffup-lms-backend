@@ -11,3 +11,12 @@ export const getQuizAttemptDetail = catchAsync(async (req: AuthRequest, res: Res
 
   sendSuccess(res, attemptDetail, 'Quiz attempt detail retrieved successfully');
 });
+
+export const startQuizAttempt = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { quizId, enrollmentId } = req.body;
+  const userId = req.user!.userId;
+
+  const attempt = await QuizService.startQuizAttempt(quizId, enrollmentId, userId);
+
+  sendSuccess(res, attempt, 'Quiz attempt started successfully');
+});
