@@ -7,6 +7,8 @@ import roadmapRoutes from '@/routes/v1/roadmap.routes';
 import categoryRoutes from '@/routes/v1/category.routes';
 import tagRoutes from '@/routes/v1/tag.routes';
 import enrollmentRoutes from '@/routes/v1/enrollment.routes';
+import quizAttemptRoutes from '@/routes/v1/quiz.routes';
+import dashboardRoutes from '@/routes/v1/dashboard.routes';
 import { openApiDocument } from '@/docs/openapi';
 import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
@@ -47,4 +49,6 @@ router.use('/roadmaps', roadmapRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/tags', tagRoutes);
 router.use('/enrollments', enrollmentRoutes);
+router.use('/quiz-attempts', quizAttemptRoutes);
+router.use('/dashboard', dashboardRoutes);
 export default router;

@@ -17,10 +17,23 @@ type ValidationTarget = 'body' | 'query' | 'params' | 'all';
 export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const parsed = schema.parse(req[target]);
+      let dataToValidate: unknown;
+
+      if (target === 'all') {
+        dataToValidate = { ...req.params, ...req.query, ...req.body };
+      } else {
+        dataToValidate = req[target];
+      }
+
+      const parsed = schema.parse(dataToValidate);
 
       if (target === 'body') {
         req.body = parsed;
+      } else if (target === 'all') {
+        // Assign parsed data back to respective request properties
+        Object.assign(req.params, parsed);
+        Object.assign(req.query, parsed);
+        Object.assign(req.body, parsed);
       } else {
         const currentTarget = req[target] as Record<string, unknown>;
 

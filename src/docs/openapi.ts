@@ -2980,5 +2980,287 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/dashboard/employee`]: {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Get employee dashboard statistics',
+        operationId: 'getEmployeeDashboard',
+        description:
+          'Retrieve personal dashboard statistics for an employee/student, including enrolled courses, assigned roadmaps, progress summary, and earned certificates.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Employee dashboard statistics retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: ['myCourses', 'myRoadmaps', 'progressSummary', 'certificates'],
+                      properties: {
+                        myCourses: {
+                          type: 'object',
+                          required: ['total', 'assigned', 'inProgress', 'completed', 'courses'],
+                          properties: {
+                            total: { type: 'number', example: 2 },
+                            assigned: { type: 'number', example: 0 },
+                            inProgress: { type: 'number', example: 0 },
+                            completed: { type: 'number', example: 2 },
+                            courses: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'enrollmentId',
+                                  'courseId',
+                                  'courseTitle',
+                                  'status',
+                                  'progress',
+                                  'enrolledAt',
+                                ],
+                                properties: {
+                                  enrollmentId: { type: 'string', example: '154' },
+                                  courseId: { type: 'string', example: '106' },
+                                  courseTitle: { type: 'string', example: 'React Complete Guide' },
+                                  courseThumbnail: {
+                                    type: 'string',
+                                    format: 'uri',
+                                    nullable: true,
+                                    example: 'https://images.unsplash.com/photo-1500000000001',
+                                  },
+                                  status: {
+                                    type: 'string',
+                                    enum: [
+                                      'assigned',
+                                      'in_progress',
+                                      'completed',
+                                      'cancelled',
+                                      'expired',
+                                    ],
+                                    example: 'completed',
+                                  },
+                                  progress: {
+                                    type: 'number',
+                                    minimum: 0,
+                                    maximum: 100,
+                                    example: 100,
+                                  },
+                                  dueAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                    example: null,
+                                  },
+                                  enrolledAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-04-01T12:35:47.869Z',
+                                  },
+                                  completedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                    example: '2026-04-05T12:35:47.869Z',
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        myRoadmaps: {
+                          type: 'object',
+                          required: ['total', 'assigned', 'inProgress', 'completed', 'roadmaps'],
+                          properties: {
+                            total: { type: 'number', example: 1 },
+                            assigned: { type: 'number', example: 1 },
+                            inProgress: { type: 'number', example: 0 },
+                            completed: { type: 'number', example: 0 },
+                            roadmaps: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'assignmentId',
+                                  'roadmapId',
+                                  'roadmapTitle',
+                                  'status',
+                                  'totalCourses',
+                                  'completedCourses',
+                                  'progressPercent',
+                                  'assignedAt',
+                                ],
+                                properties: {
+                                  assignmentId: { type: 'string', example: '77' },
+                                  roadmapId: { type: 'string', example: '103' },
+                                  roadmapTitle: {
+                                    type: 'string',
+                                    example: 'Backend Developer Path',
+                                  },
+                                  targetPosition: {
+                                    type: 'string',
+                                    nullable: true,
+                                    example: 'Backend Developer',
+                                  },
+                                  status: {
+                                    type: 'string',
+                                    enum: ['assigned', 'in_progress', 'completed', 'dropped'],
+                                    example: 'assigned',
+                                  },
+                                  totalCourses: { type: 'number', example: 3 },
+                                  completedCourses: { type: 'number', example: 1 },
+                                  progressPercent: {
+                                    type: 'number',
+                                    minimum: 0,
+                                    maximum: 100,
+                                    example: 33,
+                                  },
+                                  assignedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-03-27T12:35:48.108Z',
+                                  },
+                                  completedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                    example: null,
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        progressSummary: {
+                          type: 'object',
+                          required: [
+                            'totalTimeSpentMinutes',
+                            'completedLessons',
+                            'averageProgress',
+                            'upcomingDeadlines',
+                          ],
+                          properties: {
+                            totalTimeSpentMinutes: { type: 'number', example: 200 },
+                            completedLessons: { type: 'number', example: 20 },
+                            averageProgress: {
+                              type: 'number',
+                              minimum: 0,
+                              maximum: 100,
+                              example: 100,
+                            },
+                            recentActivity: {
+                              type: 'string',
+                              format: 'date-time',
+                              nullable: true,
+                              example: '2026-04-06T11:35:47.869Z',
+                            },
+                            upcomingDeadlines: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'courseId',
+                                  'courseTitle',
+                                  'dueAt',
+                                  'daysRemaining',
+                                  'currentProgress',
+                                ],
+                                properties: {
+                                  courseId: { type: 'string', example: '106' },
+                                  courseTitle: { type: 'string', example: 'React Complete Guide' },
+                                  dueAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-04-13T00:00:00.000Z',
+                                  },
+                                  daysRemaining: { type: 'number', example: 7 },
+                                  currentProgress: {
+                                    type: 'number',
+                                    minimum: 0,
+                                    maximum: 100,
+                                    example: 45,
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        certificates: {
+                          type: 'object',
+                          required: ['total', 'certificates'],
+                          properties: {
+                            total: { type: 'number', example: 2 },
+                            certificates: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'certificateId',
+                                  'certificateCode',
+                                  'courseId',
+                                  'courseTitle',
+                                  'issuedAt',
+                                ],
+                                properties: {
+                                  certificateId: { type: 'string', example: '44' },
+                                  certificateCode: {
+                                    type: 'string',
+                                    example: 'CERT-1775478947872-2',
+                                  },
+                                  courseId: { type: 'string', example: '106' },
+                                  courseTitle: { type: 'string', example: 'React Complete Guide' },
+                                  issuedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-04-05T12:35:47.872Z',
+                                  },
+                                  pdfUrl: {
+                                    type: 'string',
+                                    format: 'uri',
+                                    nullable: true,
+                                    example: 'https://example.com/certificates/154.pdf',
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Employee dashboard statistics retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - employee or student role required',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
 };
