@@ -433,12 +433,11 @@ export class QuizService {
       let response;
 
       if (existingResponse) {
-        // Update existing response
+        // Update existing response (updatedAt will be auto-updated)
         response = await tx.attemptResponse.update({
           where: { id: existingResponse.id },
           data: {
             responseText: responseText || null,
-            answeredAt: new Date(),
           },
         });
 
@@ -452,7 +451,6 @@ export class QuizService {
           data: {
             attemptQuestionId: BigInt(attemptQuestionId),
             responseText: responseText || null,
-            answeredAt: new Date(),
           },
         });
       }
@@ -485,7 +483,8 @@ export class QuizService {
       attemptQuestionId: result.attemptQuestionId.toString(),
       responseText: result.responseText,
       selectedOptionIds: result.selectedOptions.map((so: any) => so.questionOptionId.toString()),
-      answeredAt: result.answeredAt.toISOString(),
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
     };
   }
 }

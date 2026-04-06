@@ -3808,7 +3808,8 @@ export const openApiDocument = {
                         'attemptQuestionId',
                         'responseText',
                         'selectedOptionIds',
-                        'answeredAt',
+                        'createdAt',
+                        'updatedAt',
                       ],
                       properties: {
                         id: {
@@ -3831,7 +3832,12 @@ export const openApiDocument = {
                           example: ['1001'],
                           description: 'Empty array for text-based questions',
                         },
-                        answeredAt: {
+                        createdAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T15:10:30.154Z',
+                        },
+                        updatedAt: {
                           type: 'string',
                           format: 'date-time',
                           example: '2026-04-06T15:10:30.154Z',
