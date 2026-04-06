@@ -5,7 +5,7 @@ import { AppError } from '@/utils';
 
 const globalForPrisma = globalThis as unknown as {
   pgPool?: Pool;
-  prisma?: typeof PrismaClient;
+  prisma?: PrismaClient;
 };
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -25,7 +25,7 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.pgPool = pool;
+  globalForPrisma.pgPool = pgPool;
   globalForPrisma.prisma = prisma;
 }
 

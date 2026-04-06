@@ -6,8 +6,10 @@ export class CategoryController {
   /**
    * Get all categories
    */
-  static getCategories = catchAsync(async (_req: Request, res: Response, _next: NextFunction) => {
-    const categories = await CategoryService.getCategories();
+  static getCategories = catchAsync(async (req: Request, res: Response, _next: NextFunction) => {
+    const isTree = req.query.tree === 'true';
+    const onlyActive = req.query.activeOnly === 'true';
+    const categories = await CategoryService.getCategories(isTree, onlyActive);
     sendSuccess(res, categories, 'Categories retrieved successfully');
   });
 

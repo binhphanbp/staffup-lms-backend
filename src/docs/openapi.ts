@@ -6,7 +6,7 @@ export const openApiDocument = {
     title: 'Staffup LMS Backend API',
     version: '1.0.0',
     description:
-      'OpenAPI document for the Staffup LMS backend. This spec currently covers health, authentication, roles, departments, and course endpoints.',
+      'OpenAPI document for the Staffup LMS backend. This spec covers health, authentication, roles, departments, categories, tags, and course management.',
   },
   servers: [
     {
@@ -43,6 +43,10 @@ export const openApiDocument = {
     {
       name: 'Roles',
       description: 'RBAC role management and permission mapping.',
+    },
+    {
+      name: 'Tags',
+      description: 'Tag management for Course organization.',
     },
   ],
   components: {
@@ -1025,14 +1029,27 @@ export const openApiDocument = {
       },
       Category: {
         type: 'object',
-        required: ['id', 'name', 'slug', 'createdAt', 'updatedAt'],
+        required: ['id', 'name', 'slug', 'isActive', 'createdAt', 'updatedAt'],
         properties: {
           id: { type: 'string', pattern: '^\\d+$', example: '1' },
           parentId: { type: 'string', pattern: '^\\d+$', nullable: true, example: null },
           name: { type: 'string', example: 'Software Engineering' },
           slug: { type: 'string', example: 'software-engineering' },
+          isActive: { type: 'boolean', example: true },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
+          children: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Category' },
+          },
+          _count: {
+            type: 'object',
+            properties: {
+              children: { type: 'integer', example: 2 },
+              courses: { type: 'integer', example: 5 },
+              roadmaps: { type: 'integer', example: 1 },
+            },
+          },
         },
       },
       CreateCategoryRequest: {
@@ -1041,6 +1058,7 @@ export const openApiDocument = {
         properties: {
           name: { type: 'string', minLength: 2, maxLength: 150, example: 'Mobile Development' },
           parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+          isActive: { type: 'boolean', default: true },
         },
       },
       UpdateCategoryRequest: {
@@ -1048,6 +1066,7 @@ export const openApiDocument = {
         properties: {
           name: { type: 'string', minLength: 2, maxLength: 150 },
           parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+          isActive: { type: 'boolean' },
         },
       },
       CategoryListResponse: {
@@ -1069,6 +1088,57 @@ export const openApiDocument = {
           success: { type: 'boolean', example: true },
           message: { type: 'string', example: 'Category operation successful' },
           data: { $ref: '#/components/schemas/Category' },
+        },
+      },
+      Tag: {
+        type: 'object',
+        required: ['id', 'name', 'slug', 'createdAt'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '1' },
+          name: { type: 'string', example: 'Node.js' },
+          slug: { type: 'string', example: 'node-js' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateTagRequest: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 100, example: 'Node.js' },
+        },
+      },
+      UpdateTagRequest: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 100, example: 'TypeScript' },
+        },
+      },
+      TagListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Tags retrieved successfully' },
+          data: {
+            type: 'object',
+            required: ['data', 'meta'],
+            properties: {
+              data: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/Tag' },
+              },
+              meta: { $ref: '#/components/schemas/PaginationMeta' },
+            },
+          },
+        },
+      },
+      TagResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Tag operation successful' },
+          data: { $ref: '#/components/schemas/Tag' },
         },
       },
     },
@@ -2283,6 +2353,20 @@ export const openApiDocument = {
         summary: 'List all categories',
         operationId: 'listCategories',
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'tree',
+            in: 'query',
+            schema: { type: 'boolean', default: false },
+            description: 'Return components in a hierarchical tree structure.',
+          },
+          {
+            name: 'onlyActive',
+            in: 'query',
+            schema: { type: 'boolean', default: false },
+            description: 'Filter categories by active status.',
+          },
+        ],
         responses: {
           '200': {
             description: 'Categories retrieved successfully.',
@@ -2748,6 +2832,151 @@ export const openApiDocument = {
               },
             },
           },
+        },
+      },
+    },
+    [`${API_PREFIX}/tags`]: {
+      get: {
+        tags: ['Tags'],
+        summary: 'List all tags',
+        operationId: 'listTags',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'page',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, default: 1 },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+          },
+          {
+            name: 'search',
+            in: 'query',
+            schema: { type: 'string' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Tags retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TagListResponse' },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Tags'],
+        summary: 'Create a new tag',
+        description: 'Requires the `admin` role.',
+        operationId: 'createTag',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateTagRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Tag created successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TagResponse' },
+              },
+            },
+          },
+          '403': { description: 'Forbidden' },
+          '409': { description: 'Tag already exists' },
+        },
+      },
+    },
+    [`${API_PREFIX}/tags/{id}`]: {
+      get: {
+        tags: ['Tags'],
+        summary: 'Get tag details',
+        operationId: 'getTagById',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Tag details returned.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TagResponse' },
+              },
+            },
+          },
+          '404': { description: 'Tag not found' },
+        },
+      },
+      put: {
+        tags: ['Tags'],
+        summary: 'Update a tag',
+        description: 'Requires the `admin` role.',
+        operationId: 'updateTag',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateTagRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Tag updated successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TagResponse' },
+              },
+            },
+          },
+          '403': { description: 'Forbidden' },
+          '404': { description: 'Tag not found' },
+          '409': { description: 'Tag name already exists' },
+        },
+      },
+      delete: {
+        tags: ['Tags'],
+        summary: 'Delete a tag',
+        description: 'Requires the `admin` role.',
+        operationId: 'deleteTag',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '204': { description: 'Tag deleted successfully' },
+          '403': { description: 'Forbidden' },
+          '404': { description: 'Tag not found' },
         },
       },
     },
