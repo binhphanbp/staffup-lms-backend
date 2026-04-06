@@ -426,7 +426,7 @@ export class QuizService {
     // 6. Upsert response using transaction
     const result = await db.$transaction(async (tx: any) => {
       // Check if response already exists
-      const existingResponse = await tx.quizAttemptResponse.findUnique({
+      const existingResponse = await tx.attemptResponse.findUnique({
         where: { attemptQuestionId: BigInt(attemptQuestionId) },
       });
 
@@ -434,7 +434,7 @@ export class QuizService {
 
       if (existingResponse) {
         // Update existing response
-        response = await tx.quizAttemptResponse.update({
+        response = await tx.attemptResponse.update({
           where: { id: existingResponse.id },
           data: {
             responseText: responseText || null,
@@ -443,12 +443,12 @@ export class QuizService {
         });
 
         // Delete old selected options
-        await tx.quizAttemptResponseOption.deleteMany({
-          where: { responseId: existingResponse.id },
+        await tx.attemptResponseOption.deleteMany({
+          where: { attemptResponseId: existingResponse.id },
         });
       } else {
         // Create new response
-        response = await tx.quizAttemptResponse.create({
+        response = await tx.attemptResponse.create({
           data: {
             attemptQuestionId: BigInt(attemptQuestionId),
             responseText: responseText || null,
@@ -459,16 +459,16 @@ export class QuizService {
 
       // Create selected options for choice questions
       if (isChoiceQuestion && selectedOptionIds && selectedOptionIds.length > 0) {
-        await tx.quizAttemptResponseOption.createMany({
+        await tx.attemptResponseOption.createMany({
           data: selectedOptionIds.map((optionId) => ({
-            responseId: response.id,
+            attemptResponseId: response.id,
             questionOptionId: BigInt(optionId),
           })),
         });
       }
 
       // Fetch complete response with selected options
-      return tx.quizAttemptResponse.findUnique({
+      return tx.attemptResponse.findUnique({
         where: { id: response.id },
         include: {
           selectedOptions: {
