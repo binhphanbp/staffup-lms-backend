@@ -48,6 +48,14 @@ export const openApiDocument = {
       name: 'Tags',
       description: 'Tag management for Course organization.',
     },
+    {
+      name: 'Quiz Attempts',
+      description: 'Quiz attempt management and submission endpoints.',
+    },
+    {
+      name: 'Dashboard',
+      description: 'Dashboard statistics for different user roles.',
+    },
   ],
   components: {
     securitySchemes: {
@@ -3255,6 +3263,1453 @@ export const openApiDocument = {
               'application/json': {
                 schema: {
                   $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/start`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Start a new quiz attempt',
+        operationId: 'startQuizAttempt',
+        description:
+          'Start a new quiz attempt for a student. Validates max attempts, creates quiz_attempt record, generates attempt_no, and creates question snapshots.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['quizId', 'enrollmentId'],
+                properties: {
+                  quizId: {
+                    type: 'string',
+                    pattern: '^\\d+$',
+                    example: '51',
+                    description: 'Quiz ID as numeric string',
+                  },
+                  enrollmentId: {
+                    type: 'string',
+                    pattern: '^\\d+$',
+                    example: '167',
+                    description: 'Enrollment ID as numeric string',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Quiz attempt started successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'attemptId',
+                        'attemptNo',
+                        'quizId',
+                        'quizTitle',
+                        'totalQuestions',
+                        'startedAt',
+                      ],
+                      properties: {
+                        attemptId: {
+                          type: 'string',
+                          example: '124',
+                          description: 'Created quiz attempt ID',
+                        },
+                        attemptNo: {
+                          type: 'number',
+                          example: 1,
+                          description: 'Attempt number (1, 2, 3...)',
+                        },
+                        quizId: {
+                          type: 'string',
+                          example: '51',
+                        },
+                        quizTitle: {
+                          type: 'string',
+                          example: 'Node.js Fundamentals - Final Quiz',
+                        },
+                        timeLimitMinutes: {
+                          type: 'number',
+                          nullable: true,
+                          example: 30,
+                          description: 'Time limit in minutes, null if no limit',
+                        },
+                        totalQuestions: {
+                          type: 'number',
+                          example: 5,
+                          description: 'Number of questions in this attempt',
+                        },
+                        startedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T14:56:00.154Z',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt started successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Bad request - validation failed or business rule violated',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      enum: [
+                        'You already have an in-progress attempt for this quiz. Please complete or abandon it first.',
+                        'Maximum attempts (3) reached for this quiz',
+                        'This quiz has no questions',
+                      ],
+                      example:
+                        'You already have an in-progress attempt for this quiz. Please complete or abandon it first.',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - enrollment does not belong to user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to access this enrollment',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Enrollment or quiz not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      enum: ['Enrollment not found', 'Quiz not found in this course'],
+                      example: 'Enrollment not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/{id}/detail`]: {
+      get: {
+        tags: ['Quiz Attempts'],
+        summary: 'Get quiz attempt detail for taking quiz',
+        operationId: 'getQuizAttemptDetail',
+        description:
+          'Get detailed quiz attempt information including questions with snapshots and saved responses. Does NOT expose correct answers or scores when attempt is in_progress.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Quiz attempt ID as numeric string',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Quiz attempt detail retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'id',
+                        'enrollmentId',
+                        'quizId',
+                        'attemptNo',
+                        'status',
+                        'startedAt',
+                        'timeSpentSeconds',
+                        'isTimedOut',
+                        'quiz',
+                        'questions',
+                      ],
+                      properties: {
+                        id: { type: 'string', example: '124' },
+                        enrollmentId: { type: 'string', example: '167' },
+                        quizId: { type: 'string', example: '51' },
+                        attemptNo: { type: 'number', example: 1 },
+                        status: {
+                          type: 'string',
+                          enum: ['in_progress', 'submitted', 'graded'],
+                          example: 'in_progress',
+                        },
+                        objectiveScore: {
+                          type: 'number',
+                          nullable: true,
+                          example: null,
+                          description: 'Auto-graded score, null if not submitted',
+                        },
+                        manualScore: {
+                          type: 'number',
+                          nullable: true,
+                          example: null,
+                          description: 'Manual score for essay/short answer, null if not graded',
+                        },
+                        totalScore: {
+                          type: 'number',
+                          nullable: true,
+                          example: null,
+                          description: 'Total score (objective + manual), null if not graded',
+                        },
+                        isPassed: {
+                          type: 'boolean',
+                          nullable: true,
+                          example: null,
+                          description: 'Whether student passed, null if not graded',
+                        },
+                        startedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T14:56:00.154Z',
+                        },
+                        submittedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                          example: null,
+                        },
+                        gradedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                          example: null,
+                        },
+                        timeSpentSeconds: {
+                          type: 'number',
+                          example: 0,
+                          description: 'Time spent so far in seconds',
+                        },
+                        timeLimitSeconds: {
+                          type: 'number',
+                          nullable: true,
+                          example: 1800,
+                          description: 'Time limit in seconds, null if no limit',
+                        },
+                        timeRemainingSeconds: {
+                          type: 'number',
+                          nullable: true,
+                          example: 1800,
+                          description:
+                            'Time remaining in seconds (only for in_progress), null if no limit or not in progress',
+                        },
+                        isTimedOut: {
+                          type: 'boolean',
+                          example: false,
+                          description: 'Whether time limit has been exceeded',
+                        },
+                        quiz: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '51' },
+                            title: { type: 'string', example: 'Node.js Fundamentals - Final Quiz' },
+                            description: {
+                              type: 'string',
+                              nullable: true,
+                              example: 'Assessment quiz for Node.js Fundamentals',
+                            },
+                            passScorePercent: { type: 'number', example: 70 },
+                            timeLimitMinutes: { type: 'number', nullable: true, example: 30 },
+                            maxAttempts: { type: 'number', nullable: true, example: 3 },
+                            shuffleQuestions: { type: 'boolean', example: true },
+                            shuffleOptions: { type: 'boolean', example: true },
+                          },
+                        },
+                        questions: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: {
+                                type: 'string',
+                                example: '501',
+                                description: 'Quiz attempt question ID',
+                              },
+                              displayOrder: { type: 'number', example: 1 },
+                              maxPoints: { type: 'number', example: 10 },
+                              questionSnapshot: {
+                                type: 'object',
+                                properties: {
+                                  questionText: {
+                                    type: 'string',
+                                    example: 'What is Node.js?',
+                                  },
+                                  questionType: {
+                                    type: 'string',
+                                    enum: [
+                                      'single_choice',
+                                      'multiple_choice',
+                                      'true_false',
+                                      'short_answer',
+                                      'essay',
+                                    ],
+                                    example: 'single_choice',
+                                  },
+                                  explanation: {
+                                    type: 'string',
+                                    nullable: true,
+                                    example: null,
+                                    description:
+                                      'Explanation of correct answer. NULL when status=in_progress to prevent cheating',
+                                  },
+                                },
+                              },
+                              optionsSnapshot: {
+                                type: 'array',
+                                nullable: true,
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    optionId: { type: 'string', example: '1001' },
+                                    optionText: {
+                                      type: 'string',
+                                      example: 'A JavaScript runtime',
+                                    },
+                                    orderIndex: { type: 'number', example: 0 },
+                                  },
+                                },
+                                description:
+                                  'Shuffled options snapshot. NULL for short_answer/essay questions',
+                              },
+                              response: {
+                                type: 'object',
+                                nullable: true,
+                                properties: {
+                                  id: { type: 'string', example: '2001' },
+                                  responseText: {
+                                    type: 'string',
+                                    nullable: true,
+                                    example: null,
+                                    description: 'Text answer for short_answer/essay',
+                                  },
+                                  selectedOptionIds: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    example: ['1001'],
+                                    description: 'Selected option IDs for choice questions',
+                                  },
+                                  isCorrect: {
+                                    type: 'boolean',
+                                    nullable: true,
+                                    example: null,
+                                    description:
+                                      'Whether answer is correct. NULL when status=in_progress to prevent cheating',
+                                  },
+                                  awardedPoints: {
+                                    type: 'number',
+                                    nullable: true,
+                                    example: null,
+                                    description:
+                                      'Points awarded. NULL when status=in_progress to prevent cheating',
+                                  },
+                                  gradedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                    example: null,
+                                  },
+                                },
+                                description: 'Saved response if student has answered this question',
+                              },
+                            },
+                          },
+                        },
+                        gradedBy: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string', example: '5' },
+                            fullName: { type: 'string', example: 'Teacher Name' },
+                            email: { type: 'string', example: 'teacher@example.com' },
+                          },
+                          description: 'Grader info if manually graded',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt detail retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - attempt does not belong to user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to view this quiz attempt',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/responses`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Save or update quiz attempt response',
+        operationId: 'saveQuizResponse',
+        description:
+          'Upsert response for a quiz question. Supports both text answers (essay/short_answer) and selected options (choice questions). Can be called multiple times to update answer.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['attemptQuestionId'],
+                properties: {
+                  attemptQuestionId: {
+                    type: 'string',
+                    pattern: '^\\d+$',
+                    example: '501',
+                    description: 'Quiz attempt question ID (from getQuizAttemptDetail response)',
+                  },
+                  responseText: {
+                    type: 'string',
+                    maxLength: 10000,
+                    nullable: true,
+                    example: 'Node.js is a JavaScript runtime built on Chrome V8 engine...',
+                    description: 'Text answer for short_answer or essay questions',
+                  },
+                  selectedOptionIds: {
+                    type: 'array',
+                    items: {
+                      type: 'string',
+                      pattern: '^\\d+$',
+                    },
+                    example: ['1001'],
+                    description:
+                      'Array of selected option IDs for choice questions (single_choice, multiple_choice, true_false)',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Response saved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'id',
+                        'attemptQuestionId',
+                        'responseText',
+                        'selectedOptionIds',
+                        'createdAt',
+                        'updatedAt',
+                      ],
+                      properties: {
+                        id: {
+                          type: 'string',
+                          example: '2001',
+                          description: 'Quiz attempt response ID',
+                        },
+                        attemptQuestionId: {
+                          type: 'string',
+                          example: '501',
+                        },
+                        responseText: {
+                          type: 'string',
+                          nullable: true,
+                          example: 'Node.js is a JavaScript runtime...',
+                        },
+                        selectedOptionIds: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          example: ['1001'],
+                          description: 'Empty array for text-based questions',
+                        },
+                        createdAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T15:10:30.154Z',
+                        },
+                        updatedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T15:10:30.154Z',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Response saved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Bad request - validation failed or attempt not in progress',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      enum: [
+                        'Selected options are required for choice questions',
+                        'Response text is required for text-based questions',
+                        'Only one option can be selected for this question type',
+                        'Cannot save response. Quiz attempt is not in progress',
+                      ],
+                      example: 'Selected options are required for choice questions',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - attempt does not belong to user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to answer this question',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt question not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt question not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/{attemptId}/submit`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Submit quiz attempt',
+        operationId: 'submitQuizAttempt',
+        description:
+          'Submit quiz attempt and mark as completed. Calculates time spent. Auto-grades objective questions if no essay/short_answer questions exist. Otherwise keeps status as submitted for manual grading.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'attemptId',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Quiz attempt ID as numeric string',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Quiz attempt submitted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'attemptId',
+                        'status',
+                        'submittedAt',
+                        'timeSpentSeconds',
+                        'autoGraded',
+                        'requiresManualGrading',
+                      ],
+                      properties: {
+                        attemptId: { type: 'string', example: '124' },
+                        status: {
+                          type: 'string',
+                          enum: ['submitted', 'graded'],
+                          example: 'graded',
+                          description:
+                            'graded if auto-graded (no essays), submitted if requires manual grading',
+                        },
+                        submittedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T15:30:00.154Z',
+                        },
+                        timeSpentSeconds: {
+                          type: 'number',
+                          example: 1200,
+                          description: 'Total time spent on quiz in seconds',
+                        },
+                        objectiveScore: {
+                          type: 'number',
+                          nullable: true,
+                          example: 8,
+                          description: 'Auto-graded score if no essays, null otherwise',
+                        },
+                        autoGraded: {
+                          type: 'boolean',
+                          example: true,
+                          description: 'Whether quiz was auto-graded immediately',
+                        },
+                        requiresManualGrading: {
+                          type: 'boolean',
+                          example: false,
+                          description: 'Whether quiz has essay/short_answer questions',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt submitted successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Quiz attempt has already been submitted',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt has already been submitted',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to submit this attempt',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/{attemptId}/grade`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Auto-grade objective questions',
+        operationId: 'autoGradeObjectiveQuestions',
+        description:
+          'Automatically grade objective questions (single_choice, multiple_choice, true_false). Calculates isCorrect and awardedPoints for each response. Updates attempt with objective_score. Skips essay and short_answer questions.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'attemptId',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Quiz attempt ID as numeric string',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Objective questions graded successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: ['attemptId', 'objectiveScore', 'gradedQuestionsCount', 'status'],
+                      properties: {
+                        attemptId: { type: 'string', example: '124' },
+                        objectiveScore: {
+                          type: 'number',
+                          example: 8,
+                          description: 'Total score from objective questions',
+                        },
+                        gradedQuestionsCount: {
+                          type: 'number',
+                          example: 3,
+                          description: 'Number of objective questions graded',
+                        },
+                        status: {
+                          type: 'string',
+                          example: 'graded',
+                          description: 'Updated attempt status',
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Objective questions graded successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Cannot grade attempt that is still in progress',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Cannot grade attempt that is still in progress',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to grade this attempt',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/history`]: {
+      get: {
+        tags: ['Quiz Attempts'],
+        summary: 'Get quiz attempt history',
+        operationId: 'getAttemptHistory',
+        description:
+          'Get list of quiz attempts filtered by enrollmentId or quizId. Returns attempt history with scores and status. User can only see their own attempts.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Filter by enrollment ID to see all attempts for a specific enrollment',
+          },
+          {
+            name: 'quizId',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Filter by quiz ID to see all attempts for a specific quiz',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Attempt history retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        required: [
+                          'id',
+                          'attemptNo',
+                          'status',
+                          'startedAt',
+                          'timeSpentSeconds',
+                          'quiz',
+                          'enrollment',
+                        ],
+                        properties: {
+                          id: { type: 'string', example: '124' },
+                          attemptNo: { type: 'number', example: 2 },
+                          status: {
+                            type: 'string',
+                            enum: ['in_progress', 'submitted', 'graded'],
+                            example: 'graded',
+                          },
+                          objectiveScore: {
+                            type: 'number',
+                            nullable: true,
+                            example: 8,
+                            description: 'Score from objective questions',
+                          },
+                          manualScore: {
+                            type: 'number',
+                            nullable: true,
+                            example: 5,
+                            description: 'Score from manually graded questions',
+                          },
+                          totalScore: {
+                            type: 'number',
+                            nullable: true,
+                            example: 13,
+                            description: 'Total score (objective + manual)',
+                          },
+                          isPassed: {
+                            type: 'boolean',
+                            nullable: true,
+                            example: true,
+                            description: 'Whether student passed the quiz',
+                          },
+                          startedAt: {
+                            type: 'string',
+                            format: 'date-time',
+                            example: '2026-04-06T14:56:00.154Z',
+                          },
+                          submittedAt: {
+                            type: 'string',
+                            format: 'date-time',
+                            nullable: true,
+                            example: '2026-04-06T15:30:00.154Z',
+                          },
+                          gradedAt: {
+                            type: 'string',
+                            format: 'date-time',
+                            nullable: true,
+                            example: '2026-04-06T15:35:00.154Z',
+                          },
+                          timeSpentSeconds: {
+                            type: 'number',
+                            example: 1200,
+                            description: 'Time spent on quiz in seconds',
+                          },
+                          quiz: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', example: '51' },
+                              title: {
+                                type: 'string',
+                                example: 'Node.js Fundamentals - Final Quiz',
+                              },
+                              passScorePercent: { type: 'number', example: 70 },
+                              timeLimitMinutes: { type: 'number', nullable: true, example: 30 },
+                            },
+                          },
+                          enrollment: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', example: '167' },
+                              user: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', example: '130' },
+                                  fullName: { type: 'string', example: 'Student Name' },
+                                  email: { type: 'string', example: 'student1@example.com' },
+                                },
+                              },
+                              course: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', example: '115' },
+                                  title: { type: 'string', example: 'Node.js Fundamentals' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Attempt history retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/responses/{responseId}/grade`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Manual grade essay/short_answer response',
+        operationId: 'manualGradeResponse',
+        description:
+          'Manually grade essay or short_answer question response. Set awarded points and mark as graded. Only trainer (course owner) or admin can grade. Automatically recalculates attempt total scores.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'responseId',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Response ID as numeric string (from attempt detail)',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['awardedPoints'],
+                properties: {
+                  awardedPoints: {
+                    type: 'number',
+                    minimum: 0,
+                    example: 1.5,
+                    description:
+                      'Points to award (must be between 0 and maxPoints for the question)',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Response graded successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'id',
+                        'attemptQuestionId',
+                        'awardedPoints',
+                        'isCorrect',
+                        'gradedAt',
+                        'gradedBy',
+                      ],
+                      properties: {
+                        id: {
+                          type: 'string',
+                          example: '562',
+                          description: 'Response ID',
+                        },
+                        attemptQuestionId: {
+                          type: 'string',
+                          example: '562',
+                        },
+                        awardedPoints: {
+                          type: 'number',
+                          example: 1.5,
+                          description: 'Points awarded by grader',
+                        },
+                        isCorrect: {
+                          type: 'boolean',
+                          example: false,
+                          description: 'True if awarded full points (awardedPoints === maxPoints)',
+                        },
+                        gradedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T17:59:41.505Z',
+                        },
+                        gradedBy: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '128' },
+                            fullName: { type: 'string', example: 'John Trainer' },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Response graded successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Bad request - validation failed or invalid question type',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      enum: [
+                        'Only essay and short_answer questions can be manually graded',
+                        'Awarded points must be between 0 and 2 (max points for this question)',
+                      ],
+                      example: 'Only essay and short_answer questions can be manually graded',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - must be trainer or admin',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to grade this response',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Response not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Response not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/quiz-attempts/{attemptId}/finalize`]: {
+      post: {
+        tags: ['Quiz Attempts'],
+        summary: 'Finalize grading for quiz attempt',
+        operationId: 'finalizeGrading',
+        description:
+          'Finalize grading after all manual grading is complete. Calculates final scores (objective + manual), determines pass/fail status, sets gradedAt and gradedBy. Only trainer (course owner) or admin can finalize.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'attemptId',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+            description: 'Quiz attempt ID as numeric string',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Grading finalized successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: [
+                        'attemptId',
+                        'status',
+                        'objectiveScore',
+                        'manualScore',
+                        'totalScore',
+                        'totalMaxPoints',
+                        'scorePercent',
+                        'isPassed',
+                        'gradedAt',
+                        'gradedBy',
+                      ],
+                      properties: {
+                        attemptId: { type: 'string', example: '124' },
+                        status: { type: 'string', example: 'graded' },
+                        objectiveScore: {
+                          type: 'number',
+                          example: 0,
+                          description: 'Total score from objective questions',
+                        },
+                        manualScore: {
+                          type: 'number',
+                          example: 1.5,
+                          description: 'Total score from manually graded questions',
+                        },
+                        totalScore: {
+                          type: 'number',
+                          example: 1.5,
+                          description: 'Total score (objective + manual)',
+                        },
+                        totalMaxPoints: {
+                          type: 'number',
+                          example: 15,
+                          description: 'Maximum possible points for this quiz',
+                        },
+                        scorePercent: {
+                          type: 'number',
+                          example: 10,
+                          description: 'Score percentage (totalScore / totalMaxPoints * 100)',
+                        },
+                        isPassed: {
+                          type: 'boolean',
+                          example: false,
+                          description: 'Whether student passed (scorePercent >= passScorePercent)',
+                        },
+                        gradedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-06T18:09:23.691Z',
+                        },
+                        gradedBy: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '128' },
+                            fullName: { type: 'string', example: 'John Trainer' },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Grading finalized successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Bad request - attempt in progress or questions not graded',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      enum: [
+                        'Cannot finalize grading for attempt that is still in progress',
+                        'Cannot finalize grading. 2 question(s) still need to be graded',
+                      ],
+                      example: 'Cannot finalize grading. 2 question(s) still need to be graded',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - must be trainer or admin',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to finalize grading for this attempt',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Quiz attempt not found',
+                    },
+                  },
                 },
               },
             },

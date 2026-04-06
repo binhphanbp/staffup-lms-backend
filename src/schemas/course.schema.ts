@@ -37,6 +37,8 @@ export const courseQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   status: z.enum(['draft', 'published', 'archived']).optional(),
   search: z.string().optional(),
+  trainerId: z.string().regex(/^\d+$/, 'Invalid trainer ID').optional(),
+  categoryId: z.string().regex(/^\d+$/, 'Invalid category ID').optional(),
 });
 
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;

@@ -58,12 +58,22 @@ export class CourseService {
       sortOrder = 'desc',
       status,
       search,
+      trainerId,
+      categoryId,
     } = query;
     const skip = (page - 1) * limit;
     const where: Record<string, unknown> = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (trainerId) {
+      where.trainerUserId = BigInt(trainerId);
+    }
+
+    if (categoryId) {
+      where.categoryId = BigInt(categoryId);
     }
 
     if (search) {
