@@ -56,3 +56,39 @@ export const submitQuizAttempt = catchAsync(async (req: AuthRequest, res: Respon
 
   sendSuccess(res, result, 'Quiz attempt submitted successfully');
 });
+
+export const getAttemptHistory = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { enrollmentId, quizId } = req.query;
+  const userId = req.user!.userId;
+
+  const history = await QuizService.getAttemptHistory(
+    enrollmentId as string | undefined,
+    quizId as string | undefined,
+    userId,
+  );
+
+  sendSuccess(res, history, 'Attempt history retrieved successfully');
+});
+
+export const manualGradeResponse = catchAsync(async (req: AuthRequest, res: Response) => {
+  const responseId = Array.isArray(req.params.responseId)
+    ? req.params.responseId[0]
+    : req.params.responseId;
+  const { awardedPoints } = req.body;
+  const userId = req.user!.userId;
+
+  const result = await QuizService.manualGradeResponse(responseId, awardedPoints, userId);
+
+  sendSuccess(res, result, 'Response graded successfully');
+});
+
+export const finalizeGrading = catchAsync(async (req: AuthRequest, res: Response) => {
+  const attemptId = Array.isArray(req.params.attemptId)
+    ? req.params.attemptId[0]
+    : req.params.attemptId;
+  const userId = req.user!.userId;
+
+  const result = await QuizService.finalizeGrading(attemptId, userId);
+
+  sendSuccess(res, result, 'Grading finalized successfully');
+});

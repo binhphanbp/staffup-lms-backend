@@ -713,4 +713,400 @@ export class QuizService {
       requiresManualGrading: hasManualGradingQuestions,
     };
   }
+
+  /**
+   * Get quiz attempt history
+   * List all attempts for a specific enrollment or quiz
+   */
+  static async getAttemptHistory(enrollmentId?: string, quizId?: string, userId?: string) {
+    const db = prisma as any;
+
+    // Build where clause
+    const where: any = {};
+
+    if (enrollmentId) {
+      where.enrollmentId = BigInt(enrollmentId);
+    }
+
+    if (quizId) {
+      where.quizId = BigInt(quizId);
+    }
+
+    // Get attempts
+    const attempts = await db.quizAttempt.findMany({
+      where,
+      include: {
+        quiz: {
+          select: {
+            id: true,
+            title: true,
+            passScorePercent: true,
+            timeLimitMinutes: true,
+          },
+        },
+        enrollment: {
+          select: {
+            id: true,
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
+            course: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
+    });
+
+    // If userId provided, filter to only user's attempts
+    const filteredAttempts = userId
+      ? attempts.filter((a: any) => a.enrollment.userId.toString() === userId)
+      : attempts;
+
+    return filteredAttempts.map((attempt: any) => ({
+      id: attempt.id.toString(),
+      attemptNo: attempt.attemptNo,
+      status: attempt.status,
+      objectiveScore: attempt.objectiveScore ? Number(attempt.objectiveScore) : null,
+      manualScore: attempt.manualScore ? Number(attempt.manualScore) : null,
+      totalScore: attempt.totalScore ? Number(attempt.totalScore) : null,
+      isPassed: attempt.isPassed,
+      startedAt: attempt.startedAt.toISOString(),
+      submittedAt: attempt.submittedAt ? attempt.submittedAt.toISOString() : null,
+      gradedAt: attempt.gradedAt ? attempt.gradedAt.toISOString() : null,
+      timeSpentSeconds: attempt.timeSpentSeconds,
+      quiz: {
+        id: attempt.quiz.id.toString(),
+        title: attempt.quiz.title,
+        passScorePercent: Number(attempt.quiz.passScorePercent),
+        timeLimitMinutes: attempt.quiz.timeLimitMinutes,
+      },
+      enrollment: {
+        id: attempt.enrollment.id.toString(),
+        user: {
+          id: attempt.enrollment.user.id.toString(),
+          fullName: attempt.enrollment.user.fullName,
+          email: attempt.enrollment.user.email,
+        },
+        course: {
+          id: attempt.enrollment.course.id.toString(),
+          title: attempt.enrollment.course.title,
+        },
+      },
+    }));
+  }
+
+  /**
+   * Manual grade essay/short_answer response
+   * Trainer/admin can manually grade and set awarded points
+   */
+  static async manualGradeResponse(responseId: string, awardedPoints: number, userId: string) {
+    const db = prisma as any;
+
+    // 1. Get response with attempt question and attempt
+    const response = await db.attemptResponse.findUnique({
+      where: { id: BigInt(responseId) },
+      include: {
+        attemptQuestion: {
+          include: {
+            question: {
+              select: {
+                questionType: true,
+              },
+            },
+            attempt: {
+              include: {
+                enrollment: {
+                  include: {
+                    course: {
+                      select: {
+                        trainerUserId: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!response) {
+      throw new AppError('Response not found', 404);
+    }
+
+    // 2. Verify user is trainer/admin
+    const currentUser = await db.user.findUnique({
+      where: { id: BigInt(userId) },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
+    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
+    const isCourseTrainer =
+      response.attemptQuestion.attempt.enrollment.course.trainerUserId.toString() === userId;
+
+    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
+      throw new AppError('You do not have permission to grade this response', 403);
+    }
+
+    // 3. Verify question type is essay or short_answer
+    const questionType = response.attemptQuestion.question.questionType;
+    if (!['essay', 'short_answer'].includes(questionType)) {
+      throw new AppError('Only essay and short_answer questions can be manually graded', 400);
+    }
+
+    // 4. Validate awarded points
+    const maxPoints = response.attemptQuestion.maxPoints;
+    if (awardedPoints < 0 || awardedPoints > maxPoints) {
+      throw new AppError(
+        `Awarded points must be between 0 and ${maxPoints} (max points for this question)`,
+        400,
+      );
+    }
+
+    // 5. Update response with manual grade
+    const updatedResponse = await db.attemptResponse.update({
+      where: { id: BigInt(responseId) },
+      data: {
+        awardedPoints,
+        isCorrect: awardedPoints === maxPoints, // Full points = correct
+        gradedByUserId: BigInt(userId),
+        gradedAt: new Date(),
+      },
+    });
+
+    // 6. Recalculate attempt scores
+    await this.recalculateAttemptScores(
+      response.attemptQuestion.attempt.id.toString(),
+      response.attemptQuestion.attempt.enrollment.course.trainerUserId.toString(),
+    );
+
+    return {
+      id: updatedResponse.id.toString(),
+      attemptQuestionId: updatedResponse.attemptQuestionId.toString(),
+      awardedPoints: Number(updatedResponse.awardedPoints),
+      isCorrect: updatedResponse.isCorrect,
+      gradedAt: updatedResponse.gradedAt.toISOString(),
+      gradedBy: {
+        id: userId,
+        fullName: currentUser.fullName,
+      },
+    };
+  }
+
+  /**
+   * Recalculate attempt total scores after manual grading
+   */
+  private static async recalculateAttemptScores(attemptId: string, userId: string) {
+    const db = prisma as any;
+
+    // Get all responses for this attempt
+    const attempt = await db.quizAttempt.findUnique({
+      where: { id: BigInt(attemptId) },
+      include: {
+        attemptQuestions: {
+          include: {
+            response: true,
+          },
+        },
+        quiz: {
+          select: {
+            passScorePercent: true,
+          },
+        },
+      },
+    });
+
+    if (!attempt) return;
+
+    // Calculate scores
+    let objectiveScore = 0;
+    let manualScore = 0;
+    let totalMaxPoints = 0;
+
+    for (const aq of attempt.attemptQuestions) {
+      totalMaxPoints += aq.maxPoints;
+
+      if (aq.response && aq.response.gradedAt) {
+        const points = Number(aq.response.awardedPoints);
+
+        // Determine if it's objective or manual
+        const questionType = aq.question?.questionType;
+        if (['single_choice', 'multiple_choice', 'true_false'].includes(questionType)) {
+          objectiveScore += points;
+        } else {
+          manualScore += points;
+        }
+      }
+    }
+
+    const totalScore = objectiveScore + manualScore;
+    const scorePercent = totalMaxPoints > 0 ? (totalScore / totalMaxPoints) * 100 : 0;
+    const isPassed = scorePercent >= Number(attempt.quiz.passScorePercent);
+
+    // Update attempt
+    await db.quizAttempt.update({
+      where: { id: BigInt(attemptId) },
+      data: {
+        objectiveScore,
+        manualScore,
+        totalScore,
+        isPassed,
+        status: 'graded',
+      },
+    });
+  }
+
+  /**
+   * Finalize grading for quiz attempt
+   * Calculate final scores, mark as passed/failed, set graded_at and graded_by
+   * Used after all manual grading is complete
+   */
+  static async finalizeGrading(attemptId: string, userId: string) {
+    const db = prisma as any;
+
+    // 1. Get attempt with all responses
+    const attempt = await db.quizAttempt.findUnique({
+      where: { id: BigInt(attemptId) },
+      include: {
+        enrollment: {
+          include: {
+            course: {
+              select: {
+                trainerUserId: true,
+              },
+            },
+          },
+        },
+        quiz: {
+          select: {
+            passScorePercent: true,
+          },
+        },
+        attemptQuestions: {
+          include: {
+            question: {
+              select: {
+                questionType: true,
+              },
+            },
+            response: true,
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new AppError('Quiz attempt not found', 404);
+    }
+
+    // 2. Verify user is trainer/admin
+    const currentUser = await db.user.findUnique({
+      where: { id: BigInt(userId) },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
+    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
+    const isCourseTrainer = attempt.enrollment.course.trainerUserId.toString() === userId;
+
+    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
+      throw new AppError('You do not have permission to finalize grading for this attempt', 403);
+    }
+
+    // 3. Verify attempt is submitted
+    if (attempt.status === 'in_progress') {
+      throw new AppError('Cannot finalize grading for attempt that is still in progress', 400);
+    }
+
+    // 4. Check if all questions are graded
+    const ungradedQuestions = attempt.attemptQuestions.filter(
+      (aq: any) => aq.response && !aq.response.gradedAt,
+    );
+
+    if (ungradedQuestions.length > 0) {
+      throw new AppError(
+        `Cannot finalize grading. ${ungradedQuestions.length} question(s) still need to be graded`,
+        400,
+      );
+    }
+
+    // 5. Calculate final scores
+    let objectiveScore = 0;
+    let manualScore = 0;
+    let totalMaxPoints = 0;
+
+    for (const aq of attempt.attemptQuestions) {
+      totalMaxPoints += aq.maxPoints;
+
+      if (aq.response && aq.response.gradedAt) {
+        const points = Number(aq.response.awardedPoints);
+
+        if (['single_choice', 'multiple_choice', 'true_false'].includes(aq.question.questionType)) {
+          objectiveScore += points;
+        } else {
+          manualScore += points;
+        }
+      }
+    }
+
+    const totalScore = objectiveScore + manualScore;
+    const scorePercent = totalMaxPoints > 0 ? (totalScore / totalMaxPoints) * 100 : 0;
+    const isPassed = scorePercent >= Number(attempt.quiz.passScorePercent);
+
+    // 6. Update attempt with final grading
+    const updatedAttempt = await db.quizAttempt.update({
+      where: { id: BigInt(attemptId) },
+      data: {
+        objectiveScore,
+        manualScore,
+        totalScore,
+        isPassed,
+        status: 'graded',
+        gradedAt: new Date(),
+        gradedByUserId: BigInt(userId),
+      },
+    });
+
+    return {
+      attemptId: updatedAttempt.id.toString(),
+      status: updatedAttempt.status,
+      objectiveScore: Number(updatedAttempt.objectiveScore),
+      manualScore: Number(updatedAttempt.manualScore),
+      totalScore: Number(updatedAttempt.totalScore),
+      totalMaxPoints,
+      scorePercent: Math.round(scorePercent * 100) / 100,
+      isPassed: updatedAttempt.isPassed,
+      gradedAt: updatedAttempt.gradedAt.toISOString(),
+      gradedBy: {
+        id: userId,
+        fullName: currentUser.fullName,
+      },
+    };
+  }
 }

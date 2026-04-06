@@ -37,3 +37,30 @@ export const submitQuizAttemptSchema = z.object({
 });
 
 export type SubmitQuizAttemptInput = z.infer<typeof submitQuizAttemptSchema>;
+
+// Get attempt history
+export const getAttemptHistorySchema = z.object({
+  enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a numeric string').optional(),
+  quizId: z.string().regex(/^\d+$/, 'Quiz ID must be a numeric string').optional(),
+});
+
+export type GetAttemptHistoryInput = z.infer<typeof getAttemptHistorySchema>;
+
+// Manual grade response
+export const manualGradeResponseSchema = z.object({
+  responseId: z.string().regex(/^\d+$/, 'Response ID must be a numeric string'),
+});
+
+export const manualGradeResponseBodySchema = z.object({
+  awardedPoints: z.number().min(0, 'Awarded points must be at least 0'),
+});
+
+export type ManualGradeResponseInput = z.infer<typeof manualGradeResponseSchema>;
+export type ManualGradeResponseBodyInput = z.infer<typeof manualGradeResponseBodySchema>;
+
+// Finalize grading
+export const finalizeGradingSchema = z.object({
+  attemptId: z.string().regex(/^\d+$/, 'Attempt ID must be a numeric string'),
+});
+
+export type FinalizeGradingInput = z.infer<typeof finalizeGradingSchema>;

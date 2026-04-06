@@ -1,7 +1,10 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import {
   autoGradeObjectiveQuestions,
+  finalizeGrading,
+  getAttemptHistory,
   getQuizAttemptDetail,
+  manualGradeResponse,
   saveQuizResponse,
   startQuizAttempt,
   submitQuizAttempt,
@@ -10,7 +13,11 @@ import { authenticate } from '@/middlewares/auth.middleware';
 import { validate } from '@/middlewares/validate.middleware';
 import {
   autoGradeObjectiveSchema,
+  finalizeGradingSchema,
+  getAttemptHistorySchema,
   getQuizAttemptDetailSchema,
+  manualGradeResponseBodySchema,
+  manualGradeResponseSchema,
   saveQuizResponseSchema,
   startQuizAttemptSchema,
   submitQuizAttemptSchema,
@@ -27,6 +34,13 @@ router.use(authenticate);
  * @access  Private (student/employee)
  */
 router.post('/start', validate(startQuizAttemptSchema), startQuizAttempt);
+
+/**
+ * @route   GET /api/v1/quiz-attempts/history
+ * @desc    Get quiz attempt history (filter by enrollmentId or quizId)
+ * @access  Private
+ */
+router.get('/history', validate(getAttemptHistorySchema, 'query'), getAttemptHistory);
 
 /**
  * @route   GET /api/v1/quiz-attempts/:id/detail
@@ -58,6 +72,25 @@ router.post(
   '/:attemptId/grade',
   validate(autoGradeObjectiveSchema, 'params'),
   autoGradeObjectiveQuestions,
+);
+
+/**
+ * @route   POST /api/v1/quiz-attempts/:attemptId/finalize
+ * @desc    Finalize grading - calculate final scores and mark as complete
+ * @access  Private (trainer/admin only)
+ */
+router.post('/:attemptId/finalize', validate(finalizeGradingSchema, 'params'), finalizeGrading);
+
+/**
+ * @route   POST /api/v1/quiz-attempts/responses/:responseId/grade
+ * @desc    Manual grade essay/short_answer response
+ * @access  Private (trainer/admin only)
+ */
+router.post(
+  '/responses/:responseId/grade',
+  validate(manualGradeResponseSchema, 'params'),
+  validate(manualGradeResponseBodySchema),
+  manualGradeResponse,
 );
 
 export default router;
