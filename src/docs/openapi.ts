@@ -6,7 +6,7 @@ export const openApiDocument = {
     title: 'Staffup LMS Backend API',
     version: '1.0.0',
     description:
-      'OpenAPI document for the Staffup LMS backend. This spec currently covers health, authentication, roles, departments, and course endpoints.',
+      'OpenAPI document for the Staffup LMS backend. This spec covers health, authentication, roles, departments, categories, tags, and course management.',
   },
   servers: [
     {
@@ -23,10 +23,6 @@ export const openApiDocument = {
       name: 'Auth',
       description:
         'Authentication, password changes, refresh/logout session flow, and current user profile.',
-    },
-    {
-      name: 'Dashboard',
-      description: 'Dashboard statistics for admin and managers.',
     },
     {
       name: 'Courses',
@@ -47,6 +43,10 @@ export const openApiDocument = {
     {
       name: 'Roles',
       description: 'RBAC role management and permission mapping.',
+    },
+    {
+      name: 'Tags',
+      description: 'Tag management for Course organization.',
     },
   ],
   components: {
@@ -1007,46 +1007,73 @@ export const openApiDocument = {
         },
       },
       RoleListResponse: {
-        Category: {
-          type: 'object',
-          required: ['id', 'name', 'slug', 'createdAt', 'updatedAt'],
-          properties: {
-            id: { type: 'string', pattern: '^\\d+$', example: '1' },
-            parentId: { type: 'string', pattern: '^\\d+$', nullable: true, example: null },
-            name: { type: 'string', example: 'Software Engineering' },
-            slug: { type: 'string', example: 'software-engineering' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' },
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Roles retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/RoleEntity' },
           },
         },
-        CreateCategoryRequest: {
-          type: 'object',
-          required: ['name'],
-          properties: {
-            name: { type: 'string', minLength: 2, maxLength: 150, example: 'Mobile Development' },
-            parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
-          },
+      },
+      RoleDetailResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Role retrieved successfully' },
+          data: { $ref: '#/components/schemas/RoleEntity' },
         },
-        UpdateCategoryRequest: {
-          type: 'object',
-          properties: {
-            name: { type: 'string', minLength: 2, maxLength: 150 },
-            parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+      },
+      Category: {
+        type: 'object',
+        required: ['id', 'name', 'slug', 'isActive', 'createdAt', 'updatedAt'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '1' },
+          parentId: { type: 'string', pattern: '^\\d+$', nullable: true, example: null },
+          name: { type: 'string', example: 'Software Engineering' },
+          slug: { type: 'string', example: 'software-engineering' },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          children: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Category' },
           },
-        },
-        CategoryListResponse: {
-          type: 'object',
-          required: ['success', 'message', 'data'],
-          properties: {
-            success: { type: 'boolean', example: true },
-            message: { type: 'string', example: 'Roles retrieved successfully' },
-            data: {
-              type: 'array',
-              items: { $ref: '#/components/schemas/RoleEntity' },
+          _count: {
+            type: 'object',
+            properties: {
+              children: { type: 'integer', example: 2 },
+              courses: { type: 'integer', example: 5 },
+              roadmaps: { type: 'integer', example: 1 },
             },
           },
         },
-        RoleDetailResponse: {
+      },
+      CreateCategoryRequest: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 150, example: 'Mobile Development' },
+          parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+          isActive: { type: 'boolean', default: true },
+        },
+      },
+      UpdateCategoryRequest: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 150 },
+          parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+          isActive: { type: 'boolean' },
+        },
+      },
+      CategoryListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
           message: { type: 'string', example: 'Categories retrieved successfully' },
           data: {
             type: 'array',
@@ -1059,8 +1086,59 @@ export const openApiDocument = {
         required: ['success', 'message', 'data'],
         properties: {
           success: { type: 'boolean', example: true },
-          message: { type: 'string', example: 'Role retrieved successfully' },
-          data: { $ref: '#/components/schemas/RoleEntity' },
+          message: { type: 'string', example: 'Category operation successful' },
+          data: { $ref: '#/components/schemas/Category' },
+        },
+      },
+      Tag: {
+        type: 'object',
+        required: ['id', 'name', 'slug', 'createdAt'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '1' },
+          name: { type: 'string', example: 'Node.js' },
+          slug: { type: 'string', example: 'node-js' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateTagRequest: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 100, example: 'Node.js' },
+        },
+      },
+      UpdateTagRequest: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 1, maxLength: 100, example: 'TypeScript' },
+        },
+      },
+      TagListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Tags retrieved successfully' },
+          data: {
+            type: 'object',
+            required: ['data', 'meta'],
+            properties: {
+              data: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/Tag' },
+              },
+              meta: { $ref: '#/components/schemas/PaginationMeta' },
+            },
+          },
+        },
+      },
+      TagResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Tag operation successful' },
+          data: { $ref: '#/components/schemas/Tag' },
         },
       },
     },
@@ -2275,6 +2353,20 @@ export const openApiDocument = {
         summary: 'List all categories',
         operationId: 'listCategories',
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'tree',
+            in: 'query',
+            schema: { type: 'boolean', default: false },
+            description: 'Return components in a hierarchical tree structure.',
+          },
+          {
+            name: 'onlyActive',
+            in: 'query',
+            schema: { type: 'boolean', default: false },
+            description: 'Filter categories by active status.',
+          },
+        ],
         responses: {
           '200': {
             description: 'Categories retrieved successfully.',
@@ -2743,397 +2835,148 @@ export const openApiDocument = {
         },
       },
     },
-    [`${API_PREFIX}/admin/dashboard`]: {
+    [`${API_PREFIX}/tags`]: {
       get: {
-        tags: ['Admin'],
-        summary: 'Get admin dashboard statistics',
-        description:
-          'Get overview statistics for admin dashboard including users, courses, enrollments, and risk summary. Requires admin role.',
-        operationId: 'getAdminDashboard',
+        tags: ['Tags'],
+        summary: 'List all tags',
+        operationId: 'listTags',
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'page',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, default: 1 },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+          },
+          {
+            name: 'search',
+            in: 'query',
+            schema: { type: 'string' },
+          },
+        ],
         responses: {
           '200': {
-            description: 'Dashboard statistics retrieved successfully',
+            description: 'Tags retrieved successfully.',
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['success', 'message', 'data'],
-                  properties: {
-                    success: { type: 'boolean', example: true },
-                    data: {
-                      type: 'object',
-                      required: ['users', 'courses', 'enrollments', 'riskSummary'],
-                      properties: {
-                        users: {
-                          type: 'object',
-                          required: ['total', 'active', 'inactive', 'byRole'],
-                          properties: {
-                            total: { type: 'number', example: 10 },
-                            active: { type: 'number', example: 10 },
-                            inactive: { type: 'number', example: 0 },
-                            byRole: {
-                              type: 'object',
-                              required: ['admin', 'trainer', 'student'],
-                              properties: {
-                                admin: { type: 'number', example: 1 },
-                                trainer: { type: 'number', example: 2 },
-                                student: { type: 'number', example: 7 },
-                              },
-                            },
-                          },
-                        },
-                        courses: {
-                          type: 'object',
-                          required: ['total', 'published', 'draft', 'archived'],
-                          properties: {
-                            total: { type: 'number', example: 10 },
-                            published: { type: 'number', example: 10 },
-                            draft: { type: 'number', example: 0 },
-                            archived: { type: 'number', example: 0 },
-                          },
-                        },
-                        enrollments: {
-                          type: 'object',
-                          required: [
-                            'total',
-                            'assigned',
-                            'inProgress',
-                            'completed',
-                            'cancelled',
-                            'expired',
-                            'completionRate',
-                          ],
-                          properties: {
-                            total: { type: 'number', example: 14 },
-                            assigned: { type: 'number', example: 0 },
-                            inProgress: { type: 'number', example: 8 },
-                            completed: { type: 'number', example: 6 },
-                            cancelled: { type: 'number', example: 0 },
-                            expired: { type: 'number', example: 0 },
-                            completionRate: { type: 'number', example: 42.9 },
-                          },
-                        },
-                        riskSummary: {
-                          type: 'object',
-                          required: ['total', 'high', 'medium', 'low'],
-                          properties: {
-                            total: { type: 'number', example: 8 },
-                            high: { type: 'number', example: 4 },
-                            medium: { type: 'number', example: 3 },
-                            low: { type: 'number', example: 1 },
-                          },
-                        },
-                      },
-                    },
-                    message: {
-                      type: 'string',
-                      example: 'Dashboard statistics retrieved successfully',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '401': {
-            description: 'Missing or invalid token.',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
-          },
-          '403': {
-            description: 'Permission denied - admin only',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
+                schema: { $ref: '#/components/schemas/TagListResponse' },
               },
             },
           },
         },
       },
-    },
-    [`${API_PREFIX}/dashboard/manager`]: {
-      get: {
-        tags: ['Dashboard'],
-        summary: 'Get manager dashboard statistics',
-        operationId: 'getManagerDashboard',
-        description:
-          'Retrieve dashboard statistics for a department manager, including learners, overdue enrollments, roadmap completion, and risk assessments.',
+      post: {
+        tags: ['Tags'],
+        summary: 'Create a new tag',
+        description: 'Requires the `admin` role.',
+        operationId: 'createTag',
         security: [{ bearerAuth: [] }],
-        responses: {
-          '200': {
-            description: 'Manager dashboard statistics retrieved successfully.',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['success', 'data', 'message'],
-                  properties: {
-                    success: { type: 'boolean', example: true },
-                    data: {
-                      type: 'object',
-                      required: ['learners', 'overdue', 'roadmapCompletion', 'risks'],
-                      properties: {
-                        learners: {
-                          type: 'object',
-                          required: ['total', 'active', 'inactive'],
-                          properties: {
-                            total: { type: 'number', example: 7 },
-                            active: { type: 'number', example: 7 },
-                            inactive: { type: 'number', example: 0 },
-                          },
-                        },
-                        overdue: {
-                          type: 'object',
-                          required: ['total', 'enrollments'],
-                          properties: {
-                            total: { type: 'number', example: 6 },
-                            enrollments: {
-                              type: 'array',
-                              items: {
-                                type: 'object',
-                                required: [
-                                  'userId',
-                                  'userName',
-                                  'courseId',
-                                  'courseTitle',
-                                  'dueAt',
-                                  'daysOverdue',
-                                ],
-                                properties: {
-                                  userId: { type: 'string', example: '88' },
-                                  userName: { type: 'string', example: 'Grace Student' },
-                                  courseId: { type: 'string', example: '77' },
-                                  courseTitle: { type: 'string', example: 'TypeScript Mastery' },
-                                  dueAt: {
-                                    type: 'string',
-                                    format: 'date-time',
-                                    example: '2026-03-26T03:14:12.964Z',
-                                  },
-                                  daysOverdue: { type: 'number', example: 11 },
-                                },
-                              },
-                            },
-                          },
-                        },
-                        roadmapCompletion: {
-                          type: 'object',
-                          required: [
-                            'totalAssignments',
-                            'completed',
-                            'inProgress',
-                            'assigned',
-                            'completionRate',
-                          ],
-                          properties: {
-                            totalAssignments: { type: 'number', example: 9 },
-                            completed: { type: 'number', example: 3 },
-                            inProgress: { type: 'number', example: 3 },
-                            assigned: { type: 'number', example: 3 },
-                            completionRate: { type: 'number', example: 33.3 },
-                          },
-                        },
-                        risks: {
-                          type: 'object',
-                          required: ['total', 'high', 'medium', 'low', 'learners'],
-                          properties: {
-                            total: { type: 'number', example: 10 },
-                            high: { type: 'number', example: 4 },
-                            medium: { type: 'number', example: 3 },
-                            low: { type: 'number', example: 3 },
-                            learners: {
-                              type: 'array',
-                              items: {
-                                type: 'object',
-                                required: [
-                                  'userId',
-                                  'userName',
-                                  'riskLevel',
-                                  'riskScore',
-                                  'courseTitle',
-                                ],
-                                properties: {
-                                  userId: { type: 'string', example: '81' },
-                                  userName: { type: 'string', example: 'Jane Trainer' },
-                                  riskLevel: {
-                                    type: 'string',
-                                    enum: ['high', 'medium', 'low'],
-                                    example: 'high',
-                                  },
-                                  riskScore: { type: 'number', example: 74 },
-                                  courseTitle: { type: 'string', example: 'React Complete Guide' },
-                                },
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                    message: {
-                      type: 'string',
-                      example: 'Manager dashboard statistics retrieved successfully',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '401': {
-            description: 'Missing or invalid token.',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
-          },
-          '403': {
-            description: 'Permission denied - manager role required',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateTagRequest' },
             },
           },
         },
+        responses: {
+          '201': {
+            description: 'Tag created successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TagResponse' },
+              },
+            },
+          },
+          '403': { description: 'Forbidden' },
+          '409': { description: 'Tag already exists' },
+        },
       },
     },
-    [`${API_PREFIX}/dashboard/trainer`]: {
+    [`${API_PREFIX}/tags/{id}`]: {
       get: {
-        tags: ['Dashboard'],
-        summary: 'Get trainer dashboard statistics',
-        operationId: 'getTrainerDashboard',
-        description:
-          'Retrieve dashboard statistics for a trainer, including courses managed, pending grading, enrollments, and pass rate.',
+        tags: ['Tags'],
+        summary: 'Get tag details',
+        operationId: 'getTagById',
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
         responses: {
           '200': {
-            description: 'Trainer dashboard statistics retrieved successfully.',
+            description: 'Tag details returned.',
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['success', 'data', 'message'],
-                  properties: {
-                    success: { type: 'boolean', example: true },
-                    data: {
-                      type: 'object',
-                      required: ['courses', 'pendingGrading', 'enrollments', 'passRate'],
-                      properties: {
-                        courses: {
-                          type: 'object',
-                          required: ['total', 'published', 'draft', 'archived'],
-                          properties: {
-                            total: { type: 'number', example: 5 },
-                            published: { type: 'number', example: 5 },
-                            draft: { type: 'number', example: 0 },
-                            archived: { type: 'number', example: 0 },
-                          },
-                        },
-                        pendingGrading: {
-                          type: 'object',
-                          required: ['total', 'quizAttempts'],
-                          properties: {
-                            total: { type: 'number', example: 0 },
-                            quizAttempts: {
-                              type: 'array',
-                              items: {
-                                type: 'object',
-                                required: [
-                                  'attemptId',
-                                  'studentId',
-                                  'studentName',
-                                  'courseId',
-                                  'courseTitle',
-                                  'quizTitle',
-                                  'submittedAt',
-                                  'daysWaiting',
-                                ],
-                                properties: {
-                                  attemptId: { type: 'string', example: '123' },
-                                  studentId: { type: 'string', example: '88' },
-                                  studentName: { type: 'string', example: 'Alice Student' },
-                                  courseId: { type: 'string', example: '77' },
-                                  courseTitle: { type: 'string', example: 'Node.js Fundamentals' },
-                                  quizTitle: { type: 'string', example: 'Final Quiz' },
-                                  submittedAt: {
-                                    type: 'string',
-                                    format: 'date-time',
-                                    example: '2026-04-01T10:30:00.000Z',
-                                  },
-                                  daysWaiting: { type: 'number', example: 5 },
-                                },
-                              },
-                            },
-                          },
-                        },
-                        enrollments: {
-                          type: 'object',
-                          required: [
-                            'total',
-                            'assigned',
-                            'inProgress',
-                            'completed',
-                            'averageProgress',
-                          ],
-                          properties: {
-                            total: { type: 'number', example: 8 },
-                            assigned: { type: 'number', example: 0 },
-                            inProgress: { type: 'number', example: 2 },
-                            completed: { type: 'number', example: 6 },
-                            averageProgress: { type: 'number', example: 86.3 },
-                          },
-                        },
-                        passRate: {
-                          type: 'object',
-                          required: ['totalAttempts', 'passed', 'failed', 'passPercentage'],
-                          properties: {
-                            totalAttempts: { type: 'number', example: 6 },
-                            passed: { type: 'number', example: 4 },
-                            failed: { type: 'number', example: 2 },
-                            passPercentage: { type: 'number', example: 66.7 },
-                          },
-                        },
-                      },
-                    },
-                    message: {
-                      type: 'string',
-                      example: 'Trainer dashboard statistics retrieved successfully',
-                    },
-                  },
-                },
+                schema: { $ref: '#/components/schemas/TagResponse' },
               },
             },
           },
-          '401': {
-            description: 'Missing or invalid token.',
+          '404': { description: 'Tag not found' },
+        },
+      },
+      put: {
+        tags: ['Tags'],
+        summary: 'Update a tag',
+        description: 'Requires the `admin` role.',
+        operationId: 'updateTag',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateTagRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Tag updated successfully.',
             content: {
               'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
+                schema: { $ref: '#/components/schemas/TagResponse' },
               },
             },
           },
-          '403': {
-            description: 'Permission denied - trainer role required',
-            content: {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/ErrorResponse',
-                },
-              },
-            },
+          '403': { description: 'Forbidden' },
+          '404': { description: 'Tag not found' },
+          '409': { description: 'Tag name already exists' },
+        },
+      },
+      delete: {
+        tags: ['Tags'],
+        summary: 'Delete a tag',
+        description: 'Requires the `admin` role.',
+        operationId: 'deleteTag',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
           },
+        ],
+        responses: {
+          '204': { description: 'Tag deleted successfully' },
+          '403': { description: 'Forbidden' },
+          '404': { description: 'Tag not found' },
         },
       },
     },

@@ -1,0 +1,10 @@
+src/middlewares/validate.middleware.ts(20,35): error TS7053: Element implicitly has an 'any' type because expression of type 'ValidationTarget' can't be used to index type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+  Property 'all' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/middlewares/validate.middleware.ts(25,31): error TS7053: Element implicitly has an 'any' type because expression of type '"query" | "params" | "all"' can't be used to index type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+  Property 'all' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/schemas/tag.schema.ts(6,7): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(params?: string | { error?: string | $ZodErrorMap<$ZodIssueInvalidType<unknown>> | undefined; message?: string | undefined; } | undefined): ZodString', gave the following error.
+    Object literal may only specify known properties, and 'required_error' does not exist in type '{ error?: string | $ZodErrorMap<$ZodIssueInvalidType<unknown>> | undefined; message?: string | undefined; }'.
+  Overload 2 of 2, '(params?: string | { error?: string | $ZodErrorMap<$ZodIssueInvalidType<unknown>> | undefined; message?: string | undefined; } | undefined): $ZodType<...>', gave the following error.
+    Object literal may only specify known properties, and 'required_error' does not exist in type '{ error?: string | $ZodErrorMap<$ZodIssueInvalidType<unknown>> | undefined; message?: string | undefined; }'.
+src/services/category.service.ts(222,13): error TS7022: 'parentRecord' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
