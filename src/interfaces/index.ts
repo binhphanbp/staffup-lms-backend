@@ -57,3 +57,5 @@ export interface PaginatedResult<T> {
 export * from './course.types';
 export * from './roadmap.types';
 export * from './enrollment.types';
+export * from './quiz.types';
+export * from './dashboard.types';

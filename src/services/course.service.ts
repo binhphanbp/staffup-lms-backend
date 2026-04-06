@@ -51,7 +51,14 @@ export class CourseService {
    */
   static async findAll(query: CourseQuery): Promise<PaginatedResult<CourseListItem>> {
     const db = prisma as any;
-    const { page, limit, sortBy, sortOrder, status, search } = query;
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      status,
+      search,
+    } = query;
     const skip = (page - 1) * limit;
     const where: Record<string, unknown> = {};
 

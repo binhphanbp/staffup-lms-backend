@@ -150,11 +150,14 @@ async function seedUsers(departments, roles) {
   
   const passwordHash = await argon2.hash(DEFAULT_PASSWORD);
   const adminRole = roles.find((r) => r.code === 'admin');
+  const managerRole = roles.find((r) => r.code === 'manager');
   const trainerRole = roles.find((r) => r.code === 'trainer');
   const employeeRole = roles.find((r) => r.code === 'employee');
   
   const usersData = [
     { fullName: 'Admin User', email: 'admin@example.com', positionTitle: 'System Administrator', departmentId: departments[0].id, roleId: adminRole.id },
+    { fullName: 'Engineering Manager', email: 'manager1@example.com', positionTitle: 'Engineering Manager', departmentId: departments[0].id, roleId: managerRole.id },
+    { fullName: 'Product Manager', email: 'manager2@example.com', positionTitle: 'Product Manager', departmentId: departments[1].id, roleId: managerRole.id },
     { fullName: 'John Trainer', email: 'trainer1@example.com', positionTitle: 'Senior Trainer', departmentId: departments[0].id, roleId: trainerRole.id },
     { fullName: 'Jane Trainer', email: 'trainer2@example.com', positionTitle: 'Lead Trainer', departmentId: departments[1].id, roleId: trainerRole.id },
     { fullName: 'Alice Student', email: 'student1@example.com', positionTitle: 'Software Engineer', departmentId: departments[0].id, roleId: employeeRole.id },
@@ -237,8 +240,8 @@ async function seedCategoriesAndTags() {
 async function seedCourses(users, departments, categories, tags) {
   console.log('📚 Seeding courses...');
   
-  const trainer1 = users[1]; // John Trainer
-  const trainer2 = users[2]; // Jane Trainer
+  const trainer1 = users[3]; // John Trainer (after admin + 2 managers)
+  const trainer2 = users[4]; // Jane Trainer
   
   const coursesData = [
     { title: 'Node.js Fundamentals', slug: 'nodejs-fundamentals', description: 'Learn Node.js from basics to advanced', categoryId: categories[0].id, trainerId: trainer1.id, deptId: departments[0].id, duration: 600, tagIds: [tags[0].id, tags[2].id] },
@@ -385,7 +388,7 @@ async function seedRoadmaps(departments, categories, users, courses) {
 async function seedEnrollmentsAndProgress(users, courses) {
   console.log('📝 Seeding enrollments and progress...');
   
-  const students = users.slice(3); // Students only
+  const students = users.slice(5); // Students only (after admin, 2 managers, 2 trainers)
   const admin = users[0];
   
   let enrollmentCount = 0;
@@ -411,6 +414,7 @@ async function seedEnrollmentsAndProgress(users, courses) {
           progressPercentCache: progressPercent,
           completedLessonsCountCache: Math.floor(progressPercent / 10),
           timeSpentSecondsCache: progressPercent * 60,
+          dueAt: isCompleted ? null : i % 2 === 0 ? new Date(Date.now() - (3 + i) * 24 * 60 * 60 * 1000) : new Date(Date.now() + (7 + i) * 24 * 60 * 60 * 1000),
           enrolledAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
           startedAt: progressPercent > 0 ? new Date(Date.now() - (daysAgo - 1) * 24 * 60 * 60 * 1000) : null,
           completedAt: isCompleted ? new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) : null,
@@ -487,7 +491,7 @@ async function seedEnrollmentsAndProgress(users, courses) {
 async function seedRoadmapAssignments(users, roadmaps) {
   console.log('🎯 Seeding roadmap assignments...');
   
-  const students = users.slice(3);
+  const students = users.slice(5); // Students only (after admin, 2 managers, 2 trainers)
   const admin = users[0];
   
   let assignmentCount = 0;
@@ -609,7 +613,7 @@ async function seedQuestionBanksAndQuestions(users, categories) {
 async function seedQuizzesAndAttempts(courses, questionBanks, users) {
   console.log('📝 Seeding quizzes and attempts...');
   
-  const students = users.slice(3);
+  const students = users.slice(5); // Students only (after admin, 2 managers, 2 trainers)
   let quizCount = 0;
   let attemptCount = 0;
   let attemptQuestionCount = 0;
@@ -861,6 +865,8 @@ async function main() {
 
 🔑 Test Accounts:
 - Admin: admin@example.com / ${DEFAULT_PASSWORD}
+- Manager (Engineering): manager1@example.com / ${DEFAULT_PASSWORD}
+- Manager (Product): manager2@example.com / ${DEFAULT_PASSWORD}
 - Trainer: trainer1@example.com / ${DEFAULT_PASSWORD}
 - Student: student1@example.com / ${DEFAULT_PASSWORD}
   `);

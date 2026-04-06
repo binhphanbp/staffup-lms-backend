@@ -25,6 +25,10 @@ export const openApiDocument = {
         'Authentication, password changes, refresh/logout session flow, and current user profile.',
     },
     {
+      name: 'Dashboard',
+      description: 'Dashboard statistics for admin and managers.',
+    },
+    {
       name: 'Courses',
       description: 'Course management endpoints.',
     },
@@ -1003,46 +1007,46 @@ export const openApiDocument = {
         },
       },
       RoleListResponse: {
-      Category: {
-        type: 'object',
-        required: ['id', 'name', 'slug', 'createdAt', 'updatedAt'],
-        properties: {
-          id: { type: 'string', pattern: '^\\d+$', example: '1' },
-          parentId: { type: 'string', pattern: '^\\d+$', nullable: true, example: null },
-          name: { type: 'string', example: 'Software Engineering' },
-          slug: { type: 'string', example: 'software-engineering' },
-          createdAt: { type: 'string', format: 'date-time' },
-          updatedAt: { type: 'string', format: 'date-time' },
-        },
-      },
-      CreateCategoryRequest: {
-        type: 'object',
-        required: ['name'],
-        properties: {
-          name: { type: 'string', minLength: 2, maxLength: 150, example: 'Mobile Development' },
-          parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
-        },
-      },
-      UpdateCategoryRequest: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', minLength: 2, maxLength: 150 },
-          parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
-        },
-      },
-      CategoryListResponse: {
-        type: 'object',
-        required: ['success', 'message', 'data'],
-        properties: {
-          success: { type: 'boolean', example: true },
-          message: { type: 'string', example: 'Roles retrieved successfully' },
-          data: {
-            type: 'array',
-            items: { $ref: '#/components/schemas/RoleEntity' },
+        Category: {
+          type: 'object',
+          required: ['id', 'name', 'slug', 'createdAt', 'updatedAt'],
+          properties: {
+            id: { type: 'string', pattern: '^\\d+$', example: '1' },
+            parentId: { type: 'string', pattern: '^\\d+$', nullable: true, example: null },
+            name: { type: 'string', example: 'Software Engineering' },
+            slug: { type: 'string', example: 'software-engineering' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
           },
         },
-      },
-      RoleDetailResponse: {
+        CreateCategoryRequest: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string', minLength: 2, maxLength: 150, example: 'Mobile Development' },
+            parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+          },
+        },
+        UpdateCategoryRequest: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', minLength: 2, maxLength: 150 },
+            parentId: { type: 'string', pattern: '^\\d+$', nullable: true },
+          },
+        },
+        CategoryListResponse: {
+          type: 'object',
+          required: ['success', 'message', 'data'],
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Roles retrieved successfully' },
+            data: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/RoleEntity' },
+            },
+          },
+        },
+        RoleDetailResponse: {
           message: { type: 'string', example: 'Categories retrieved successfully' },
           data: {
             type: 'array',
@@ -1057,8 +1061,6 @@ export const openApiDocument = {
           success: { type: 'boolean', example: true },
           message: { type: 'string', example: 'Role retrieved successfully' },
           data: { $ref: '#/components/schemas/RoleEntity' },
-          message: { type: 'string', example: 'Category operation successful' },
-          data: { $ref: '#/components/schemas/Category' },
         },
       },
     },
@@ -2730,6 +2732,682 @@ export const openApiDocument = {
           },
           '404': {
             description: 'Role not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/admin/dashboard`]: {
+      get: {
+        tags: ['Admin'],
+        summary: 'Get admin dashboard statistics',
+        description:
+          'Get overview statistics for admin dashboard including users, courses, enrollments, and risk summary. Requires admin role.',
+        operationId: 'getAdminDashboard',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Dashboard statistics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'message', 'data'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: ['users', 'courses', 'enrollments', 'riskSummary'],
+                      properties: {
+                        users: {
+                          type: 'object',
+                          required: ['total', 'active', 'inactive', 'byRole'],
+                          properties: {
+                            total: { type: 'number', example: 10 },
+                            active: { type: 'number', example: 10 },
+                            inactive: { type: 'number', example: 0 },
+                            byRole: {
+                              type: 'object',
+                              required: ['admin', 'trainer', 'student'],
+                              properties: {
+                                admin: { type: 'number', example: 1 },
+                                trainer: { type: 'number', example: 2 },
+                                student: { type: 'number', example: 7 },
+                              },
+                            },
+                          },
+                        },
+                        courses: {
+                          type: 'object',
+                          required: ['total', 'published', 'draft', 'archived'],
+                          properties: {
+                            total: { type: 'number', example: 10 },
+                            published: { type: 'number', example: 10 },
+                            draft: { type: 'number', example: 0 },
+                            archived: { type: 'number', example: 0 },
+                          },
+                        },
+                        enrollments: {
+                          type: 'object',
+                          required: [
+                            'total',
+                            'assigned',
+                            'inProgress',
+                            'completed',
+                            'cancelled',
+                            'expired',
+                            'completionRate',
+                          ],
+                          properties: {
+                            total: { type: 'number', example: 14 },
+                            assigned: { type: 'number', example: 0 },
+                            inProgress: { type: 'number', example: 8 },
+                            completed: { type: 'number', example: 6 },
+                            cancelled: { type: 'number', example: 0 },
+                            expired: { type: 'number', example: 0 },
+                            completionRate: { type: 'number', example: 42.9 },
+                          },
+                        },
+                        riskSummary: {
+                          type: 'object',
+                          required: ['total', 'high', 'medium', 'low'],
+                          properties: {
+                            total: { type: 'number', example: 8 },
+                            high: { type: 'number', example: 4 },
+                            medium: { type: 'number', example: 3 },
+                            low: { type: 'number', example: 1 },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Dashboard statistics retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin only',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/dashboard/manager`]: {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Get manager dashboard statistics',
+        operationId: 'getManagerDashboard',
+        description:
+          'Retrieve dashboard statistics for a department manager, including learners, overdue enrollments, roadmap completion, and risk assessments.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Manager dashboard statistics retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: ['learners', 'overdue', 'roadmapCompletion', 'risks'],
+                      properties: {
+                        learners: {
+                          type: 'object',
+                          required: ['total', 'active', 'inactive'],
+                          properties: {
+                            total: { type: 'number', example: 7 },
+                            active: { type: 'number', example: 7 },
+                            inactive: { type: 'number', example: 0 },
+                          },
+                        },
+                        overdue: {
+                          type: 'object',
+                          required: ['total', 'enrollments'],
+                          properties: {
+                            total: { type: 'number', example: 6 },
+                            enrollments: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'userId',
+                                  'userName',
+                                  'courseId',
+                                  'courseTitle',
+                                  'dueAt',
+                                  'daysOverdue',
+                                ],
+                                properties: {
+                                  userId: { type: 'string', example: '88' },
+                                  userName: { type: 'string', example: 'Grace Student' },
+                                  courseId: { type: 'string', example: '77' },
+                                  courseTitle: { type: 'string', example: 'TypeScript Mastery' },
+                                  dueAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-03-26T03:14:12.964Z',
+                                  },
+                                  daysOverdue: { type: 'number', example: 11 },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        roadmapCompletion: {
+                          type: 'object',
+                          required: [
+                            'totalAssignments',
+                            'completed',
+                            'inProgress',
+                            'assigned',
+                            'completionRate',
+                          ],
+                          properties: {
+                            totalAssignments: { type: 'number', example: 9 },
+                            completed: { type: 'number', example: 3 },
+                            inProgress: { type: 'number', example: 3 },
+                            assigned: { type: 'number', example: 3 },
+                            completionRate: { type: 'number', example: 33.3 },
+                          },
+                        },
+                        risks: {
+                          type: 'object',
+                          required: ['total', 'high', 'medium', 'low', 'learners'],
+                          properties: {
+                            total: { type: 'number', example: 10 },
+                            high: { type: 'number', example: 4 },
+                            medium: { type: 'number', example: 3 },
+                            low: { type: 'number', example: 3 },
+                            learners: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'userId',
+                                  'userName',
+                                  'riskLevel',
+                                  'riskScore',
+                                  'courseTitle',
+                                ],
+                                properties: {
+                                  userId: { type: 'string', example: '81' },
+                                  userName: { type: 'string', example: 'Jane Trainer' },
+                                  riskLevel: {
+                                    type: 'string',
+                                    enum: ['high', 'medium', 'low'],
+                                    example: 'high',
+                                  },
+                                  riskScore: { type: 'number', example: 74 },
+                                  courseTitle: { type: 'string', example: 'React Complete Guide' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Manager dashboard statistics retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - manager role required',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/dashboard/trainer`]: {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Get trainer dashboard statistics',
+        operationId: 'getTrainerDashboard',
+        description:
+          'Retrieve dashboard statistics for a trainer, including courses managed, pending grading, enrollments, and pass rate.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Trainer dashboard statistics retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: ['courses', 'pendingGrading', 'enrollments', 'passRate'],
+                      properties: {
+                        courses: {
+                          type: 'object',
+                          required: ['total', 'published', 'draft', 'archived'],
+                          properties: {
+                            total: { type: 'number', example: 5 },
+                            published: { type: 'number', example: 5 },
+                            draft: { type: 'number', example: 0 },
+                            archived: { type: 'number', example: 0 },
+                          },
+                        },
+                        pendingGrading: {
+                          type: 'object',
+                          required: ['total', 'quizAttempts'],
+                          properties: {
+                            total: { type: 'number', example: 0 },
+                            quizAttempts: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'attemptId',
+                                  'studentId',
+                                  'studentName',
+                                  'courseId',
+                                  'courseTitle',
+                                  'quizTitle',
+                                  'submittedAt',
+                                  'daysWaiting',
+                                ],
+                                properties: {
+                                  attemptId: { type: 'string', example: '123' },
+                                  studentId: { type: 'string', example: '88' },
+                                  studentName: { type: 'string', example: 'Alice Student' },
+                                  courseId: { type: 'string', example: '77' },
+                                  courseTitle: { type: 'string', example: 'Node.js Fundamentals' },
+                                  quizTitle: { type: 'string', example: 'Final Quiz' },
+                                  submittedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-04-01T10:30:00.000Z',
+                                  },
+                                  daysWaiting: { type: 'number', example: 5 },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        enrollments: {
+                          type: 'object',
+                          required: [
+                            'total',
+                            'assigned',
+                            'inProgress',
+                            'completed',
+                            'averageProgress',
+                          ],
+                          properties: {
+                            total: { type: 'number', example: 8 },
+                            assigned: { type: 'number', example: 0 },
+                            inProgress: { type: 'number', example: 2 },
+                            completed: { type: 'number', example: 6 },
+                            averageProgress: { type: 'number', example: 86.3 },
+                          },
+                        },
+                        passRate: {
+                          type: 'object',
+                          required: ['totalAttempts', 'passed', 'failed', 'passPercentage'],
+                          properties: {
+                            totalAttempts: { type: 'number', example: 6 },
+                            passed: { type: 'number', example: 4 },
+                            failed: { type: 'number', example: 2 },
+                            passPercentage: { type: 'number', example: 66.7 },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Trainer dashboard statistics retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - trainer role required',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/dashboard/employee`]: {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Get employee dashboard statistics',
+        operationId: 'getEmployeeDashboard',
+        description:
+          'Retrieve personal dashboard statistics for an employee/student, including enrolled courses, assigned roadmaps, progress summary, and earned certificates.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Employee dashboard statistics retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['success', 'data', 'message'],
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      required: ['myCourses', 'myRoadmaps', 'progressSummary', 'certificates'],
+                      properties: {
+                        myCourses: {
+                          type: 'object',
+                          required: ['total', 'assigned', 'inProgress', 'completed', 'courses'],
+                          properties: {
+                            total: { type: 'number', example: 2 },
+                            assigned: { type: 'number', example: 0 },
+                            inProgress: { type: 'number', example: 0 },
+                            completed: { type: 'number', example: 2 },
+                            courses: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'enrollmentId',
+                                  'courseId',
+                                  'courseTitle',
+                                  'status',
+                                  'progress',
+                                  'enrolledAt',
+                                ],
+                                properties: {
+                                  enrollmentId: { type: 'string', example: '154' },
+                                  courseId: { type: 'string', example: '106' },
+                                  courseTitle: { type: 'string', example: 'React Complete Guide' },
+                                  courseThumbnail: {
+                                    type: 'string',
+                                    format: 'uri',
+                                    nullable: true,
+                                    example: 'https://images.unsplash.com/photo-1500000000001',
+                                  },
+                                  status: {
+                                    type: 'string',
+                                    enum: [
+                                      'assigned',
+                                      'in_progress',
+                                      'completed',
+                                      'cancelled',
+                                      'expired',
+                                    ],
+                                    example: 'completed',
+                                  },
+                                  progress: {
+                                    type: 'number',
+                                    minimum: 0,
+                                    maximum: 100,
+                                    example: 100,
+                                  },
+                                  dueAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                    example: null,
+                                  },
+                                  enrolledAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-04-01T12:35:47.869Z',
+                                  },
+                                  completedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                    example: '2026-04-05T12:35:47.869Z',
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        myRoadmaps: {
+                          type: 'object',
+                          required: ['total', 'assigned', 'inProgress', 'completed', 'roadmaps'],
+                          properties: {
+                            total: { type: 'number', example: 1 },
+                            assigned: { type: 'number', example: 1 },
+                            inProgress: { type: 'number', example: 0 },
+                            completed: { type: 'number', example: 0 },
+                            roadmaps: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'assignmentId',
+                                  'roadmapId',
+                                  'roadmapTitle',
+                                  'status',
+                                  'totalCourses',
+                                  'completedCourses',
+                                  'progressPercent',
+                                  'assignedAt',
+                                ],
+                                properties: {
+                                  assignmentId: { type: 'string', example: '77' },
+                                  roadmapId: { type: 'string', example: '103' },
+                                  roadmapTitle: {
+                                    type: 'string',
+                                    example: 'Backend Developer Path',
+                                  },
+                                  targetPosition: {
+                                    type: 'string',
+                                    nullable: true,
+                                    example: 'Backend Developer',
+                                  },
+                                  status: {
+                                    type: 'string',
+                                    enum: ['assigned', 'in_progress', 'completed', 'dropped'],
+                                    example: 'assigned',
+                                  },
+                                  totalCourses: { type: 'number', example: 3 },
+                                  completedCourses: { type: 'number', example: 1 },
+                                  progressPercent: {
+                                    type: 'number',
+                                    minimum: 0,
+                                    maximum: 100,
+                                    example: 33,
+                                  },
+                                  assignedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-03-27T12:35:48.108Z',
+                                  },
+                                  completedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    nullable: true,
+                                    example: null,
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        progressSummary: {
+                          type: 'object',
+                          required: [
+                            'totalTimeSpentMinutes',
+                            'completedLessons',
+                            'averageProgress',
+                            'upcomingDeadlines',
+                          ],
+                          properties: {
+                            totalTimeSpentMinutes: { type: 'number', example: 200 },
+                            completedLessons: { type: 'number', example: 20 },
+                            averageProgress: {
+                              type: 'number',
+                              minimum: 0,
+                              maximum: 100,
+                              example: 100,
+                            },
+                            recentActivity: {
+                              type: 'string',
+                              format: 'date-time',
+                              nullable: true,
+                              example: '2026-04-06T11:35:47.869Z',
+                            },
+                            upcomingDeadlines: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'courseId',
+                                  'courseTitle',
+                                  'dueAt',
+                                  'daysRemaining',
+                                  'currentProgress',
+                                ],
+                                properties: {
+                                  courseId: { type: 'string', example: '106' },
+                                  courseTitle: { type: 'string', example: 'React Complete Guide' },
+                                  dueAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-04-13T00:00:00.000Z',
+                                  },
+                                  daysRemaining: { type: 'number', example: 7 },
+                                  currentProgress: {
+                                    type: 'number',
+                                    minimum: 0,
+                                    maximum: 100,
+                                    example: 45,
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        certificates: {
+                          type: 'object',
+                          required: ['total', 'certificates'],
+                          properties: {
+                            total: { type: 'number', example: 2 },
+                            certificates: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                required: [
+                                  'certificateId',
+                                  'certificateCode',
+                                  'courseId',
+                                  'courseTitle',
+                                  'issuedAt',
+                                ],
+                                properties: {
+                                  certificateId: { type: 'string', example: '44' },
+                                  certificateCode: {
+                                    type: 'string',
+                                    example: 'CERT-1775478947872-2',
+                                  },
+                                  courseId: { type: 'string', example: '106' },
+                                  courseTitle: { type: 'string', example: 'React Complete Guide' },
+                                  issuedAt: {
+                                    type: 'string',
+                                    format: 'date-time',
+                                    example: '2026-04-05T12:35:47.872Z',
+                                  },
+                                  pdfUrl: {
+                                    type: 'string',
+                                    format: 'uri',
+                                    nullable: true,
+                                    example: 'https://example.com/certificates/154.pdf',
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Employee dashboard statistics retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - employee or student role required',
             content: {
               'application/json': {
                 schema: {
