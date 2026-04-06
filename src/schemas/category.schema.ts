@@ -16,6 +16,7 @@ export const createCategorySchema = z.object({
     .min(2, 'Name must be at least 2 characters')
     .max(150, 'Name must be at most 150 characters'),
   parentId: parentIdSchema,
+  isActive: z.boolean().optional(),
 });
 
 export const updateCategorySchema = z.object({
@@ -25,6 +26,7 @@ export const updateCategorySchema = z.object({
     .max(150, 'Name must be at most 150 characters')
     .optional(),
   parentId: parentIdSchema,
+  isActive: z.boolean().optional(),
 });
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;

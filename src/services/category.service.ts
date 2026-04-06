@@ -2,12 +2,31 @@ import { prisma } from '@/config/database';
 import { AppError, slugify } from '@/utils';
 import type { CreateCategoryInput, UpdateCategoryInput } from '@/schemas/category.schema';
 
+export interface CategoryWithCounts {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  children?: CategoryWithCounts[];
+  _count: {
+    children: number;
+    courses: number;
+    roadmaps: number;
+  };
+}
+
 export class CategoryService {
   /**
    * Get all categories with hierarchical structure
    */
-  static async getCategories() {
+  static async getCategories(tree = false, onlyActive = false): Promise<CategoryWithCounts[]> {
+    const where = onlyActive ? { isActive: true } : {};
+
     const categories = await prisma.category.findMany({
+      where,
       include: {
         _count: {
           select: {
@@ -22,11 +41,39 @@ export class CategoryService {
       },
     });
 
-    return categories.map((cat) => ({
+    const formattedCategories: CategoryWithCounts[] = categories.map((cat) => ({
       ...cat,
       id: cat.id.toString(),
       parentId: cat.parentId?.toString() || null,
     }));
+
+    if (!tree) {
+      return formattedCategories;
+    }
+
+    // Build tree
+    const categoryMap = new Map<string, CategoryWithCounts>();
+    formattedCategories.forEach((cat) => {
+      categoryMap.set(cat.id, { ...cat, children: [] });
+    });
+
+    const result: CategoryWithCounts[] = [];
+    categoryMap.forEach((cat) => {
+      if (cat.parentId) {
+        const parent = categoryMap.get(cat.parentId);
+        if (parent) {
+          parent.children?.push(cat);
+        } else {
+          // If parent is not found in the map (should not happen with valid data)
+          result.push(cat);
+        }
+      } else {
+        // Root category
+        result.push(cat);
+      }
+    });
+
+    return result;
   }
 
   /**
@@ -87,6 +134,7 @@ export class CategoryService {
         name: data.name,
         slug,
         parentId,
+        isActive: data.isActive ?? true,
       },
     });
 
@@ -132,8 +180,10 @@ export class CategoryService {
         throw new AppError('Parent category not found', 404);
       }
 
-      // Check for parent cycles (simple one-level check for now)
-      // For deep cycles, recursive check would be needed, but for MVP this is okay
+      // Check for parent cycles
+      if (await this.isAncestor(categoryId, parentId)) {
+        throw new AppError('Cannot move a category into one of its sub-categories', 400);
+      }
     }
 
     let slug = existingCategory.slug;
@@ -146,6 +196,7 @@ export class CategoryService {
       data: {
         ...(data.name && { name: data.name }),
         ...(data.parentId !== undefined && { parentId }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
         slug,
       },
     });
@@ -155,6 +206,28 @@ export class CategoryService {
       id: updatedCategory.id.toString(),
       parentId: updatedCategory.parentId?.toString() || null,
     };
+  }
+
+  /**
+   * Helper to check if categoryA is an ancestor of categoryB
+   */
+  private static async isAncestor(categoryAId: bigint, categoryBId: bigint): Promise<boolean> {
+    let currentParentId: bigint | null = categoryBId;
+
+    while (currentParentId !== null) {
+      if (currentParentId === categoryAId) {
+        return true;
+      }
+
+      const parentRecord: { parentId: bigint | null } | null = await prisma.category.findUnique({
+        where: { id: currentParentId },
+        select: { parentId: true },
+      });
+
+      currentParentId = parentRecord?.parentId || null;
+    }
+
+    return false;
   }
 
   /**
