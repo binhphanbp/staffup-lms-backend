@@ -487,4 +487,145 @@ export class QuizService {
       updatedAt: result.updatedAt.toISOString(),
     };
   }
+
+  /**
+   * Auto-grade objective questions (single_choice, multiple_choice, true_false)
+   * Calculates isCorrect and awardedPoints for each response
+   * Updates attempt with objective_score
+   */
+  static async autoGradeObjectiveQuestions(attemptId: string, userId: string) {
+    const db = prisma as any;
+
+    // 1. Get attempt with questions and responses
+    const attempt = await db.quizAttempt.findUnique({
+      where: { id: BigInt(attemptId) },
+      include: {
+        enrollment: {
+          select: {
+            userId: true,
+          },
+        },
+        attemptQuestions: {
+          include: {
+            question: {
+              include: {
+                options: true,
+              },
+            },
+            response: {
+              include: {
+                selectedOptions: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new AppError('Quiz attempt not found', 404);
+    }
+
+    // 2. Verify user owns this attempt (or is admin)
+    const currentUser = await db.user.findUnique({
+      where: { id: BigInt(userId) },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
+    if (!isAdmin && attempt.enrollment.userId.toString() !== userId) {
+      throw new AppError('You do not have permission to grade this attempt', 403);
+    }
+
+    // 3. Verify attempt is submitted (not in_progress)
+    if (attempt.status === 'in_progress') {
+      throw new AppError('Cannot grade attempt that is still in progress', 400);
+    }
+
+    // 4. Grade objective questions using transaction
+    const result = await db.$transaction(async (tx: any) => {
+      let totalObjectiveScore = 0;
+      let gradedCount = 0;
+
+      for (const aq of attempt.attemptQuestions) {
+        const questionType = aq.question.questionType;
+        const isObjective = ['single_choice', 'multiple_choice', 'true_false'].includes(
+          questionType,
+        );
+
+        // Skip non-objective questions
+        if (!isObjective || !aq.response) {
+          continue;
+        }
+
+        // Get correct option IDs from question
+        const correctOptionIds = aq.question.options
+          .filter((opt: any) => opt.isCorrect)
+          .map((opt: any) => opt.id.toString());
+
+        // Get selected option IDs from response
+        const selectedOptionIds = aq.response.selectedOptions.map((so: any) =>
+          so.questionOptionId.toString(),
+        );
+
+        // Check if answer is correct
+        let isCorrect = false;
+
+        if (questionType === 'single_choice' || questionType === 'true_false') {
+          // For single choice: must select exactly one correct option
+          isCorrect =
+            selectedOptionIds.length === 1 &&
+            correctOptionIds.length === 1 &&
+            selectedOptionIds[0] === correctOptionIds[0];
+        } else if (questionType === 'multiple_choice') {
+          // For multiple choice: must select all correct options and no incorrect ones
+          const selectedSet = new Set(selectedOptionIds);
+          const correctSet = new Set(correctOptionIds);
+
+          isCorrect =
+            selectedSet.size === correctSet.size &&
+            [...selectedSet].every((id) => correctSet.has(id));
+        }
+
+        // Calculate awarded points
+        const awardedPoints = isCorrect ? aq.maxPoints : 0;
+        totalObjectiveScore += awardedPoints;
+        gradedCount++;
+
+        // Update response with grading result
+        await tx.attemptResponse.update({
+          where: { id: aq.response.id },
+          data: {
+            isCorrect,
+            awardedPoints,
+            gradedAt: new Date(),
+          },
+        });
+      }
+
+      // Update attempt with objective score
+      const updatedAttempt = await tx.quizAttempt.update({
+        where: { id: BigInt(attemptId) },
+        data: {
+          objectiveScore: totalObjectiveScore,
+          status: 'graded', // Mark as graded (may need manual grading for essays)
+        },
+      });
+
+      return {
+        attemptId: updatedAttempt.id.toString(),
+        objectiveScore: Number(updatedAttempt.objectiveScore),
+        gradedQuestionsCount: gradedCount,
+        status: updatedAttempt.status,
+      };
+    });
+
+    return result;
+  }
 }

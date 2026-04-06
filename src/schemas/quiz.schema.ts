@@ -23,3 +23,10 @@ export const saveQuizResponseSchema = z.object({
 });
 
 export type SaveQuizResponseInput = z.infer<typeof saveQuizResponseSchema>;
+
+// Auto-grade objective questions
+export const autoGradeObjectiveSchema = z.object({
+  attemptId: z.string().regex(/^\d+$/, 'Attempt ID must be a numeric string'),
+});
+
+export type AutoGradeObjectiveInput = z.infer<typeof autoGradeObjectiveSchema>;

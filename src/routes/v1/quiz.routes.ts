@@ -1,5 +1,6 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import {
+  autoGradeObjectiveQuestions,
   getQuizAttemptDetail,
   saveQuizResponse,
   startQuizAttempt,
@@ -7,6 +8,7 @@ import {
 import { authenticate } from '@/middlewares/auth.middleware';
 import { validate } from '@/middlewares/validate.middleware';
 import {
+  autoGradeObjectiveSchema,
   getQuizAttemptDetailSchema,
   saveQuizResponseSchema,
   startQuizAttemptSchema,
@@ -37,5 +39,16 @@ router.get('/:id/detail', validate(getQuizAttemptDetailSchema, 'params'), getQui
  * @access  Private (user must own the attempt)
  */
 router.post('/responses', validate(saveQuizResponseSchema), saveQuizResponse);
+
+/**
+ * @route   POST /api/v1/quiz-attempts/:attemptId/grade
+ * @desc    Auto-grade objective questions (single/multiple choice)
+ * @access  Private (user must own the attempt)
+ */
+router.post(
+  '/:attemptId/grade',
+  validate(autoGradeObjectiveSchema, 'params'),
+  autoGradeObjectiveQuestions,
+);
 
 export default router;

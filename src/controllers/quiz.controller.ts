@@ -34,3 +34,14 @@ export const saveQuizResponse = catchAsync(async (req: AuthRequest, res: Respons
 
   sendSuccess(res, response, 'Response saved successfully');
 });
+
+export const autoGradeObjectiveQuestions = catchAsync(async (req: AuthRequest, res: Response) => {
+  const attemptId = Array.isArray(req.params.attemptId)
+    ? req.params.attemptId[0]
+    : req.params.attemptId;
+  const userId = req.user!.userId;
+
+  const result = await QuizService.autoGradeObjectiveQuestions(attemptId, userId);
+
+  sendSuccess(res, result, 'Objective questions graded successfully');
+});
