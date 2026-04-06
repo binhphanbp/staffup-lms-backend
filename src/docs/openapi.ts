@@ -1003,6 +1003,26 @@ export const openApiDocument = {
         },
       },
       RoleListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Roles retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/RoleEntity' },
+          },
+        },
+      },
+      RoleDetailResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Role retrieved successfully' },
+          data: { $ref: '#/components/schemas/RoleEntity' },
+        },
+      },
       Category: {
         type: 'object',
         required: ['id', 'name', 'slug', 'createdAt', 'updatedAt'],
@@ -1035,14 +1055,6 @@ export const openApiDocument = {
         required: ['success', 'message', 'data'],
         properties: {
           success: { type: 'boolean', example: true },
-          message: { type: 'string', example: 'Roles retrieved successfully' },
-          data: {
-            type: 'array',
-            items: { $ref: '#/components/schemas/RoleEntity' },
-          },
-        },
-      },
-      RoleDetailResponse: {
           message: { type: 'string', example: 'Categories retrieved successfully' },
           data: {
             type: 'array',
@@ -1055,8 +1067,6 @@ export const openApiDocument = {
         required: ['success', 'message', 'data'],
         properties: {
           success: { type: 'boolean', example: true },
-          message: { type: 'string', example: 'Role retrieved successfully' },
-          data: { $ref: '#/components/schemas/RoleEntity' },
           message: { type: 'string', example: 'Category operation successful' },
           data: { $ref: '#/components/schemas/Category' },
         },
