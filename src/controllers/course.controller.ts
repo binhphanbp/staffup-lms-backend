@@ -51,6 +51,46 @@ export class CourseController {
   });
 
   /**
+   * PATCH /api/v1/courses/:id/status
+   */
+  static updateStatus = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const course = await CourseService.updateStatus(
+      req.params.id as string,
+      req.body.status,
+      req.user!.userId,
+      req.user!.roleCodes,
+      req.user!.permissionCodes,
+    );
+    sendSuccess(res, course, 'Course status updated successfully');
+  });
+
+  /**
+   * POST /api/v1/courses/:id/tags
+   */
+  static addTag = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.addTagToCourse(
+      req.params.id as string,
+      req.body.tagId as string,
+      req.user!.userId,
+      req.user!.roleCodes,
+    );
+    sendCreated(res, result, 'Tag added to course successfully');
+  });
+
+  /**
+   * DELETE /api/v1/courses/:id/tags/:tagId
+   */
+  static removeTag = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.removeTagFromCourse(
+      req.params.id as string,
+      req.params.tagId as string,
+      req.user!.userId,
+      req.user!.roleCodes,
+    );
+    sendSuccess(res, result, 'Tag removed from course successfully');
+  });
+
+  /**
    * DELETE /api/v1/courses/:id
    */
   static delete = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {

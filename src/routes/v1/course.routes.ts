@@ -4,7 +4,10 @@ import { authenticate, requirePermission, validate } from '@/middlewares';
 import {
   createCourseSchema,
   updateCourseSchema,
+  updateCourseStatusSchema,
+  addCourseTagSchema,
   courseIdParamSchema,
+  courseTagParamsSchema,
   courseDetailQuerySchema,
   courseQuerySchema,
 } from '@/schemas/course.schema';
@@ -29,6 +32,29 @@ router.get(
   validate(courseIdParamSchema, 'params'),
   validate(courseDetailQuerySchema, 'query'),
   CourseController.getCourseDetail,
+);
+
+router.patch(
+  '/:id/status',
+  requirePermission('course.update'),
+  validate(courseIdParamSchema, 'params'),
+  validate(updateCourseStatusSchema),
+  CourseController.updateStatus,
+);
+
+router.post(
+  '/:id/tags',
+  requirePermission('course.update'),
+  validate(courseIdParamSchema, 'params'),
+  validate(addCourseTagSchema),
+  CourseController.addTag,
+);
+
+router.delete(
+  '/:id/tags/:tagId',
+  requirePermission('course.update'),
+  validate(courseTagParamsSchema, 'params'),
+  CourseController.removeTag,
 );
 
 router
