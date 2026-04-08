@@ -1996,6 +1996,661 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/roadmaps`]: {
+      get: {
+        tags: ['Roadmaps'],
+        summary: 'List roadmaps with filters',
+        description:
+          'Get list of roadmaps with optional filters by department, category, or active status.',
+        operationId: 'listRoadmaps',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'departmentId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by department ID',
+          },
+          {
+            name: 'categoryId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by category ID',
+          },
+          {
+            name: 'isActive',
+            in: 'query',
+            schema: { type: 'string', enum: ['true', 'false'] },
+            description: 'Filter by active status',
+          },
+          { name: 'page', in: 'query', schema: { type: 'string', default: '1' } },
+          { name: 'limit', in: 'query', schema: { type: 'string', default: '20' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Roadmaps retrieved successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+        },
+      },
+      post: {
+        tags: ['Roadmaps'],
+        summary: 'Create roadmap',
+        description: 'Create a new learning roadmap. Only admin or department manager can create.',
+        operationId: 'createRoadmap',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['departmentId', 'title'],
+                properties: {
+                  departmentId: { type: 'string', example: '162' },
+                  categoryId: { type: 'string', example: '169' },
+                  title: { type: 'string', example: 'Backend Developer Roadmap' },
+                  description: {
+                    type: 'string',
+                    example: 'Complete learning path for backend developers',
+                  },
+                  targetPosition: { type: 'string', example: 'Senior Backend Developer' },
+                  isActive: { type: 'boolean', default: true },
+                  courses: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        courseId: { type: 'string', example: '155' },
+                        orderIndex: { type: 'number', example: 1 },
+                        isRequired: { type: 'boolean', default: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Roadmap created successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied - must be admin or department manager' },
+          '404': { description: 'Department or category not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/roadmaps/{id}`]: {
+      get: {
+        tags: ['Roadmaps'],
+        summary: 'Get roadmap by ID',
+        description: 'Get roadmap details including courses and assignment count.',
+        operationId: 'getRoadmapById',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': {
+            description: 'Roadmap retrieved successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '404': { description: 'Roadmap not found' },
+        },
+      },
+      put: {
+        tags: ['Roadmaps'],
+        summary: 'Update roadmap',
+        description: 'Update roadmap settings. Only admin or department manager can update.',
+        operationId: 'updateRoadmap',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string' },
+                  description: { type: 'string' },
+                  categoryId: { type: 'string' },
+                  targetPosition: { type: 'string' },
+                  isActive: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Roadmap updated successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Roadmap not found' },
+        },
+      },
+      delete: {
+        tags: ['Roadmaps'],
+        summary: 'Delete roadmap',
+        description: 'Delete roadmap. Only admin or department manager can delete.',
+        operationId: 'deleteRoadmap',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': {
+            description: 'Roadmap deleted successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Roadmap not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/roadmaps/{roadmapId}/courses`]: {
+      post: {
+        tags: ['Roadmaps'],
+        summary: 'Add course to roadmap',
+        description:
+          'Add a course to roadmap. Prevents duplicates. Only admin or department manager can add.',
+        operationId: 'addCourseToRoadmap',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'roadmapId', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['courseId'],
+                properties: {
+                  courseId: { type: 'string', example: '155' },
+                  orderIndex: { type: 'number', example: 1 },
+                  isRequired: { type: 'boolean', default: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Course added successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '400': { description: 'Course already in roadmap or order index conflict' },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Roadmap or course not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/roadmaps/{roadmapId}/courses/{courseId}`]: {
+      put: {
+        tags: ['Roadmaps'],
+        summary: 'Update roadmap course settings',
+        description: 'Update course order index or isRequired flag.',
+        operationId: 'updateRoadmapCourse',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'roadmapId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'courseId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  orderIndex: { type: 'number' },
+                  isRequired: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Roadmap course updated successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '400': { description: 'Order index conflict' },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Roadmap or course not found' },
+        },
+      },
+      delete: {
+        tags: ['Roadmaps'],
+        summary: 'Remove course from roadmap',
+        description: 'Remove a course from roadmap.',
+        operationId: 'removeCourseFromRoadmap',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'roadmapId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'courseId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Course removed successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Roadmap or course not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/roadmaps/{roadmapId}/courses/reorder`]: {
+      post: {
+        tags: ['Roadmaps'],
+        summary: 'Reorder roadmap courses',
+        description: 'Batch update course order indices. All courses must exist in roadmap.',
+        operationId: 'reorderRoadmapCourses',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'roadmapId', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['courseOrders'],
+                properties: {
+                  courseOrders: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        courseId: { type: 'string', example: '155' },
+                        orderIndex: { type: 'number', example: 1 },
+                      },
+                    },
+                    example: [
+                      { courseId: '157', orderIndex: 1 },
+                      { courseId: '161', orderIndex: 2 },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Courses reordered successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Roadmap or courses not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/roadmaps/{roadmapId}/assign`]: {
+      post: {
+        tags: ['Roadmaps'],
+        summary: 'Assign roadmap to users',
+        description:
+          'Assign a roadmap to one or multiple users. Prevents duplicate assignments. Requires Admin or Department Manager permission.',
+        operationId: 'assignRoadmapToUsers',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'roadmapId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Roadmap ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['userIds'],
+                properties: {
+                  userIds: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    minItems: 1,
+                    description: 'Array of user IDs to assign the roadmap to',
+                    example: ['185', '186', '187'],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Roadmap assigned to users successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        roadmapId: { type: 'string', example: '153' },
+                        totalRequested: {
+                          type: 'number',
+                          example: 3,
+                          description: 'Total number of users requested to assign',
+                        },
+                        newAssignments: {
+                          type: 'number',
+                          example: 2,
+                          description: 'Number of new assignments created',
+                        },
+                        alreadyAssigned: {
+                          type: 'number',
+                          example: 1,
+                          description: 'Number of users already assigned (skipped)',
+                        },
+                        skippedUserIds: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          example: ['185'],
+                          description: 'User IDs that were already assigned',
+                        },
+                        assignments: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', example: '123' },
+                              userId: { type: 'string', example: '186' },
+                              status: {
+                                type: 'string',
+                                enum: ['assigned', 'in_progress', 'completed', 'dropped'],
+                                example: 'assigned',
+                              },
+                              assignedAt: {
+                                type: 'string',
+                                format: 'date-time',
+                                example: '2026-04-08T05:30:00.000Z',
+                              },
+                              user: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', example: '186' },
+                                  fullName: { type: 'string', example: 'John Doe' },
+                                  email: { type: 'string', example: 'john.doe@example.com' },
+                                },
+                              },
+                            },
+                          },
+                          description: 'List of newly created assignments',
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Roadmap assigned to users successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: { type: 'string', example: 'At least one user ID is required' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to assign this roadmap',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Roadmap or users not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Users not found: 999, 1000',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/roadmaps/assignments`]: {
+      get: {
+        tags: ['Roadmaps'],
+        summary: 'List roadmap assignments',
+        description:
+          'List and filter roadmap assignments by user, roadmap, status, or department. Regular users see only their own assignments. Department Managers see assignments in their departments. Admins see all.',
+        operationId: 'listRoadmapAssignments',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'userId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by user ID',
+          },
+          {
+            name: 'roadmapId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by roadmap ID',
+          },
+          {
+            name: 'status',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: ['assigned', 'in_progress', 'completed', 'dropped'],
+            },
+            description: 'Filter by assignment status',
+          },
+          {
+            name: 'departmentId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by department ID',
+          },
+          {
+            name: 'page',
+            in: 'query',
+            schema: { type: 'string', default: '1' },
+            description: 'Page number',
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'string', default: '20' },
+            description: 'Items per page',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Roadmap assignments retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        assignments: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', example: '123' },
+                              userId: { type: 'string', example: '185' },
+                              roadmapId: { type: 'string', example: '153' },
+                              status: {
+                                type: 'string',
+                                enum: ['assigned', 'in_progress', 'completed', 'dropped'],
+                                example: 'in_progress',
+                              },
+                              assignedAt: {
+                                type: 'string',
+                                format: 'date-time',
+                                example: '2026-04-08T05:00:00.000Z',
+                              },
+                              startedAt: {
+                                type: 'string',
+                                format: 'date-time',
+                                nullable: true,
+                                example: '2026-04-08T06:00:00.000Z',
+                              },
+                              completedAt: {
+                                type: 'string',
+                                format: 'date-time',
+                                nullable: true,
+                                example: null,
+                              },
+                              droppedAt: {
+                                type: 'string',
+                                format: 'date-time',
+                                nullable: true,
+                                example: null,
+                              },
+                              user: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', example: '185' },
+                                  fullName: { type: 'string', example: 'John Doe' },
+                                  email: { type: 'string', example: 'john.doe@example.com' },
+                                  avatarUrl: {
+                                    type: 'string',
+                                    nullable: true,
+                                    example: 'https://example.com/avatar.jpg',
+                                  },
+                                  department: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string', example: '162' },
+                                      name: { type: 'string', example: 'Engineering' },
+                                    },
+                                  },
+                                },
+                              },
+                              roadmap: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', example: '153' },
+                                  title: { type: 'string', example: 'Backend Developer Path' },
+                                  description: {
+                                    type: 'string',
+                                    example: 'Complete backend development roadmap',
+                                  },
+                                  targetPosition: {
+                                    type: 'string',
+                                    example: 'Backend Developer',
+                                  },
+                                  isActive: { type: 'boolean', example: true },
+                                  department: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string', example: '162' },
+                                      name: { type: 'string', example: 'Engineering' },
+                                    },
+                                  },
+                                  category: {
+                                    type: 'object',
+                                    nullable: true,
+                                    properties: {
+                                      id: { type: 'string', example: '169' },
+                                      name: { type: 'string', example: 'Backend Development' },
+                                      slug: { type: 'string', example: 'backend-development' },
+                                    },
+                                  },
+                                  coursesCount: { type: 'number', example: 5 },
+                                },
+                              },
+                              assignedBy: {
+                                type: 'object',
+                                nullable: true,
+                                properties: {
+                                  id: { type: 'string', example: '1' },
+                                  fullName: { type: 'string', example: 'Admin User' },
+                                  email: { type: 'string', example: 'admin@staffup.local' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'number', example: 1 },
+                            limit: { type: 'number', example: 20 },
+                            total: { type: 'number', example: 50 },
+                            totalPages: { type: 'number', example: 3 },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Roadmap assignments retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/roadmaps/{id}/detail`]: {
       get: {
         tags: ['Roadmaps'],
