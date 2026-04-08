@@ -48,6 +48,14 @@ export const updateCourseSchema = z.object({
   status: z.enum(['draft', 'published', 'archived']).optional(),
 });
 
+export const updateCourseStatusSchema = z.object({
+  status: z.enum(['draft', 'published', 'archived']),
+});
+
+export const addCourseTagSchema = z.object({
+  tagId: z.string().regex(/^\d+$/, 'Invalid tag ID'),
+});
+
 export const courseIdParamSchema = z.object({
   id: z.string().regex(/^\d+$/, 'Invalid course ID format'),
 });
@@ -78,6 +86,11 @@ export const courseDetailQuerySchema = z.object({
     ),
 });
 
+export const courseTagParamsSchema = z.object({
+  id: z.string().regex(/^\d+$/, 'Invalid course ID format'),
+  tagId: z.string().regex(/^\d+$/, 'Invalid tag ID'),
+});
+
 export const courseQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
@@ -92,6 +105,8 @@ export const courseQuerySchema = z.object({
 
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
+export type UpdateCourseStatusInput = z.infer<typeof updateCourseStatusSchema>;
+export type AddCourseTagInput = z.infer<typeof addCourseTagSchema>;
 export type CourseQuery = z.infer<typeof courseQuerySchema>;
 export type CourseDetailQuery = z.infer<typeof courseDetailQuerySchema>;
 type CourseExpandValue = (typeof expandableCourseRelations)[number];

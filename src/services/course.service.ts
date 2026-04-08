@@ -6,6 +6,7 @@ import type {
   CourseDetailQuery,
   CourseQuery,
   CreateCourseInput,
+  UpdateCourseStatusInput,
   UpdateCourseInput,
 } from '@/schemas/course.schema';
 import { AppError, slugify } from '@/utils';
@@ -162,6 +163,54 @@ export class CourseService {
     }
 
     return undefined;
+  }
+
+  private static async validatePublishEligibility(courseId: string) {
+    const course = await this.db.course.findUnique({
+      where: { id: BigInt(courseId) },
+      include: {
+        modules: {
+          include: {
+            lessons: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found.', 404);
+    }
+
+    if (!course.description?.trim()) {
+      throw new AppError('Course must have a description before publishing.', 400);
+    }
+
+    if (!course.thumbnailUrl?.trim()) {
+      throw new AppError('Course must have a thumbnail before publishing.', 400);
+    }
+
+    if (!course.categoryId) {
+      throw new AppError('Course must have a category before publishing.', 400);
+    }
+
+    if (!course.estimatedDurationMinutes || course.estimatedDurationMinutes <= 0) {
+      throw new AppError('Course must have an estimated duration before publishing.', 400);
+    }
+
+    if (course.modules.length === 0) {
+      throw new AppError('Course must contain at least one module before publishing.', 400);
+    }
+
+    const moduleWithoutLessons = course.modules.find((module: any) => module.lessons.length === 0);
+    if (moduleWithoutLessons) {
+      throw new AppError('Every module must contain at least one lesson before publishing.', 400);
+    }
+
+    return course;
   }
 
   private static mapCourseListItem(course: any): CourseListItem {
@@ -363,6 +412,12 @@ export class CourseService {
 
     const status = data.status ?? 'draft';
     this.assertCanPublish(status, permissionCodes);
+    if (status === 'published') {
+      throw new AppError(
+        'Course cannot be published during creation. Create the course first, then publish after adding content.',
+        400,
+      );
+    }
     const slug = await this.generateUniqueSlug(data.title);
 
     const created = await this.db.course.create({
@@ -558,6 +613,10 @@ export class CourseService {
         ? await this.generateUniqueSlug(data.title, id)
         : undefined;
 
+    if (data.status === 'published') {
+      await this.validatePublishEligibility(id);
+    }
+
     const publishedAt = this.getPublishedAtUpdate(
       existingCourse.status,
       data.status,
@@ -609,6 +668,294 @@ export class CourseService {
     });
 
     return this.mapCourseListItem(updated);
+  }
+
+  /**
+   * Update course status
+   */
+  static async updateStatus(
+    id: string,
+    status: UpdateCourseStatusInput['status'],
+    userId: string,
+    roleCodes: string[],
+    permissionCodes: string[],
+  ) {
+    const course = await this.db.course.findUnique({
+      where: { id: BigInt(id) },
+      include: {
+        trainerUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        ownerDepartment: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            modules: true,
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found.', 404);
+    }
+
+    assertPolicy(
+      canAccessOwnedResource({
+        actor: { userId, roleCodes },
+        ownerUserId: course.trainerUserId,
+      }),
+      'You can only update your own courses.',
+    );
+
+    this.assertCanPublish(status, permissionCodes);
+
+    if (status === 'published') {
+      await this.validatePublishEligibility(id);
+    }
+
+    const updated = await this.db.course.update({
+      where: { id: BigInt(id) },
+      data: {
+        status,
+        publishedAt: this.getPublishedAtUpdate(course.status, status, course.publishedAt),
+      },
+      include: {
+        trainerUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        ownerDepartment: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            modules: true,
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    return this.mapCourseListItem(updated);
+  }
+
+  /**
+   * Add tag to course
+   */
+  static async addTagToCourse(id: string, tagId: string, userId: string, roleCodes: string[]) {
+    const course = await this.db.course.findUnique({
+      where: { id: BigInt(id) },
+      include: {
+        trainerUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        ownerDepartment: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        courseTags: {
+          include: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            modules: true,
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found.', 404);
+    }
+
+    assertPolicy(
+      canAccessOwnedResource({
+        actor: { userId, roleCodes },
+        ownerUserId: course.trainerUserId,
+      }),
+      'You can only update your own courses.',
+    );
+
+    const tag = await this.db.tag.findUnique({
+      where: { id: BigInt(tagId) },
+    });
+
+    if (!tag) {
+      throw new AppError('Tag not found.', 404);
+    }
+
+    const existingCourseTag = await this.db.courseTag.findUnique({
+      where: {
+        courseId_tagId: {
+          courseId: BigInt(id),
+          tagId: BigInt(tagId),
+        },
+      },
+    });
+
+    if (existingCourseTag) {
+      throw new AppError('Tag is already assigned to this course.', 400);
+    }
+
+    await this.db.courseTag.create({
+      data: {
+        courseId: BigInt(id),
+        tagId: BigInt(tagId),
+      },
+    });
+
+    const updatedCourse = await this.db.course.findUnique({
+      where: { id: BigInt(id) },
+      include: {
+        trainerUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        ownerDepartment: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        courseTags: {
+          include: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            modules: true,
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    return {
+      ...this.mapCourseListItem(updatedCourse),
+      tags: updatedCourse.courseTags.map((courseTag: any) => ({
+        id: courseTag.tag.id.toString(),
+        name: courseTag.tag.name,
+        slug: courseTag.tag.slug,
+      })),
+    };
+  }
+
+  /**
+   * Remove tag from course
+   */
+  static async removeTagFromCourse(id: string, tagId: string, userId: string, roleCodes: string[]) {
+    const course = await this.db.course.findUnique({
+      where: { id: BigInt(id) },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found.', 404);
+    }
+
+    assertPolicy(
+      canAccessOwnedResource({
+        actor: { userId, roleCodes },
+        ownerUserId: course.trainerUserId,
+      }),
+      'You can only update your own courses.',
+    );
+
+    const existingCourseTag = await this.db.courseTag.findUnique({
+      where: {
+        courseId_tagId: {
+          courseId: BigInt(id),
+          tagId: BigInt(tagId),
+        },
+      },
+    });
+
+    if (!existingCourseTag) {
+      throw new AppError('Tag is not assigned to this course.', 404);
+    }
+
+    await this.db.courseTag.delete({
+      where: {
+        courseId_tagId: {
+          courseId: BigInt(id),
+          tagId: BigInt(tagId),
+        },
+      },
+    });
+
+    return {
+      courseId: id,
+      tagId,
+      removed: true,
+    };
   }
 
   /**
