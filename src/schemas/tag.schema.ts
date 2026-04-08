@@ -1,20 +1,21 @@
 import { z } from 'zod';
+import { numericIdStringSchema, requiredStringSchema } from '@/schemas/shared.schema';
 
 export const createTagSchema = z.object({
-  name: z
-    .string({
-      required_error: 'Tag name is required',
-    })
-    .min(1, 'Tag name cannot be empty')
-    .max(100, 'Tag name cannot exceed 100 characters'),
+  name: requiredStringSchema('Tag name', 1, 100),
 });
 
-export const updateTagSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Tag name cannot be empty')
-    .max(100, 'Tag name cannot exceed 100 characters')
-    .optional(),
+export const updateTagSchema = z
+  .object({
+    name: requiredStringSchema('Tag name', 1, 100).optional(),
+  })
+  .refine((data) => data.name !== undefined, {
+    message: 'At least one field must be provided.',
+    path: [],
+  });
+
+export const tagIdParamSchema = z.object({
+  id: numericIdStringSchema('Tag ID'),
 });
 
 export type CreateTagInput = z.infer<typeof createTagSchema>;

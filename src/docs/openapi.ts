@@ -180,6 +180,7 @@ export const openApiDocument = {
           currentPassword: {
             type: 'string',
             example: 'ChangeMe123',
+            minLength: 1,
           },
           newPassword: {
             type: 'string',
@@ -340,12 +341,43 @@ export const openApiDocument = {
           roleCodes: {
             type: 'array',
             minItems: 1,
+            maxItems: 50,
+            uniqueItems: true,
             items: {
               type: 'string',
               pattern: '^[a-z][a-z0-9_]*$',
               example: 'trainer',
             },
             example: ['trainer', 'employee'],
+          },
+        },
+      },
+      UpdateUserStatusRequest: {
+        type: 'object',
+        required: ['isActive'],
+        properties: {
+          isActive: {
+            type: 'boolean',
+            example: false,
+          },
+        },
+      },
+      UpdateUserStatusResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'User status updated successfully' },
+          data: {
+            type: 'object',
+            required: ['id', 'email', 'fullName', 'isActive', 'updatedAt'],
+            properties: {
+              id: { type: 'string', pattern: '^\\d+$', example: '7' },
+              email: { type: 'string', format: 'email', example: 'student1@example.com' },
+              fullName: { type: 'string', example: 'Alice Student' },
+              isActive: { type: 'boolean', example: false },
+              updatedAt: { type: 'string', format: 'date-time' },
+            },
           },
         },
       },
@@ -1551,8 +1583,11 @@ export const openApiDocument = {
           },
           permissionCodes: {
             type: 'array',
+            maxItems: 200,
+            uniqueItems: true,
             items: {
               type: 'string',
+              pattern: '^[a-z][a-z0-9_.]*$',
               example: 'course.read',
             },
             example: ['course.read', 'user.read'],
@@ -1580,8 +1615,11 @@ export const openApiDocument = {
           },
           permissionCodes: {
             type: 'array',
+            maxItems: 200,
+            uniqueItems: true,
             items: {
               type: 'string',
+              pattern: '^[a-z][a-z0-9_.]*$',
             },
             example: ['course.read', 'course.update', 'user.read'],
           },
@@ -1653,6 +1691,8 @@ export const openApiDocument = {
             example: 'Publish courses',
           },
         },
+        description:
+          'Permission code must match `module.action` exactly. Example: code=`course.publish`, module=`course`, action=`publish`.',
       },
       UpdatePermissionRequest: {
         type: 'object',
@@ -1679,6 +1719,8 @@ export const openApiDocument = {
             example: 'Archive courses',
           },
         },
+        description:
+          'When changing permission identity, provide `code`, `module`, and `action` together. Permission code must match `module.action`.',
       },
       PermissionListResponse: {
         type: 'object',
@@ -1906,16 +1948,17 @@ export const openApiDocument = {
             example: 'JavaScript Fundamentals',
           },
           description: { type: 'string', example: 'Questions covering JS basics.' },
-          categoryId: { type: 'string', nullable: true, example: '3' },
+          categoryId: { type: 'string', pattern: '^\\d+$', nullable: true, example: '3' },
           isActive: { type: 'boolean', default: true },
         },
       },
       UpdateQuestionBankRequest: {
         type: 'object',
+        minProperties: 1,
         properties: {
           title: { type: 'string', minLength: 2, maxLength: 200 },
-          description: { type: 'string', nullable: true },
-          categoryId: { type: 'string', nullable: true },
+          description: { type: 'string', maxLength: 500, nullable: true },
+          categoryId: { type: 'string', pattern: '^\\d+$', nullable: true },
           isActive: { type: 'boolean' },
         },
       },
@@ -1923,9 +1966,9 @@ export const openApiDocument = {
         type: 'object',
         required: ['content', 'isCorrect', 'orderIndex'],
         properties: {
-          content: { type: 'string', example: 'Paris' },
+          content: { type: 'string', minLength: 1, maxLength: 5000, example: 'Paris' },
           isCorrect: { type: 'boolean', example: true },
-          orderIndex: { type: 'integer', example: 1 },
+          orderIndex: { type: 'integer', minimum: 1, example: 1 },
         },
       },
       CreateQuestionRequest: {
@@ -1939,12 +1982,18 @@ export const openApiDocument = {
             enum: ['single_choice', 'multiple_choice', 'essay'],
             example: 'single_choice',
           },
-          content: { type: 'string', example: 'What is the capital of France?' },
-          explanation: { type: 'string', nullable: true },
+          content: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 10000,
+            example: 'What is the capital of France?',
+          },
+          explanation: { type: 'string', maxLength: 500, nullable: true },
           defaultPoints: { type: 'integer', minimum: 1, default: 1 },
           options: {
             type: 'array',
             items: { $ref: '#/components/schemas/QuestionOptionInput' },
+            minItems: 2,
             description:
               'Required for single_choice (exactly 1 correct) and multiple_choice (at least 1 correct). Must NOT be provided for essay.',
           },
@@ -1952,11 +2001,12 @@ export const openApiDocument = {
       },
       UpdateQuestionRequest: {
         type: 'object',
+        minProperties: 1,
         description:
           'Updates question metadata only (content, explanation, defaultPoints). To manage options use the dedicated /options endpoints.',
         properties: {
-          content: { type: 'string' },
-          explanation: { type: 'string', nullable: true },
+          content: { type: 'string', minLength: 1, maxLength: 10000 },
+          explanation: { type: 'string', maxLength: 500, nullable: true },
           defaultPoints: { type: 'integer', minimum: 1 },
         },
       },
@@ -1966,17 +2016,18 @@ export const openApiDocument = {
         description:
           'Add an option to a single_choice or multiple_choice question. Business rules: essay questions cannot have options. single_choice cannot have more than 1 correct option.',
         properties: {
-          content: { type: 'string', example: 'Paris' },
+          content: { type: 'string', minLength: 1, maxLength: 5000, example: 'Paris' },
           isCorrect: { type: 'boolean', example: true },
           orderIndex: { type: 'integer', minimum: 1, example: 1 },
         },
       },
       UpdateOptionRequest: {
         type: 'object',
+        minProperties: 1,
         description:
           'Update an option. Business rules: cannot unset the only correct option on single_choice. Cannot set isCorrect=true if another correct option already exists on single_choice.',
         properties: {
-          content: { type: 'string', example: 'London' },
+          content: { type: 'string', minLength: 1, maxLength: 5000, example: 'London' },
           isCorrect: { type: 'boolean', example: false },
           orderIndex: { type: 'integer', minimum: 1, example: 2 },
         },
@@ -2398,6 +2449,88 @@ export const openApiDocument = {
           },
           '403': {
             description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'User not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/users/{id}/status`]: {
+      patch: {
+        tags: ['Auth'],
+        summary: 'Update user active status',
+        description: 'Requires the `user.assign_role` permission.',
+        operationId: 'updateUserStatus',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/UpdateUserStatusRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'User status updated successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/UpdateUserStatusResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Invalid request body or path parameters.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient permission.',
             content: {
               'application/json': {
                 schema: {
@@ -4522,10 +4655,10 @@ export const openApiDocument = {
           {
             name: 'userId',
             in: 'query',
-            schema: { type: 'string' },
+            schema: { type: 'string', pattern: '^\\d+$' },
             description: 'Filter by user ID (admin/trainer only)',
           },
-          { name: 'courseId', in: 'query', schema: { type: 'string' } },
+          { name: 'courseId', in: 'query', schema: { type: 'string', pattern: '^\\d+$' } },
           {
             name: 'status',
             in: 'query',
@@ -4534,7 +4667,11 @@ export const openApiDocument = {
               enum: ['assigned', 'in_progress', 'completed', 'cancelled', 'expired'],
             },
           },
-          { name: 'departmentId', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'departmentId',
+            in: 'query',
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
           {
             name: 'overdue',
             in: 'query',
@@ -4661,8 +4798,8 @@ export const openApiDocument = {
             name: 'id',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Enrollment ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Enrollment ID as numeric string',
           },
         ],
         requestBody: {
@@ -4812,15 +4949,15 @@ export const openApiDocument = {
             name: 'enrollmentId',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Enrollment ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Enrollment ID as numeric string',
           },
           {
             name: 'lessonId',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Lesson ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Lesson ID as numeric string',
           },
         ],
         responses: {
@@ -4900,15 +5037,15 @@ export const openApiDocument = {
             name: 'enrollmentId',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Enrollment ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Enrollment ID as numeric string',
           },
           {
             name: 'lessonId',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Lesson ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Lesson ID as numeric string',
           },
         ],
         requestBody: {
@@ -4917,6 +5054,7 @@ export const openApiDocument = {
             'application/json': {
               schema: {
                 type: 'object',
+                minProperties: 1,
                 properties: {
                   watchTimeSeconds: {
                     type: 'integer',
@@ -5013,15 +5151,15 @@ export const openApiDocument = {
             name: 'enrollmentId',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Enrollment ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Enrollment ID as numeric string',
           },
           {
             name: 'lessonId',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Lesson ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Lesson ID as numeric string',
           },
         ],
         responses: {
@@ -5094,8 +5232,8 @@ export const openApiDocument = {
             name: 'enrollmentId',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Enrollment ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Enrollment ID as numeric string',
           },
         ],
         responses: {
@@ -5231,8 +5369,8 @@ export const openApiDocument = {
             name: 'courseId',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Course ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Course ID as numeric string',
           },
         ],
         requestBody: {
@@ -5245,8 +5383,10 @@ export const openApiDocument = {
                 properties: {
                   userIds: {
                     type: 'array',
-                    items: { type: 'string' },
+                    items: { type: 'string', pattern: '^\\d+$' },
                     minItems: 1,
+                    maxItems: 500,
+                    uniqueItems: true,
                     example: ['2', '3', '5'],
                     description: 'List of user IDs to enroll',
                   },
@@ -5367,8 +5507,8 @@ export const openApiDocument = {
             name: 'id',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Enrollment ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Enrollment ID as numeric string',
           },
         ],
         responses: {
@@ -7611,6 +7751,8 @@ export const openApiDocument = {
                       type: 'string',
                       pattern: '^\\d+$',
                     },
+                    maxItems: 100,
+                    uniqueItems: true,
                     example: ['1001'],
                     description:
                       'Array of selected option IDs for choice questions (single_choice, multiple_choice, true_false)',
@@ -9813,14 +9955,14 @@ export const openApiDocument = {
         parameters: [
           { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 100 } },
-          { name: 'categoryId', in: 'query', schema: { type: 'string' } },
+          { name: 'categoryId', in: 'query', schema: { type: 'string', pattern: '^\\d+$' } },
           {
             name: 'ownerTrainerId',
             in: 'query',
-            schema: { type: 'string' },
+            schema: { type: 'string', pattern: '^\\d+$' },
             description: 'Admin only filter',
           },
-          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'search', in: 'query', schema: { type: 'string', maxLength: 100 } },
           { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
         ],
         responses: {
@@ -9904,7 +10046,15 @@ export const openApiDocument = {
         summary: 'Get question bank by ID',
         operationId: 'getQuestionBank',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+        ],
         responses: {
           '200': {
             description: 'Question bank retrieved successfully',
@@ -9941,7 +10091,15 @@ export const openApiDocument = {
         description: 'Only the owner trainer or admin can update.',
         operationId: 'updateQuestionBank',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -9992,7 +10150,15 @@ export const openApiDocument = {
         description: 'Only the owner trainer or admin can delete.',
         operationId: 'deleteQuestionBank',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+        ],
         responses: {
           '204': { description: 'Deleted successfully' },
           '401': {
@@ -10026,7 +10192,13 @@ export const openApiDocument = {
         operationId: 'listQuestions',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
+          {
+            name: 'bankId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
           { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 100 } },
           {
@@ -10034,7 +10206,7 @@ export const openApiDocument = {
             in: 'query',
             schema: { type: 'string', enum: ['single_choice', 'multiple_choice', 'essay'] },
           },
-          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'search', in: 'query', schema: { type: 'string', maxLength: 100 } },
           { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
         ],
         responses: {
@@ -10080,7 +10252,15 @@ export const openApiDocument = {
           'Only the bank owner or admin can add questions. single_choice requires exactly 1 correct option; multiple_choice requires at least 1; essay has no options.',
         operationId: 'createQuestion',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'bankId', in: 'path', required: true, schema: { type: 'string' } }],
+        parameters: [
+          {
+            name: 'bankId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -10137,8 +10317,20 @@ export const openApiDocument = {
         operationId: 'getQuestion',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          {
+            name: 'bankId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question ID as numeric string',
+          },
         ],
         responses: {
           '200': {
@@ -10184,8 +10376,20 @@ export const openApiDocument = {
         operationId: 'updateQuestion',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          {
+            name: 'bankId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question ID as numeric string',
+          },
         ],
         requestBody: {
           required: true,
@@ -10244,8 +10448,20 @@ export const openApiDocument = {
         operationId: 'deactivateQuestion',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          {
+            name: 'bankId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question ID as numeric string',
+          },
         ],
         responses: {
           '200': {
@@ -10299,8 +10515,20 @@ export const openApiDocument = {
         operationId: 'createQuestionOption',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'questionId', in: 'path', required: true, schema: { type: 'string' } },
+          {
+            name: 'bankId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+          {
+            name: 'questionId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question ID as numeric string',
+          },
         ],
         requestBody: {
           required: true,
@@ -10379,9 +10607,27 @@ export const openApiDocument = {
         operationId: 'updateQuestionOption',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'questionId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'optionId', in: 'path', required: true, schema: { type: 'string' } },
+          {
+            name: 'bankId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+          {
+            name: 'questionId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question ID as numeric string',
+          },
+          {
+            name: 'optionId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Option ID as numeric string',
+          },
         ],
         requestBody: {
           required: true,
@@ -10462,9 +10708,27 @@ export const openApiDocument = {
         operationId: 'deleteQuestionOption',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'questionId', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'optionId', in: 'path', required: true, schema: { type: 'string' } },
+          {
+            name: 'bankId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question bank ID as numeric string',
+          },
+          {
+            name: 'questionId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Question ID as numeric string',
+          },
+          {
+            name: 'optionId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Option ID as numeric string',
+          },
         ],
         responses: {
           '204': { description: 'Option deleted successfully' },

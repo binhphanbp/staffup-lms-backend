@@ -1,7 +1,12 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { CategoryController } from '@/controllers/category.controller';
 import { authenticate, validate, restrictTo } from '@/middlewares';
-import { createCategorySchema, updateCategorySchema } from '@/schemas/category.schema';
+import {
+  categoryIdParamSchema,
+  categoryListQuerySchema,
+  createCategorySchema,
+  updateCategorySchema,
+} from '@/schemas/category.schema';
 
 const router: ExpressRouter = Router();
 
@@ -10,11 +15,12 @@ router.use(authenticate);
 
 router
   .route('/')
-  .get(CategoryController.getCategories)
+  .get(validate(categoryListQuerySchema, 'query'), CategoryController.getCategories)
   .post(restrictTo('admin'), validate(createCategorySchema), CategoryController.createCategory);
 
 router
   .route('/:id')
+  .all(validate(categoryIdParamSchema, 'params'))
   .get(CategoryController.getCategoryById)
   .put(restrictTo('admin'), validate(updateCategorySchema), CategoryController.updateCategory)
   .delete(restrictTo('admin'), CategoryController.deleteCategory);

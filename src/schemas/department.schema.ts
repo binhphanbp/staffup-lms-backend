@@ -1,47 +1,41 @@
 import { z } from 'zod';
+import {
+  numericIdStringSchema,
+  optionalBooleanQuerySchema,
+  paginationLimitQuerySchema,
+  paginationPageQuerySchema,
+  requiredStringSchema,
+} from '@/schemas/shared.schema';
 
 export const createDepartmentSchema = z.object({
-  name: z
-    .string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(100, 'Name must be at most 100 characters'),
+  name: requiredStringSchema('Name', 2, 100),
   isActive: z.boolean().optional(),
-  managerUserId: z.string().regex(/^\d+$/, 'Invalid manager user ID format').nullable().optional(),
+  managerUserId: numericIdStringSchema('Manager user ID').nullable().optional(),
 });
 
-export const updateDepartmentSchema = z.object({
-  name: z
-    .string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(100, 'Name must be at most 100 characters')
-    .optional(),
-  isActive: z.boolean().optional(),
-  managerUserId: z.string().regex(/^\d+$/, 'Invalid manager user ID format').nullable().optional(),
-});
+export const updateDepartmentSchema = z
+  .object({
+    name: requiredStringSchema('Name', 2, 100).optional(),
+    isActive: z.boolean().optional(),
+    managerUserId: numericIdStringSchema('Manager user ID').nullable().optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined || data.isActive !== undefined || data.managerUserId !== undefined,
+    {
+      message: 'At least one field must be provided.',
+      path: [],
+    },
+  );
 
 export const departmentIdParamSchema = z.object({
-  id: z.string().regex(/^\d+$/, 'Invalid department ID format'),
+  id: numericIdStringSchema('Department ID'),
 });
 
 export const getDepartmentUsersQuerySchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .transform((v) => (v ? parseInt(v, 10) : 1))
-    .pipe(z.number().int().min(1, 'Page must be at least 1')),
-  limit: z
-    .string()
-    .optional()
-    .transform((v) => (v ? parseInt(v, 10) : 10))
-    .pipe(z.number().int().min(1).max(100, 'Limit must be at most 100')),
-  isActive: z
-    .string()
-    .optional()
-    .transform((v) => {
-      if (v === 'true') return true;
-      if (v === 'false') return false;
-      return undefined;
-    }),
+  page: paginationPageQuerySchema,
+  limit: paginationLimitQuerySchema,
+  isActive: optionalBooleanQuerySchema,
 });
 
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
