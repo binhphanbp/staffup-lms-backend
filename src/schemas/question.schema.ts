@@ -8,13 +8,21 @@ const questionOptionSchema = z.object({
 
 export const createQuestionSchema = z
   .object({
-    questionBankId: z.string(),
     questionType: z.enum(['single_choice', 'multiple_choice', 'essay']),
     content: z.string().min(1),
     explanation: z.string().optional().nullable(),
     defaultPoints: z.number().int().positive().optional(),
     options: z.array(questionOptionSchema).optional(),
   })
+  .refine(
+    (data) => {
+      if (data.questionType === 'essay') {
+        return !data.options || data.options.length === 0;
+      }
+      return true;
+    },
+    { message: 'essay questions must not have options' },
+  )
   .refine(
     (data) => {
       if (data.questionType !== 'essay') {
@@ -43,22 +51,11 @@ export const createQuestionSchema = z
     { message: 'multiple_choice question must have at least 1 correct option' },
   );
 
-export const updateQuestionSchema = z
-  .object({
-    content: z.string().min(1).optional(),
-    explanation: z.string().optional().nullable(),
-    defaultPoints: z.number().int().positive().optional(),
-    options: z.array(questionOptionSchema).optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.options !== undefined && data.options.length < 2) {
-        return false;
-      }
-      return true;
-    },
-    { message: 'At least 2 options required when updating options' },
-  );
+export const updateQuestionSchema = z.object({
+  content: z.string().min(1).optional(),
+  explanation: z.string().optional().nullable(),
+  defaultPoints: z.number().int().positive().optional(),
+});
 
 export const listQuestionsSchema = z.object({
   page: z.coerce.number().int().positive().optional(),
