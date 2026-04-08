@@ -138,3 +138,18 @@ export const listRoadmapAssignments = catchAsync(async (req: AuthRequest, res: R
 
   sendSuccess(res, result, 'Roadmap assignments retrieved successfully');
 });
+
+export const updateAssignmentStatus = catchAsync(async (req: AuthRequest, res: Response) => {
+  const assignmentId = Array.isArray(req.params.assignmentId)
+    ? req.params.assignmentId[0]
+    : req.params.assignmentId;
+
+  const result = await RoadmapService.updateAssignmentStatus(
+    assignmentId,
+    req.body.status,
+    req.user!.userId,
+    req.user!.roleCodes,
+  );
+
+  sendSuccess(res, result, 'Assignment status updated successfully');
+});
