@@ -8,7 +8,12 @@ export class CourseController {
    * POST /api/v1/courses
    */
   static create = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    const course = await CourseService.create(req.body, req.user!.userId);
+    const course = await CourseService.create(
+      req.body,
+      req.user!.userId,
+      req.user!.roleCodes,
+      req.user!.permissionCodes,
+    );
     sendCreated(res, course, 'Course created successfully');
   });
 
@@ -37,6 +42,7 @@ export class CourseController {
       req.body,
       req.user!.userId,
       req.user!.roleCodes,
+      req.user!.permissionCodes,
     );
     sendSuccess(res, course, 'Course updated successfully');
   });
