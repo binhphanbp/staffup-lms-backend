@@ -53,6 +53,18 @@ export const openApiDocument = {
       description: 'Quiz attempt management and submission endpoints.',
     },
     {
+      name: 'Quizzes',
+      description: 'Quiz CRUD operations for course and lesson quizzes.',
+    },
+    {
+      name: 'Certificates',
+      description: 'Certificate issuance and management endpoints.',
+    },
+    {
+      name: 'Risk Assessments',
+      description: 'Learner risk assessment ingestion and retrieval endpoints.',
+    },
+    {
       name: 'Dashboard',
       description: 'Dashboard statistics for different user roles.',
     },
@@ -3270,6 +3282,298 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/quizzes`]: {
+      get: {
+        tags: ['Quizzes'],
+        summary: 'List quizzes with filters',
+        description:
+          'Get list of quizzes. Students see quizzes from enrolled courses, trainers see their courses, admins see all.',
+        operationId: 'listQuizzes',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'courseId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by course ID',
+          },
+          {
+            name: 'lessonId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by lesson ID',
+          },
+          {
+            name: 'selectionMode',
+            in: 'query',
+            schema: { type: 'string', enum: ['fixed', 'random_pool'] },
+          },
+          { name: 'page', in: 'query', schema: { type: 'string', default: '1' } },
+          { name: 'limit', in: 'query', schema: { type: 'string', default: '20' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Quizzes retrieved successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+        },
+      },
+      post: {
+        tags: ['Quizzes'],
+        summary: 'Create quiz',
+        description:
+          'Create a new quiz for a course or lesson. Only admin or course trainer can create.',
+        operationId: 'createQuiz',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['courseId', 'title'],
+                properties: {
+                  courseId: { type: 'string', example: '136' },
+                  lessonId: { type: 'string', example: '1442' },
+                  title: { type: 'string', example: 'React Basics Quiz' },
+                  description: { type: 'string' },
+                  selectionMode: {
+                    type: 'string',
+                    enum: ['fixed', 'random_pool'],
+                    default: 'fixed',
+                  },
+                  passScorePercent: { type: 'number', default: 70 },
+                  timeLimitMinutes: { type: 'number' },
+                  maxAttempts: { type: 'number' },
+                  questionsToPull: { type: 'number' },
+                  shuffleQuestions: { type: 'boolean', default: true },
+                  shuffleOptions: { type: 'boolean', default: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Quiz created successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Course or lesson not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/quizzes/{id}`]: {
+      get: {
+        tags: ['Quizzes'],
+        summary: 'Get quiz detail',
+        description: 'Get detailed quiz information including questions.',
+        operationId: 'getQuizById',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': {
+            description: 'Quiz retrieved successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Quiz not found' },
+        },
+      },
+      put: {
+        tags: ['Quizzes'],
+        summary: 'Update quiz',
+        description: 'Update quiz settings. Only admin or course trainer can update.',
+        operationId: 'updateQuiz',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string' },
+                  description: { type: 'string' },
+                  selectionMode: { type: 'string', enum: ['fixed', 'random_pool'] },
+                  passScorePercent: { type: 'number', minimum: 0, maximum: 100 },
+                  timeLimitMinutes: { type: 'number', minimum: 1 },
+                  maxAttempts: { type: 'number', minimum: 1 },
+                  questionsToPull: { type: 'number', minimum: 1 },
+                  shuffleQuestions: { type: 'boolean' },
+                  shuffleOptions: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Quiz updated successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '400': {
+            description: 'Validation error - invalid config or not enough questions in pool',
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Quiz not found' },
+        },
+      },
+      delete: {
+        tags: ['Quizzes'],
+        summary: 'Delete quiz',
+        description: 'Delete quiz. Only admin or course trainer can delete.',
+        operationId: 'deleteQuiz',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': {
+            description: 'Quiz deleted successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Quiz not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/quizzes/{quizId}/questions`]: {
+      post: {
+        tags: ['Quizzes'],
+        summary: 'Add question to quiz',
+        description:
+          'Add a question to quiz. Prevents duplicates. Only admin or course trainer can add.',
+        operationId: 'addQuestionToQuiz',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'quizId', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['questionId'],
+                properties: {
+                  questionId: { type: 'string', example: '601' },
+                  orderIndex: { type: 'number', example: 1 },
+                  points: { type: 'number', example: 5, default: 1 },
+                  isRequired: { type: 'boolean', default: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Question added successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '400': { description: 'Question already in quiz' },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Quiz or question not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/quizzes/{quizId}/questions/{questionId}`]: {
+      put: {
+        tags: ['Quizzes'],
+        summary: 'Update quiz question settings',
+        description: 'Update question points, order, or isRequired flag.',
+        operationId: 'updateQuizQuestion',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'quizId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'questionId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  orderIndex: { type: 'number' },
+                  points: { type: 'number' },
+                  isRequired: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Quiz question updated successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Quiz or question not found' },
+        },
+      },
+      delete: {
+        tags: ['Quizzes'],
+        summary: 'Remove question from quiz',
+        description: 'Remove a question from quiz.',
+        operationId: 'removeQuestionFromQuiz',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'quizId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'questionId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Question removed successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Quiz or question not found' },
+        },
+      },
+    },
+    [`${API_PREFIX}/quizzes/{quizId}/questions/reorder`]: {
+      post: {
+        tags: ['Quizzes'],
+        summary: 'Reorder quiz questions',
+        description: 'Batch update question order indices.',
+        operationId: 'reorderQuizQuestions',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'quizId', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['questionOrders'],
+                properties: {
+                  questionOrders: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        questionId: { type: 'string', example: '601' },
+                        orderIndex: { type: 'number', example: 1 },
+                      },
+                    },
+                    example: [
+                      { questionId: '601', orderIndex: 1 },
+                      { questionId: '602', orderIndex: 2 },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Questions reordered successfully',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          '403': { description: 'Permission denied' },
+          '404': { description: 'Quiz not found' },
+        },
+      },
+    },
     [`${API_PREFIX}/quiz-attempts/start`]: {
       post: {
         tags: ['Quiz Attempts'],
@@ -4708,6 +5012,1261 @@ export const openApiDocument = {
                     message: {
                       type: 'string',
                       example: 'Quiz attempt not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/certificates`]: {
+      get: {
+        tags: ['Certificates'],
+        summary: 'List certificates with filters',
+        description:
+          'Get list of certificates with optional filters by userId, courseId, or enrollmentId. Only returns active (non-revoked) certificates.',
+        operationId: 'listCertificates',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'userId',
+            in: 'query',
+            required: false,
+            description: 'Filter by user ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+            },
+          },
+          {
+            name: 'courseId',
+            in: 'query',
+            required: false,
+            description: 'Filter by course ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+            },
+          },
+          {
+            name: 'enrollmentId',
+            in: 'query',
+            required: false,
+            description: 'Filter by enrollment ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+            },
+          },
+          {
+            name: 'page',
+            in: 'query',
+            required: false,
+            description: 'Page number',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+              default: '1',
+            },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            description: 'Items per page',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '20',
+              default: '20',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Certificates retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        certificates: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', example: '1' },
+                              certificateCode: { type: 'string', example: 'CERT-0001-0001-123456' },
+                              pdfUrl: { type: 'string', nullable: true, example: null },
+                              issuedAt: { type: 'string', format: 'date-time' },
+                              enrollment: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', example: '1' },
+                                  user: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string', example: '1' },
+                                      fullName: { type: 'string', example: 'John Doe' },
+                                      email: { type: 'string', example: 'john@example.com' },
+                                    },
+                                  },
+                                  course: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string', example: '1' },
+                                      title: { type: 'string', example: 'Node.js Fundamentals' },
+                                      slug: { type: 'string', example: 'nodejs-fundamentals' },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'number', example: 1 },
+                            limit: { type: 'number', example: 20 },
+                            total: { type: 'number', example: 50 },
+                            totalPages: { type: 'number', example: 3 },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Certificates retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/certificates/{id}`]: {
+      get: {
+        tags: ['Certificates'],
+        summary: 'Get certificate detail by ID',
+        description:
+          'Get detailed information about a certificate. Only accessible by certificate owner, course trainer, or admin.',
+        operationId: 'getCertificateById',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            description: 'Certificate ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Certificate retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '1' },
+                        certificateCode: { type: 'string', example: 'CERT-0001-0001-123456' },
+                        pdfUrl: { type: 'string', nullable: true, example: null },
+                        issuedAt: { type: 'string', format: 'date-time' },
+                        revokedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                          example: null,
+                        },
+                        enrollment: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '1' },
+                            completedAt: { type: 'string', format: 'date-time', nullable: true },
+                            user: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', example: '1' },
+                                fullName: { type: 'string', example: 'John Doe' },
+                                email: { type: 'string', example: 'john@example.com' },
+                                avatarUrl: { type: 'string', nullable: true },
+                              },
+                            },
+                            course: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', example: '1' },
+                                title: { type: 'string', example: 'Node.js Fundamentals' },
+                                slug: { type: 'string', example: 'nodejs-fundamentals' },
+                                description: { type: 'string' },
+                                thumbnailUrl: { type: 'string', nullable: true },
+                                trainer: {
+                                  type: 'object',
+                                  properties: {
+                                    id: { type: 'string', example: '128' },
+                                    fullName: { type: 'string', example: 'John Trainer' },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Certificate retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to view this certificate',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Certificate not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Certificate not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/certificates/enrollment/{enrollmentId}`]: {
+      get: {
+        tags: ['Certificates'],
+        summary: 'Get certificate by enrollment ID',
+        description:
+          'Get certificate for a specific enrollment. Only accessible by enrollment owner, course trainer, or admin.',
+        operationId: 'getCertificateByEnrollment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'path',
+            required: true,
+            description: 'Enrollment ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Certificate retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '1' },
+                        certificateCode: { type: 'string', example: 'CERT-0001-0001-123456' },
+                        pdfUrl: { type: 'string', nullable: true, example: null },
+                        issuedAt: { type: 'string', format: 'date-time' },
+                        revokedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          nullable: true,
+                          example: null,
+                        },
+                        enrollment: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '1' },
+                            user: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', example: '1' },
+                                fullName: { type: 'string', example: 'John Doe' },
+                                email: { type: 'string', example: 'john@example.com' },
+                              },
+                            },
+                            course: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', example: '1' },
+                                title: { type: 'string', example: 'Node.js Fundamentals' },
+                                slug: { type: 'string', example: 'nodejs-fundamentals' },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Certificate retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to view this certificate',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Certificate not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Certificate not found for this enrollment',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/certificates/issue/{enrollmentId}`]: {
+      post: {
+        tags: ['Certificates'],
+        summary: 'Issue certificate for enrollment',
+        description:
+          'Check completion requirements and issue certificate if eligible. Only one active certificate per enrollment is allowed. Requirements: all lessons completed, all required quizzes passed.',
+        operationId: 'issueCertificate',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'path',
+            required: true,
+            description: 'Enrollment ID to issue certificate for',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+            },
+          },
+        ],
+        responses: {
+          '201': {
+            description: 'Certificate issued successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        certificateId: { type: 'string', example: '1' },
+                        certificateCode: { type: 'string', example: 'CERT-0001-0001-123456' },
+                        issuedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-07T10:00:00.000Z',
+                        },
+                        enrollment: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '1' },
+                            user: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', example: '1' },
+                                fullName: { type: 'string', example: 'John Doe' },
+                                email: { type: 'string', example: 'john@example.com' },
+                              },
+                            },
+                            course: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', example: '1' },
+                                title: { type: 'string', example: 'Node.js Fundamentals' },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Certificate issued successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Certificate already issued or requirements not met',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example:
+                        'Cannot issue certificate. Requirements not met: Complete all lessons (5/10 completed), Pass all required quizzes (0/2 passed)',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - must be owner, trainer, or admin',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example:
+                        'You do not have permission to issue certificate for this enrollment',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Enrollment not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Enrollment not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/certificates/{id}/revoke`]: {
+      delete: {
+        tags: ['Certificates'],
+        summary: 'Revoke certificate',
+        description:
+          'Revoke a certificate by setting revoked_at timestamp (soft delete). Only accessible by course trainer or admin. Cannot revoke already revoked certificates.',
+        operationId: 'revokeCertificate',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            description: 'Certificate ID to revoke',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '67',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Certificate revoked successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        certificateId: { type: 'string', example: '67' },
+                        certificateCode: { type: 'string', example: 'CERT-0136-0166-362862' },
+                        revokedAt: {
+                          type: 'string',
+                          format: 'date-time',
+                          example: '2026-04-07T06:00:00.000Z',
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Certificate revoked successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Certificate already revoked',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Certificate is already revoked',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - must be trainer or admin',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to revoke this certificate',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Certificate not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Certificate not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/risk-assessments`]: {
+      get: {
+        tags: ['Risk Assessments'],
+        summary: 'List risk assessments with filters',
+        description:
+          'Get list of risk assessments with optional filters. Only accessible by admin or trainer. Trainers can only see assessments for their courses. Supports filtering by risk level, enrollment, user, course, and latest-only mode.',
+        operationId: 'listRiskAssessments',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'riskLevel',
+            in: 'query',
+            required: false,
+            description: 'Filter by risk level',
+            schema: {
+              type: 'string',
+              enum: ['low', 'medium', 'high'],
+              example: 'high',
+            },
+          },
+          {
+            name: 'enrollmentId',
+            in: 'query',
+            required: false,
+            description: 'Filter by enrollment ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '196',
+            },
+          },
+          {
+            name: 'userId',
+            in: 'query',
+            required: false,
+            description: 'Filter by user ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '166',
+            },
+          },
+          {
+            name: 'courseId',
+            in: 'query',
+            required: false,
+            description: 'Filter by course ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '136',
+            },
+          },
+          {
+            name: 'latestOnly',
+            in: 'query',
+            required: false,
+            description: 'Show only latest assessment per enrollment',
+            schema: {
+              type: 'string',
+              enum: ['true', 'false'],
+              example: 'true',
+              default: 'false',
+            },
+          },
+          {
+            name: 'page',
+            in: 'query',
+            required: false,
+            description: 'Page number',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+              default: '1',
+            },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            description: 'Items per page',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '20',
+              default: '20',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Risk assessments retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        assessments: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', example: '115' },
+                              enrollmentId: { type: 'string', example: '196' },
+                              riskScore: { type: 'number', example: 75.5 },
+                              riskLevel: { type: 'string', example: 'high' },
+                              modelVersion: { type: 'string', example: 'v1.2.3' },
+                              calculatedAt: { type: 'string', format: 'date-time' },
+                              expiresAt: { type: 'string', format: 'date-time', nullable: true },
+                              enrollment: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', example: '196' },
+                                  user: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string', example: '166' },
+                                      fullName: { type: 'string', example: 'Alice Student' },
+                                      email: { type: 'string', example: 'student1@example.com' },
+                                    },
+                                  },
+                                  course: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string', example: '136' },
+                                      title: { type: 'string', example: 'React Complete Guide' },
+                                      slug: { type: 'string', example: 'react-complete-guide' },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'number', example: 1 },
+                            limit: { type: 'number', example: 20 },
+                            total: { type: 'number', example: 50 },
+                            totalPages: { type: 'number', example: 3 },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Risk assessments retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied - must be admin or trainer',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to list risk assessments',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/risk-assessments/ingest`]: {
+      post: {
+        tags: ['Risk Assessments'],
+        summary: 'Ingest learner risk assessment',
+        description:
+          'Ingest risk assessment data from external AI/ML system. Creates a new risk assessment record for an enrollment with score, level, and recommendations.',
+        operationId: 'ingestRiskAssessment',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['enrollmentId', 'riskScore', 'riskLevel'],
+                properties: {
+                  enrollmentId: {
+                    type: 'string',
+                    pattern: '^\\d+$',
+                    example: '196',
+                    description: 'Enrollment ID',
+                  },
+                  riskScore: {
+                    type: 'number',
+                    minimum: 0,
+                    maximum: 100,
+                    example: 75.5,
+                    description: 'Risk score (0-100)',
+                  },
+                  riskLevel: {
+                    type: 'string',
+                    enum: ['low', 'medium', 'high'],
+                    example: 'high',
+                    description: 'Risk level classification',
+                  },
+                  modelVersion: {
+                    type: 'string',
+                    maxLength: 50,
+                    example: 'v1.2.3',
+                    description: 'AI model version used',
+                  },
+                  reasons: {
+                    type: 'object',
+                    example: {
+                      lowEngagement: true,
+                      missedDeadlines: 3,
+                      quizScores: [45, 50, 55],
+                    },
+                    description: 'JSON object with risk factors',
+                  },
+                  recommendations: {
+                    type: 'string',
+                    example: 'Schedule 1-on-1 meeting, provide additional resources',
+                    description: 'Recommended actions',
+                  },
+                  interventions: {
+                    type: 'string',
+                    example: 'Assign mentor, extend deadline',
+                    description: 'Suggested interventions',
+                  },
+                  calculatedAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    example: '2026-04-07T10:00:00Z',
+                    description: 'When assessment was calculated',
+                  },
+                  expiresAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    example: '2026-04-14T10:00:00Z',
+                    description: 'When assessment expires',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Risk assessment ingested successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '1' },
+                        enrollmentId: { type: 'string', example: '196' },
+                        riskScore: { type: 'number', example: 75.5 },
+                        riskLevel: { type: 'string', example: 'high' },
+                        modelVersion: { type: 'string', example: 'v1.2.3' },
+                        reasons: { type: 'object' },
+                        recommendations: { type: 'string' },
+                        interventions: { type: 'string' },
+                        calculatedAt: { type: 'string', format: 'date-time' },
+                        expiresAt: { type: 'string', format: 'date-time', nullable: true },
+                        enrollment: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '196' },
+                            user: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', example: '166' },
+                                fullName: { type: 'string', example: 'Alice Student' },
+                                email: { type: 'string', example: 'student1@example.com' },
+                              },
+                            },
+                            course: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', example: '136' },
+                                title: { type: 'string', example: 'React Complete Guide' },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Risk assessment ingested successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error or invalid risk score',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Risk score must be between 0 and 100',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Enrollment not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Enrollment not found',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/risk-assessments/enrollment/{enrollmentId}/latest`]: {
+      get: {
+        tags: ['Risk Assessments'],
+        summary: 'Get latest risk assessment for enrollment',
+        description:
+          'Get the most recent risk assessment for an enrollment. Only accessible by enrollment owner, course trainer, or admin.',
+        operationId: 'getLatestAssessment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'path',
+            required: true,
+            description: 'Enrollment ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '196',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Risk assessment retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '1' },
+                        enrollmentId: { type: 'string', example: '196' },
+                        riskScore: { type: 'number', example: 75.5 },
+                        riskLevel: { type: 'string', example: 'high' },
+                        modelVersion: { type: 'string', example: 'v1.2.3' },
+                        reasons: { type: 'object' },
+                        recommendations: { type: 'string' },
+                        interventions: { type: 'string' },
+                        calculatedAt: { type: 'string', format: 'date-time' },
+                        expiresAt: { type: 'string', format: 'date-time', nullable: true },
+                      },
+                    },
+                    message: { type: 'string', example: 'Risk assessment retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to view this risk assessment',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Enrollment or assessment not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'No risk assessment found for this enrollment',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/risk-assessments/enrollment/{enrollmentId}/history`]: {
+      get: {
+        tags: ['Risk Assessments'],
+        summary: 'Get risk assessment history for enrollment',
+        description:
+          'Get paginated history of risk assessments for an enrollment. Only accessible by enrollment owner, course trainer, or admin.',
+        operationId: 'getAssessmentHistory',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'path',
+            required: true,
+            description: 'Enrollment ID',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '196',
+            },
+          },
+          {
+            name: 'page',
+            in: 'query',
+            required: false,
+            description: 'Page number',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '1',
+              default: '1',
+            },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            description: 'Items per page',
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+              example: '10',
+              default: '10',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Risk assessment history retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        assessments: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', example: '1' },
+                              riskScore: { type: 'number', example: 75.5 },
+                              riskLevel: { type: 'string', example: 'high' },
+                              modelVersion: { type: 'string', example: 'v1.2.3' },
+                              calculatedAt: { type: 'string', format: 'date-time' },
+                              expiresAt: { type: 'string', format: 'date-time', nullable: true },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'number', example: 1 },
+                            limit: { type: 'number', example: 10 },
+                            total: { type: 'number', example: 25 },
+                            totalPages: { type: 'number', example: 3 },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Risk assessment history retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Permission denied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to view this risk assessment history',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Enrollment not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Enrollment not found',
                     },
                   },
                 },
