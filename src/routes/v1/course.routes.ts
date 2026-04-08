@@ -5,6 +5,7 @@ import {
   createCourseSchema,
   updateCourseSchema,
   courseIdParamSchema,
+  courseDetailQuerySchema,
   courseQuerySchema,
 } from '@/schemas/course.schema';
 
@@ -26,6 +27,7 @@ router.get(
   '/:id/detail',
   requirePermission('course.read'),
   validate(courseIdParamSchema, 'params'),
+  validate(courseDetailQuerySchema, 'query'),
   CourseController.getCourseDetail,
 );
 
@@ -34,6 +36,7 @@ router
   .get(
     requirePermission('course.read'),
     validate(courseIdParamSchema, 'params'),
+    validate(courseDetailQuerySchema, 'query'),
     CourseController.findById,
   )
   .patch(

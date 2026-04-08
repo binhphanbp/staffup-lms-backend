@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+const expandableCourseRelations = [
+  'modules',
+  'lessons',
+  'resources',
+  'quiz',
+  'tags',
+  'all',
+] as const;
+
 export const createCourseSchema = z.object({
   title: z
     .string()
@@ -43,6 +52,32 @@ export const courseIdParamSchema = z.object({
   id: z.string().regex(/^\d+$/, 'Invalid course ID format'),
 });
 
+export const courseDetailQuerySchema = z.object({
+  expand: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) =>
+      value
+        ? [
+            ...new Set(
+              value
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+            ),
+          ]
+        : [],
+    )
+    .refine(
+      (items) =>
+        items.every((item) => expandableCourseRelations.includes(item as CourseExpandValue)),
+      {
+        message: `Expand must only contain: ${expandableCourseRelations.join(', ')}`,
+      },
+    ),
+});
+
 export const courseQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
@@ -58,3 +93,5 @@ export const courseQuerySchema = z.object({
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
 export type CourseQuery = z.infer<typeof courseQuerySchema>;
+export type CourseDetailQuery = z.infer<typeof courseDetailQuerySchema>;
+type CourseExpandValue = (typeof expandableCourseRelations)[number];
