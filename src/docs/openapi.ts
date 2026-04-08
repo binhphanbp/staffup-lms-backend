@@ -69,6 +69,11 @@ export const openApiDocument = {
       description: 'Dashboard statistics for different user roles.',
     },
     {
+      name: 'Users',
+      description:
+        'User management — create, list, view, and update users. Admin only for write operations.',
+    },
+    {
       name: 'Question Banks',
       description: 'Question bank management. Trainers manage their own banks; admins manage all.',
     },
@@ -656,6 +661,38 @@ export const openApiDocument = {
           page: { type: 'integer', example: 1 },
           limit: { type: 'integer', example: 10 },
           totalPages: { type: 'integer', example: 3 },
+        },
+      },
+      UserResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: '1' },
+          fullName: { type: 'string', example: 'Jane Doe' },
+          email: { type: 'string', format: 'email', example: 'jane@example.com' },
+          positionTitle: { type: 'string', nullable: true, example: 'Software Engineer' },
+          avatarUrl: { type: 'string', nullable: true },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          department: {
+            type: 'object',
+            nullable: true,
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+            },
+          },
+          roles: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                code: { type: 'string' },
+                name: { type: 'string' },
+              },
+            },
+          },
         },
       },
       PaginatedCourses: {
@@ -9498,6 +9535,265 @@ export const openApiDocument = {
                   },
                 },
               },
+            },
+          },
+        },
+      },
+    },
+    // ─── Users ────────────────────────────────────────────────────────────────
+    [`${API_PREFIX}/users`]: {
+      get: {
+        tags: ['Users'],
+        summary: 'List users',
+        description:
+          'Paginated list of users with optional filters. Requires admin or manager role.',
+        operationId: 'listUsers',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20, maximum: 100 } },
+          {
+            name: 'search',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Search by name, email, or position',
+          },
+          { name: 'departmentId', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'roleCode',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by role code (e.g. employee, trainer)',
+          },
+          { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Users list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: { $ref: '#/components/schemas/UserResponse' },
+                        },
+                        meta: { $ref: '#/components/schemas/PaginationMeta' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Users'],
+        summary: 'Create user',
+        description:
+          'Create a new user with hashed password. Email must be unique. Requires admin role.',
+        operationId: 'createUser',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['fullName', 'email', 'password', 'departmentId'],
+                properties: {
+                  fullName: { type: 'string', minLength: 2, maxLength: 150, example: 'Jane Doe' },
+                  email: { type: 'string', format: 'email', example: 'jane@example.com' },
+                  password: { type: 'string', minLength: 8, example: 'Secret123' },
+                  departmentId: { type: 'string', example: '1' },
+                  positionTitle: { type: 'string', nullable: true, example: 'Software Engineer' },
+                  avatarUrl: { type: 'string', format: 'uri', nullable: true },
+                  roleCode: { type: 'string', default: 'employee', example: 'employee' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'User created',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/UserResponse' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '409': {
+            description: 'Email already exists',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/users/{id}`]: {
+      get: {
+        tags: ['Users'],
+        summary: 'Get user by ID',
+        operationId: 'getUser',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'User ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'User detail',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/UserResponse' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'User not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      patch: {
+        tags: ['Users'],
+        summary: 'Update user',
+        description:
+          'Update user fields. Requires admin role. Password changes go through `/auth/change-password`.',
+        operationId: 'updateUser',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'User ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  fullName: { type: 'string', minLength: 2, maxLength: 150 },
+                  departmentId: { type: 'string' },
+                  positionTitle: { type: 'string', nullable: true },
+                  avatarUrl: { type: 'string', format: 'uri', nullable: true },
+                  isActive: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'User updated',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/UserResponse' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'User not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
             },
           },
         },
