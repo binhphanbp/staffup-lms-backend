@@ -68,6 +68,15 @@ export const openApiDocument = {
       name: 'Dashboard',
       description: 'Dashboard statistics for different user roles.',
     },
+    {
+      name: 'Question Banks',
+      description: 'Question bank management. Trainers manage their own banks; admins manage all.',
+    },
+    {
+      name: 'Questions',
+      description:
+        'Question management within a bank. Supports single_choice, multiple_choice, and essay types.',
+    },
   ],
   components: {
     securitySchemes: {
@@ -1351,6 +1360,152 @@ export const openApiDocument = {
           success: { type: 'boolean', example: true },
           message: { type: 'string', example: 'Tag operation successful' },
           data: { $ref: '#/components/schemas/Tag' },
+        },
+      },
+      QuestionOption: {
+        type: 'object',
+        required: ['id', 'questionId', 'content', 'isCorrect', 'orderIndex'],
+        properties: {
+          id: { type: 'string', example: '1' },
+          questionId: { type: 'string', example: '10' },
+          content: { type: 'string', example: 'Paris' },
+          isCorrect: { type: 'boolean', example: true },
+          orderIndex: { type: 'integer', example: 1 },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      Question: {
+        type: 'object',
+        required: ['id', 'questionBankId', 'questionType', 'content', 'defaultPoints', 'isActive'],
+        properties: {
+          id: { type: 'string', example: '10' },
+          questionBankId: { type: 'string', example: '1' },
+          questionType: {
+            type: 'string',
+            enum: ['single_choice', 'multiple_choice', 'essay'],
+            example: 'single_choice',
+          },
+          content: { type: 'string', example: 'What is the capital of France?' },
+          explanation: {
+            type: 'string',
+            nullable: true,
+            example: 'Paris is the capital city of France.',
+          },
+          defaultPoints: { type: 'integer', example: 1 },
+          isActive: { type: 'boolean', example: true },
+          options: { type: 'array', items: { $ref: '#/components/schemas/QuestionOption' } },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      QuestionBank: {
+        type: 'object',
+        required: ['id', 'ownerTrainerId', 'title', 'isActive', 'createdAt', 'updatedAt'],
+        properties: {
+          id: { type: 'string', example: '1' },
+          title: { type: 'string', example: 'JavaScript Fundamentals' },
+          description: { type: 'string', nullable: true, example: 'Questions covering JS basics.' },
+          categoryId: { type: 'string', nullable: true, example: '3' },
+          ownerTrainerId: { type: 'string', example: '2' },
+          isActive: { type: 'boolean', example: true },
+          ownerTrainer: { $ref: '#/components/schemas/TrainerSummary' },
+          category: {
+            nullable: true,
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: '3' },
+              name: { type: 'string', example: 'Programming' },
+            },
+          },
+          _count: {
+            type: 'object',
+            properties: { questions: { type: 'integer', example: 20 } },
+          },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      PaginatedQuestionBanks: {
+        type: 'object',
+        required: ['data', 'meta'],
+        properties: {
+          data: { type: 'array', items: { $ref: '#/components/schemas/QuestionBank' } },
+          meta: { $ref: '#/components/schemas/PaginationMeta' },
+        },
+      },
+      PaginatedQuestions: {
+        type: 'object',
+        required: ['data', 'meta'],
+        properties: {
+          data: { type: 'array', items: { $ref: '#/components/schemas/Question' } },
+          meta: { $ref: '#/components/schemas/PaginationMeta' },
+        },
+      },
+      CreateQuestionBankRequest: {
+        type: 'object',
+        required: ['title'],
+        properties: {
+          title: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 200,
+            example: 'JavaScript Fundamentals',
+          },
+          description: { type: 'string', example: 'Questions covering JS basics.' },
+          categoryId: { type: 'string', nullable: true, example: '3' },
+          isActive: { type: 'boolean', default: true },
+        },
+      },
+      UpdateQuestionBankRequest: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', minLength: 2, maxLength: 200 },
+          description: { type: 'string', nullable: true },
+          categoryId: { type: 'string', nullable: true },
+          isActive: { type: 'boolean' },
+        },
+      },
+      QuestionOptionInput: {
+        type: 'object',
+        required: ['content', 'isCorrect', 'orderIndex'],
+        properties: {
+          content: { type: 'string', example: 'Paris' },
+          isCorrect: { type: 'boolean', example: true },
+          orderIndex: { type: 'integer', example: 1 },
+        },
+      },
+      CreateQuestionRequest: {
+        type: 'object',
+        required: ['questionType', 'content'],
+        properties: {
+          questionType: {
+            type: 'string',
+            enum: ['single_choice', 'multiple_choice', 'essay'],
+            example: 'single_choice',
+          },
+          content: { type: 'string', example: 'What is the capital of France?' },
+          explanation: { type: 'string', nullable: true },
+          defaultPoints: { type: 'integer', minimum: 1, default: 1 },
+          options: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/QuestionOptionInput' },
+            description:
+              'Required for single_choice and multiple_choice. single_choice must have exactly 1 correct option.',
+          },
+        },
+      },
+      UpdateQuestionRequest: {
+        type: 'object',
+        properties: {
+          content: { type: 'string' },
+          explanation: { type: 'string', nullable: true },
+          defaultPoints: { type: 'integer', minimum: 1 },
+          options: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/QuestionOptionInput' },
+            description: 'Replaces all existing options when provided.',
+          },
         },
       },
     },
@@ -7658,6 +7813,489 @@ export const openApiDocument = {
                   },
                 },
               },
+            },
+          },
+        },
+      },
+    },
+    // ─── Question Banks ───────────────────────────────────────────────────────
+    [`${API_PREFIX}/question-banks`]: {
+      get: {
+        tags: ['Question Banks'],
+        summary: 'List question banks',
+        description:
+          'Admins see all banks. Trainers see only their own. Supports filtering by categoryId, ownerTrainerId, search, isActive.',
+        operationId: 'listQuestionBanks',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 100 } },
+          { name: 'categoryId', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'ownerTrainerId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Admin only filter',
+          },
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Question banks retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Question banks retrieved successfully' },
+                    data: { $ref: '#/components/schemas/PaginatedQuestionBanks' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Question Banks'],
+        summary: 'Create a question bank',
+        description: 'Creates a new question bank. The authenticated trainer becomes the owner.',
+        operationId: 'createQuestionBank',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateQuestionBankRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Question bank created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Question bank created successfully' },
+                    data: { $ref: '#/components/schemas/QuestionBank' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/question-banks/{id}`]: {
+      get: {
+        tags: ['Question Banks'],
+        summary: 'Get question bank by ID',
+        operationId: 'getQuestionBank',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': {
+            description: 'Question bank retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Question bank retrieved successfully' },
+                    data: { $ref: '#/components/schemas/QuestionBank' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ['Question Banks'],
+        summary: 'Update a question bank',
+        description: 'Only the owner trainer or admin can update.',
+        operationId: 'updateQuestionBank',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateQuestionBankRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Question bank updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Question bank updated successfully' },
+                    data: { $ref: '#/components/schemas/QuestionBank' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Question Banks'],
+        summary: 'Delete a question bank',
+        description: 'Only the owner trainer or admin can delete.',
+        operationId: 'deleteQuestionBank',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '204': { description: 'Deleted successfully' },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    // ─── Questions ────────────────────────────────────────────────────────────
+    [`${API_PREFIX}/question-banks/{bankId}/questions`]: {
+      get: {
+        tags: ['Questions'],
+        summary: 'List questions in a bank',
+        description:
+          'Only the bank owner or admin can list questions. Supports filtering by questionType, search, isActive.',
+        operationId: 'listQuestions',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 100 } },
+          {
+            name: 'questionType',
+            in: 'query',
+            schema: { type: 'string', enum: ['single_choice', 'multiple_choice', 'essay'] },
+          },
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Questions retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Questions retrieved successfully' },
+                    data: { $ref: '#/components/schemas/PaginatedQuestions' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Bank not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Questions'],
+        summary: 'Create a question in a bank',
+        description:
+          'Only the bank owner or admin can add questions. single_choice requires exactly 1 correct option; multiple_choice requires at least 1; essay has no options.',
+        operationId: 'createQuestion',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'bankId', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/CreateQuestionRequest' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Question created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Question created successfully' },
+                    data: { $ref: '#/components/schemas/Question' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Bank not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/question-banks/{bankId}/questions/{id}`]: {
+      get: {
+        tags: ['Questions'],
+        summary: 'Get a question by ID',
+        operationId: 'getQuestion',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Question retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Question retrieved successfully' },
+                    data: { $ref: '#/components/schemas/Question' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ['Questions'],
+        summary: 'Update a question',
+        description:
+          'Only the bank owner or admin can update. Providing options replaces all existing options.',
+        operationId: 'updateQuestion',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/UpdateQuestionRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Question updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Question updated successfully' },
+                    data: { $ref: '#/components/schemas/Question' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/question-banks/{bankId}/questions/{id}/deactivate`]: {
+      patch: {
+        tags: ['Questions'],
+        summary: 'Deactivate a question',
+        description: 'Sets isActive to false. Only the bank owner or admin can deactivate.',
+        operationId: 'deactivateQuestion',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Question deactivated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Question deactivated successfully' },
+                    data: { $ref: '#/components/schemas/Question' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
             },
           },
         },

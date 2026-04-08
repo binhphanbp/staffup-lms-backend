@@ -13,6 +13,7 @@ import quizManagementRoutes from '@/routes/v1/quiz-management.routes';
 import dashboardRoutes from '@/routes/v1/dashboard.routes';
 import certificateRoutes from '@/routes/v1/certificate.routes';
 import riskAssessmentRoutes from '@/routes/v1/risk-assessment.routes';
+import questionBankRoutes from '@/routes/v1/question-bank.routes';
 import { openApiDocument } from '@/docs/openapi';
 import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
@@ -59,4 +60,5 @@ router.use('/quizzes', quizManagementRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/certificates', certificateRoutes);
 router.use('/risk-assessments', riskAssessmentRoutes);
+router.use('/question-banks', questionBankRoutes);
 export default router;
