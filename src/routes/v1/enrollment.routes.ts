@@ -9,6 +9,8 @@ import {
   updateEnrollmentStatusSchema,
   startLessonSchema,
   updateLessonProgressSchema,
+  completeLessonSchema,
+  getEnrollmentProgressSchema,
 } from '@/schemas/enrollment.schema';
 
 const router: ExpressRouter = Router();
@@ -51,6 +53,20 @@ router.patch(
   '/:enrollmentId/lessons/:lessonId/progress',
   validate(updateLessonProgressSchema, 'all'),
   EnrollmentController.updateLessonProgress,
+);
+
+// Complete a lesson — marks completed_at, triggers recalc
+router.post(
+  '/:enrollmentId/lessons/:lessonId/complete',
+  validate(completeLessonSchema, 'params'),
+  EnrollmentController.completeLesson,
+);
+
+// Get enrollment progress summary + per-lesson detail
+router.get(
+  '/:enrollmentId/progress',
+  validate(getEnrollmentProgressSchema, 'params'),
+  EnrollmentController.getEnrollmentProgress,
 );
 
 export default router;

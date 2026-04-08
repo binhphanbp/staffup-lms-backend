@@ -77,5 +77,16 @@ export const updateLessonProgressSchema = z.object({
   }),
 });
 
+export const completeLessonSchema = z.object({
+  enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
+  lessonId: z.string().regex(/^\d+$/, 'Lesson ID must be a valid number'),
+});
+
+export const getEnrollmentProgressSchema = z.object({
+  enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
+});
+
 export type StartLessonInput = z.infer<typeof startLessonSchema>;
 export type UpdateLessonProgressInput = z.infer<typeof updateLessonProgressSchema>;
+export type CompleteLessonInput = z.infer<typeof completeLessonSchema>;
+export type GetEnrollmentProgressInput = z.infer<typeof getEnrollmentProgressSchema>;
