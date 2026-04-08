@@ -6,8 +6,12 @@ import {
   updateCourseSchema,
   updateCourseStatusSchema,
   addCourseTagSchema,
+  createCourseModuleSchema,
+  reorderCourseModulesSchema,
+  updateCourseModuleSchema,
   courseIdParamSchema,
   courseTagParamsSchema,
+  courseModuleParamsSchema,
   courseDetailQuerySchema,
   courseQuerySchema,
 } from '@/schemas/course.schema';
@@ -56,6 +60,42 @@ router.delete(
   validate(courseTagParamsSchema, 'params'),
   CourseController.removeTag,
 );
+
+router
+  .route('/:id/modules')
+  .get(
+    requirePermission('course.read'),
+    validate(courseIdParamSchema, 'params'),
+    CourseController.listModules,
+  )
+  .post(
+    requirePermission('course.update'),
+    validate(courseIdParamSchema, 'params'),
+    validate(createCourseModuleSchema),
+    CourseController.createModule,
+  );
+
+router.post(
+  '/:id/modules/reorder',
+  requirePermission('course.update'),
+  validate(courseIdParamSchema, 'params'),
+  validate(reorderCourseModulesSchema),
+  CourseController.reorderModules,
+);
+
+router
+  .route('/:id/modules/:moduleId')
+  .patch(
+    requirePermission('course.update'),
+    validate(courseModuleParamsSchema, 'params'),
+    validate(updateCourseModuleSchema),
+    CourseController.updateModule,
+  )
+  .delete(
+    requirePermission('course.update'),
+    validate(courseModuleParamsSchema, 'params'),
+    CourseController.deleteModule,
+  );
 
 router
   .route('/:id')

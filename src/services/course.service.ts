@@ -3,10 +3,13 @@ import type { PaginatedResult } from '@/interfaces';
 import type { CourseDetailResponse, CourseExpand } from '@/interfaces/course.types';
 import { assertPolicy, canAccessOwnedResource } from '@/policies';
 import type {
+  CreateCourseModuleInput,
   CourseDetailQuery,
   CourseQuery,
   CreateCourseInput,
+  ReorderCourseModulesInput,
   UpdateCourseStatusInput,
+  UpdateCourseModuleInput,
   UpdateCourseInput,
 } from '@/schemas/course.schema';
 import { AppError, slugify } from '@/utils';
@@ -44,6 +47,16 @@ interface CourseListItem {
     modules: number;
     enrollments: number;
   };
+}
+
+interface CourseModuleItem {
+  id: string;
+  courseId: string;
+  title: string;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+  lessonsCount: number;
 }
 
 const DEFAULT_DETAIL_EXPANDS: CourseExpand[] = ['all'];
@@ -250,6 +263,18 @@ export class CourseService {
     };
   }
 
+  private static mapCourseModuleItem(module: any): CourseModuleItem {
+    return {
+      id: module.id.toString(),
+      courseId: module.courseId.toString(),
+      title: module.title,
+      orderIndex: module.orderIndex,
+      createdAt: module.createdAt.toISOString(),
+      updatedAt: module.updatedAt.toISOString(),
+      lessonsCount: module._count?.lessons ?? 0,
+    };
+  }
+
   private static normalizeExpand(expandItems: CourseExpand[] = []) {
     const expanded = new Set<CourseExpand>(expandItems);
 
@@ -386,6 +411,67 @@ export class CourseService {
     }
 
     return course;
+  }
+
+  private static async getOwnedCourseOrThrow(id: string, userId: string, roleCodes: string[]) {
+    const course = await this.db.course.findUnique({
+      where: { id: BigInt(id) },
+    });
+
+    if (!course) {
+      throw new AppError('Course not found.', 404);
+    }
+
+    assertPolicy(
+      canAccessOwnedResource({
+        actor: { userId, roleCodes },
+        ownerUserId: course.trainerUserId,
+      }),
+      'You can only update your own courses.',
+    );
+
+    return course;
+  }
+
+  private static async assertModuleOrderIndexAvailable(
+    courseId: string,
+    orderIndex: number,
+    excludeModuleId?: string,
+  ) {
+    const existingModule = await this.db.module.findUnique({
+      where: {
+        courseId_orderIndex: {
+          courseId: BigInt(courseId),
+          orderIndex,
+        },
+      },
+    });
+
+    if (existingModule && existingModule.id.toString() !== excludeModuleId) {
+      throw new AppError(
+        `Order index ${orderIndex} is already used by another module in this course.`,
+        400,
+      );
+    }
+  }
+
+  private static async getCourseModuleOrThrow(courseId: string, moduleId: string) {
+    const module = await this.db.module.findUnique({
+      where: { id: BigInt(moduleId) },
+      include: {
+        _count: {
+          select: {
+            lessons: true,
+          },
+        },
+      },
+    });
+
+    if (!module || module.courseId.toString() !== courseId) {
+      throw new AppError('Module not found in this course.', 404);
+    }
+
+    return module;
   }
 
   /**
@@ -956,6 +1042,198 @@ export class CourseService {
       tagId,
       removed: true,
     };
+  }
+
+  /**
+   * List course modules
+   */
+  static async listModules(courseId: string) {
+    await this.getCourseOrThrow(courseId);
+
+    const modules = await this.db.module.findMany({
+      where: { courseId: BigInt(courseId) },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        _count: {
+          select: {
+            lessons: true,
+          },
+        },
+      },
+    });
+
+    return modules.map((module: any) => this.mapCourseModuleItem(module));
+  }
+
+  /**
+   * Create course module
+   */
+  static async createModule(
+    courseId: string,
+    data: CreateCourseModuleInput,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    await this.assertModuleOrderIndexAvailable(courseId, data.orderIndex);
+
+    const module = await this.db.module.create({
+      data: {
+        courseId: BigInt(courseId),
+        title: data.title,
+        orderIndex: data.orderIndex,
+      },
+      include: {
+        _count: {
+          select: {
+            lessons: true,
+          },
+        },
+      },
+    });
+
+    return this.mapCourseModuleItem(module);
+  }
+
+  /**
+   * Update course module
+   */
+  static async updateModule(
+    courseId: string,
+    moduleId: string,
+    data: UpdateCourseModuleInput,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    const existingModule = await this.getCourseModuleOrThrow(courseId, moduleId);
+
+    if (data.orderIndex !== undefined) {
+      await this.assertModuleOrderIndexAvailable(courseId, data.orderIndex, moduleId);
+    }
+
+    const updatedModule = await this.db.module.update({
+      where: { id: BigInt(moduleId) },
+      data: {
+        title: data.title,
+        orderIndex: data.orderIndex,
+      },
+      include: {
+        _count: {
+          select: {
+            lessons: true,
+          },
+        },
+      },
+    });
+
+    if (
+      updatedModule.orderIndex !== existingModule.orderIndex ||
+      updatedModule.title !== existingModule.title
+    ) {
+      return this.mapCourseModuleItem(updatedModule);
+    }
+
+    return this.mapCourseModuleItem(updatedModule);
+  }
+
+  /**
+   * Delete course module
+   */
+  static async deleteModule(
+    courseId: string,
+    moduleId: string,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    const module = await this.getCourseModuleOrThrow(courseId, moduleId);
+
+    if (module._count.lessons > 0) {
+      throw new AppError('Cannot delete module because it already contains lessons.', 400);
+    }
+
+    await this.db.module.delete({
+      where: { id: BigInt(moduleId) },
+    });
+
+    return {
+      courseId,
+      moduleId,
+      removed: true,
+    };
+  }
+
+  /**
+   * Reorder course modules
+   */
+  static async reorderModules(
+    courseId: string,
+    moduleOrders: ReorderCourseModulesInput['moduleOrders'],
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+
+    const modules = await this.db.module.findMany({
+      where: {
+        courseId: BigInt(courseId),
+        id: {
+          in: moduleOrders.map((item) => BigInt(item.moduleId)),
+        },
+      },
+      include: {
+        _count: {
+          select: {
+            lessons: true,
+          },
+        },
+      },
+    });
+
+    if (modules.length !== moduleOrders.length) {
+      const foundModuleIds = new Set(modules.map((module: any) => module.id.toString()));
+      const missingModuleIds = moduleOrders
+        .map((item) => item.moduleId)
+        .filter((moduleId) => !foundModuleIds.has(moduleId));
+
+      throw new AppError(`Modules not found in this course: ${missingModuleIds.join(', ')}`, 404);
+    }
+
+    await this.db.$transaction(async (tx: any) => {
+      for (let index = 0; index < moduleOrders.length; index += 1) {
+        const item = moduleOrders[index];
+        await tx.module.update({
+          where: { id: BigInt(item.moduleId) },
+          data: {
+            orderIndex: -1 * (index + 1),
+          },
+        });
+      }
+
+      for (const item of moduleOrders) {
+        await tx.module.update({
+          where: { id: BigInt(item.moduleId) },
+          data: {
+            orderIndex: item.orderIndex,
+          },
+        });
+      }
+    });
+
+    const reorderedModules = await this.db.module.findMany({
+      where: { courseId: BigInt(courseId) },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        _count: {
+          select: {
+            lessons: true,
+          },
+        },
+      },
+    });
+
+    return reorderedModules.map((module: any) => this.mapCourseModuleItem(module));
   }
 
   /**

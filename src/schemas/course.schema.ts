@@ -56,6 +56,60 @@ export const addCourseTagSchema = z.object({
   tagId: z.string().regex(/^\d+$/, 'Invalid tag ID'),
 });
 
+export const createCourseModuleSchema = z.object({
+  title: z
+    .string()
+    .min(1, 'Module title is required')
+    .max(200, 'Module title must be at most 200 characters')
+    .trim(),
+  orderIndex: z.coerce.number().int().positive(),
+});
+
+export const updateCourseModuleSchema = z.object({
+  title: z
+    .string()
+    .min(1, 'Module title is required')
+    .max(200, 'Module title must be at most 200 characters')
+    .trim()
+    .optional(),
+  orderIndex: z.coerce.number().int().positive().optional(),
+});
+
+export const reorderCourseModulesSchema = z.object({
+  moduleOrders: z
+    .array(
+      z.object({
+        moduleId: z.string().regex(/^\d+$/, 'Invalid module ID'),
+        orderIndex: z.coerce.number().int().positive(),
+      }),
+    )
+    .min(1, 'At least one module order is required')
+    .superRefine((items, ctx) => {
+      const moduleIds = new Set<string>();
+      const orderIndexes = new Set<number>();
+
+      items.forEach((item, index) => {
+        if (moduleIds.has(item.moduleId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, 'moduleId'],
+            message: 'Duplicate moduleId is not allowed',
+          });
+        }
+        moduleIds.add(item.moduleId);
+
+        if (orderIndexes.has(item.orderIndex)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, 'orderIndex'],
+            message: 'Duplicate orderIndex is not allowed',
+          });
+        }
+        orderIndexes.add(item.orderIndex);
+      });
+    }),
+});
+
 export const courseIdParamSchema = z.object({
   id: z.string().regex(/^\d+$/, 'Invalid course ID format'),
 });
@@ -91,6 +145,11 @@ export const courseTagParamsSchema = z.object({
   tagId: z.string().regex(/^\d+$/, 'Invalid tag ID'),
 });
 
+export const courseModuleParamsSchema = z.object({
+  id: z.string().regex(/^\d+$/, 'Invalid course ID format'),
+  moduleId: z.string().regex(/^\d+$/, 'Invalid module ID'),
+});
+
 export const courseQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
@@ -107,6 +166,9 @@ export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
 export type UpdateCourseStatusInput = z.infer<typeof updateCourseStatusSchema>;
 export type AddCourseTagInput = z.infer<typeof addCourseTagSchema>;
+export type CreateCourseModuleInput = z.infer<typeof createCourseModuleSchema>;
+export type UpdateCourseModuleInput = z.infer<typeof updateCourseModuleSchema>;
+export type ReorderCourseModulesInput = z.infer<typeof reorderCourseModulesSchema>;
 export type CourseQuery = z.infer<typeof courseQuerySchema>;
 export type CourseDetailQuery = z.infer<typeof courseDetailQuerySchema>;
 type CourseExpandValue = (typeof expandableCourseRelations)[number];

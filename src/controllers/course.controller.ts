@@ -91,6 +91,69 @@ export class CourseController {
   });
 
   /**
+   * GET /api/v1/courses/:id/modules
+   */
+  static listModules = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.listModules(req.params.id as string);
+    sendSuccess(res, result, 'Course modules retrieved successfully');
+  });
+
+  /**
+   * POST /api/v1/courses/:id/modules
+   */
+  static createModule = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.createModule(
+      req.params.id as string,
+      req.body,
+      req.user!.userId,
+      req.user!.roleCodes,
+    );
+    sendCreated(res, result, 'Course module created successfully');
+  });
+
+  /**
+   * PATCH /api/v1/courses/:id/modules/:moduleId
+   */
+  static updateModule = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.updateModule(
+      req.params.id as string,
+      req.params.moduleId as string,
+      req.body,
+      req.user!.userId,
+      req.user!.roleCodes,
+    );
+    sendSuccess(res, result, 'Course module updated successfully');
+  });
+
+  /**
+   * POST /api/v1/courses/:id/modules/reorder
+   */
+  static reorderModules = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const result = await CourseService.reorderModules(
+        req.params.id as string,
+        req.body.moduleOrders,
+        req.user!.userId,
+        req.user!.roleCodes,
+      );
+      sendSuccess(res, result, 'Course modules reordered successfully');
+    },
+  );
+
+  /**
+   * DELETE /api/v1/courses/:id/modules/:moduleId
+   */
+  static deleteModule = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.deleteModule(
+      req.params.id as string,
+      req.params.moduleId as string,
+      req.user!.userId,
+      req.user!.roleCodes,
+    );
+    sendSuccess(res, result, 'Course module deleted successfully');
+  });
+
+  /**
    * DELETE /api/v1/courses/:id
    */
   static delete = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
