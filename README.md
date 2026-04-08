@@ -99,6 +99,7 @@ docker compose exec api sh    # Shell into API container
 docker compose exec api pnpm prisma:migrate   # Create & run migrations
 docker compose exec api pnpm prisma:generate  # Regenerate Prisma Client
 docker compose exec api pnpm prisma:seed      # Seed default RBAC + first admin
+docker compose exec api pnpm prisma:seed:demo # Reset DB and load large demo dataset
 docker compose exec api pnpm prisma:studio    # Open database GUI
 ```
 
@@ -132,3 +133,35 @@ Running `pnpm prisma:seed` will create or update:
 - The first admin user from `SEED_ADMIN_*` environment variables
 
 The seed script is idempotent, so it can be run multiple times without creating duplicate RBAC records.
+
+If you need a full demo dataset for local development, run `pnpm prisma:seed:demo`.
+That demo script is destructive by design: it clears the current database before loading sample departments, users, courses, roadmaps, quizzes, and progress data.
+
+## Seed Conventions
+
+The seed system is split into small modules under `prisma/seeds/`:
+
+- `prisma/seed.js`: thin entrypoint only, do not add feature-specific seed logic here
+- `prisma/seeds/core/`: idempotent system data required by the app
+- `prisma/seeds/demo/`: optional local demo data for development/testing
+- `prisma/seeds/shared/`: shared client setup and reusable seed data/constants
+
+Current core seed responsibilities:
+
+- `prisma/seeds/core/rbac.seed.js`: system roles, permissions, and role-permission mappings
+- `prisma/seeds/core/departments.seed.js`: default admin department
+- `prisma/seeds/core/admin.seed.js`: first admin user from `SEED_ADMIN_*`
+
+Rules for contributors:
+
+- Add data to `core` only if it is required system data that every environment should have
+- Add data to `demo` only if it is sample data for local development or testing
+- Do not use seed scripts to compensate for missing migrations; schema changes belong in Prisma migrations
+- Keep `pnpm prisma:seed` safe and idempotent
+- Treat `pnpm prisma:seed:demo` as destructive; use it only when resetting a local dev database is acceptable
+
+Examples:
+
+- New RBAC permission or system role: update `prisma/seeds/shared/rbac.data.js`
+- New first-admin defaults: update `.env` / `.env.example`, not hardcoded values
+- New sample courses, quizzes, or enrollments: add them under `prisma/seeds/demo/`
