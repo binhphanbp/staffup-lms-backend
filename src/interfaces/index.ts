@@ -23,6 +23,7 @@ export interface JwtPayload {
 
 export interface AuthenticatedUser extends JwtPayload {
   isActive: boolean;
+  permissionCodes: string[];
 }
 
 export interface AuthRequest extends Request {

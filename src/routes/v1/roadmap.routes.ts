@@ -12,8 +12,7 @@ import {
   updateRoadmap,
   updateRoadmapCourse,
 } from '@/controllers/roadmap.controller';
-import { authenticate } from '@/middlewares/auth.middleware';
-import { validate } from '@/middlewares/validate.middleware';
+import { authenticate, requirePermission, validate } from '@/middlewares';
 import {
   addCourseToRoadmapSchema,
   assignRoadmapToUsersSchema,
@@ -40,6 +39,7 @@ router.use(authenticate);
  */
 router.get(
   '/assignments',
+  requirePermission('roadmap.read'),
   validate(listRoadmapAssignmentsQuerySchema, 'query'),
   listRoadmapAssignments,
 );
@@ -49,21 +49,31 @@ router.get(
  * @desc List roadmaps with filters
  * @access Private
  */
-router.get('/', validate(listRoadmapsQuerySchema, 'query'), listRoadmaps);
+router.get(
+  '/',
+  requirePermission('roadmap.read'),
+  validate(listRoadmapsQuerySchema, 'query'),
+  listRoadmaps,
+);
 
 /**
  * @route POST /api/v1/roadmaps
  * @desc Create roadmap
  * @access Private (Admin/Department Manager)
  */
-router.post('/', validate(createRoadmapSchema), createRoadmap);
+router.post('/', requirePermission('roadmap.create'), validate(createRoadmapSchema), createRoadmap);
 
 /**
  * @route GET /api/v1/roadmaps/:id
  * @desc Get roadmap detail
  * @access Private
  */
-router.get('/:id', validate(roadmapIdParamsSchema, 'params'), getRoadmapById);
+router.get(
+  '/:id',
+  requirePermission('roadmap.read'),
+  validate(roadmapIdParamsSchema, 'params'),
+  getRoadmapById,
+);
 
 /**
  * @route PUT /api/v1/roadmaps/:id
@@ -72,6 +82,7 @@ router.get('/:id', validate(roadmapIdParamsSchema, 'params'), getRoadmapById);
  */
 router.put(
   '/:id',
+  requirePermission('roadmap.update'),
   validate(roadmapIdParamsSchema, 'params'),
   validate(updateRoadmapSchema),
   updateRoadmap,
@@ -82,7 +93,12 @@ router.put(
  * @desc Delete roadmap
  * @access Private (Admin/Department Manager)
  */
-router.delete('/:id', validate(roadmapIdParamsSchema, 'params'), deleteRoadmap);
+router.delete(
+  '/:id',
+  requirePermission('roadmap.delete'),
+  validate(roadmapIdParamsSchema, 'params'),
+  deleteRoadmap,
+);
 
 /**
  * @route POST /api/v1/roadmaps/:roadmapId/courses
@@ -91,6 +107,7 @@ router.delete('/:id', validate(roadmapIdParamsSchema, 'params'), deleteRoadmap);
  */
 router.post(
   '/:roadmapId/courses',
+  requirePermission('roadmap.update'),
   validate(roadmapIdOnlyParamsSchema, 'params'),
   validate(addCourseToRoadmapSchema),
   addCourseToRoadmap,
@@ -103,6 +120,7 @@ router.post(
  */
 router.delete(
   '/:roadmapId/courses/:courseId',
+  requirePermission('roadmap.update'),
   validate(roadmapCourseParamsSchema, 'params'),
   removeCourseFromRoadmap,
 );
@@ -114,6 +132,7 @@ router.delete(
  */
 router.put(
   '/:roadmapId/courses/:courseId',
+  requirePermission('roadmap.update'),
   validate(roadmapCourseParamsSchema, 'params'),
   validate(updateRoadmapCourseSchema),
   updateRoadmapCourse,
@@ -126,6 +145,7 @@ router.put(
  */
 router.post(
   '/:roadmapId/courses/reorder',
+  requirePermission('roadmap.update'),
   validate(roadmapIdOnlyParamsSchema, 'params'),
   validate(reorderRoadmapCoursesSchema),
   reorderRoadmapCourses,
@@ -138,6 +158,7 @@ router.post(
  */
 router.post(
   '/:roadmapId/assign',
+  requirePermission('roadmap.assign'),
   validate(roadmapIdOnlyParamsSchema, 'params'),
   validate(assignRoadmapToUsersSchema),
   assignRoadmapToUsers,

@@ -1,7 +1,53 @@
 import { prisma } from '@/config/database';
+import { assertPolicy, canManageDepartmentResource } from '@/policies';
 import { AppError } from '@/utils';
 
 export class RoadmapService {
+  private static async getAccessContext(userId: string) {
+    const db = prisma as any;
+
+    const currentUser = await db.user.findUnique({
+      where: { id: BigInt(userId) },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+        managedDepartments: true,
+      },
+    });
+
+    if (!currentUser) {
+      throw new AppError('User not found', 404);
+    }
+
+    return {
+      actor: {
+        userId,
+        roleCodes: currentUser.userRoles.map((ur: any) => ur.role.code),
+      },
+      managedDepartmentIds: currentUser.managedDepartments.map((dept: any) => dept.id),
+    };
+  }
+
+  private static async assertDepartmentAccess(
+    userId: string,
+    departmentId: string | bigint,
+    message: string,
+  ) {
+    const context = await this.getAccessContext(userId);
+
+    assertPolicy(
+      canManageDepartmentResource({
+        actor: context.actor,
+        departmentId,
+        managedDepartmentIds: context.managedDepartmentIds,
+      }),
+      message,
+    );
+  }
+
   /**
    * Create roadmap
    */
@@ -23,27 +69,11 @@ export class RoadmapService {
   ) {
     const db = prisma as any;
 
-    // Check permission: admin or department manager
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isDepartmentManager = currentUser?.managedDepartments.some(
-      (dept: any) => dept.id.toString() === data.departmentId,
+    await this.assertDepartmentAccess(
+      userId,
+      data.departmentId,
+      'You do not have permission to create roadmap for this department',
     );
-
-    if (!isAdmin && !isDepartmentManager) {
-      throw new AppError('You do not have permission to create roadmap for this department', 403);
-    }
 
     // Verify department exists
     const department = await db.department.findUnique({
@@ -117,27 +147,11 @@ export class RoadmapService {
       throw new AppError('Roadmap not found', 404);
     }
 
-    // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isDepartmentManager = currentUser?.managedDepartments.some(
-      (dept: any) => dept.id.toString() === roadmap.departmentId.toString(),
+    await this.assertDepartmentAccess(
+      userId,
+      roadmap.departmentId,
+      'You do not have permission to update this roadmap',
     );
-
-    if (!isAdmin && !isDepartmentManager) {
-      throw new AppError('You do not have permission to update this roadmap', 403);
-    }
 
     // Verify category if provided
     if (data.categoryId) {
@@ -179,27 +193,11 @@ export class RoadmapService {
       throw new AppError('Roadmap not found', 404);
     }
 
-    // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isDepartmentManager = currentUser?.managedDepartments.some(
-      (dept: any) => dept.id.toString() === roadmap.departmentId.toString(),
+    await this.assertDepartmentAccess(
+      userId,
+      roadmap.departmentId,
+      'You do not have permission to delete this roadmap',
     );
-
-    if (!isAdmin && !isDepartmentManager) {
-      throw new AppError('You do not have permission to delete this roadmap', 403);
-    }
 
     // Delete roadmap (cascade will handle roadmap_courses, assignments)
     await db.roadmap.delete({
@@ -429,27 +427,11 @@ export class RoadmapService {
       throw new AppError('Roadmap not found', 404);
     }
 
-    // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isDepartmentManager = currentUser?.managedDepartments.some(
-      (dept: any) => dept.id.toString() === roadmap.departmentId.toString(),
+    await this.assertDepartmentAccess(
+      userId,
+      roadmap.departmentId,
+      'You do not have permission to modify this roadmap',
     );
-
-    if (!isAdmin && !isDepartmentManager) {
-      throw new AppError('You do not have permission to modify this roadmap', 403);
-    }
 
     // Check if course exists
     const course = await db.course.findUnique({
@@ -544,27 +526,11 @@ export class RoadmapService {
       throw new AppError('Roadmap not found', 404);
     }
 
-    // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isDepartmentManager = currentUser?.managedDepartments.some(
-      (dept: any) => dept.id.toString() === roadmap.departmentId.toString(),
+    await this.assertDepartmentAccess(
+      userId,
+      roadmap.departmentId,
+      'You do not have permission to modify this roadmap',
     );
-
-    if (!isAdmin && !isDepartmentManager) {
-      throw new AppError('You do not have permission to modify this roadmap', 403);
-    }
 
     // Check if course in roadmap
     const roadmapCourse = await db.roadmapCourse.findUnique({
@@ -619,27 +585,11 @@ export class RoadmapService {
       throw new AppError('Roadmap not found', 404);
     }
 
-    // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isDepartmentManager = currentUser?.managedDepartments.some(
-      (dept: any) => dept.id.toString() === roadmap.departmentId.toString(),
+    await this.assertDepartmentAccess(
+      userId,
+      roadmap.departmentId,
+      'You do not have permission to modify this roadmap',
     );
-
-    if (!isAdmin && !isDepartmentManager) {
-      throw new AppError('You do not have permission to modify this roadmap', 403);
-    }
 
     // Check if course in roadmap
     const roadmapCourse = await db.roadmapCourse.findUnique({
@@ -729,27 +679,11 @@ export class RoadmapService {
       throw new AppError('Roadmap not found', 404);
     }
 
-    // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isDepartmentManager = currentUser?.managedDepartments.some(
-      (dept: any) => dept.id.toString() === roadmap.departmentId.toString(),
+    await this.assertDepartmentAccess(
+      userId,
+      roadmap.departmentId,
+      'You do not have permission to modify this roadmap',
     );
-
-    if (!isAdmin && !isDepartmentManager) {
-      throw new AppError('You do not have permission to modify this roadmap', 403);
-    }
 
     // Verify all courses exist in roadmap
     const existingCourses = await db.roadmapCourse.findMany({
@@ -814,27 +748,11 @@ export class RoadmapService {
       throw new AppError('Roadmap not found', 404);
     }
 
-    // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(assignedByUserId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        managedDepartments: true,
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isDepartmentManager = currentUser?.managedDepartments.some(
-      (dept: any) => dept.id.toString() === roadmap.departmentId.toString(),
+    await this.assertDepartmentAccess(
+      assignedByUserId,
+      roadmap.departmentId,
+      'You do not have permission to assign this roadmap',
     );
-
-    if (!isAdmin && !isDepartmentManager) {
-      throw new AppError('You do not have permission to assign this roadmap', 403);
-    }
 
     // Verify all users exist
     const users = await db.user.findMany({

@@ -27,7 +27,7 @@ router.get(
 router.get(
   '/employee',
   authenticate,
-  restrictTo('employee', 'student'),
+  restrictTo('employee'),
   DashboardController.getEmployeeDashboardStats,
 );
 
