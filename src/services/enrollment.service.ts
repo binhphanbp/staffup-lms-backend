@@ -1,5 +1,6 @@
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils';
+import { recalculateEnrollmentCache } from '@/services/progress.service';
 import type { EnrollmentDetailResponse } from '@/interfaces/enrollment.types';
 import {
   ALLOWED_TRANSITIONS,
@@ -673,7 +674,7 @@ export class EnrollmentService {
     });
 
     // Recalculate enrollment caches
-    await EnrollmentService.recalculateEnrollmentCache(enrollmentId, db);
+    await recalculateEnrollmentCache(enrollmentId);
 
     return {
       enrollmentId,
@@ -687,39 +688,202 @@ export class EnrollmentService {
     };
   }
 
-  // ─── Recalculate enrollment progress caches ────────────────────────────────
+  // ─── Complete lesson ───────────────────────────────────────────────────────
 
-  private static async recalculateEnrollmentCache(enrollmentId: string, db: any) {
+  static async completeLesson(enrollmentId: string, lessonId: string, requestUserId: string) {
+    const db = prisma as any;
+
     const enrollment = await db.enrollment.findUnique({
       where: { id: BigInt(enrollmentId) },
       include: {
-        course: { include: { modules: { include: { lessons: { select: { id: true } } } } } },
-        lessonProgress: true,
+        course: {
+          include: { modules: { include: { lessons: { select: { id: true } } } } },
+        },
       },
     });
-    if (!enrollment) return;
+    if (!enrollment) throw new AppError('Enrollment not found', 404);
+    if (enrollment.userId.toString() !== requestUserId) {
+      throw new AppError('You do not have permission to access this enrollment', 403);
+    }
+    if (['cancelled', 'expired'].includes(enrollment.status)) {
+      throw new AppError('Cannot update progress on a cancelled or expired enrollment', 403);
+    }
+
+    // Validate lesson belongs to this course
+    const allLessonIds = enrollment.course.modules.flatMap((m: any) =>
+      m.lessons.map((l: any) => l.id.toString()),
+    );
+    if (!allLessonIds.includes(lessonId)) {
+      throw new AppError('Lesson does not belong to this enrollment course', 404);
+    }
+
+    const now = new Date();
+
+    // Upsert — create if not exists, mark completed
+    const progress = await db.lessonProgress.upsert({
+      where: {
+        enrollmentId_lessonId: { enrollmentId: BigInt(enrollmentId), lessonId: BigInt(lessonId) },
+      },
+      create: {
+        enrollmentId: BigInt(enrollmentId),
+        lessonId: BigInt(lessonId),
+        status: 'completed',
+        startedAt: now,
+        completedAt: now,
+        lastAccessedAt: now,
+      },
+      update: {
+        status: 'completed',
+        completedAt: now,
+        lastAccessedAt: now,
+      },
+    });
+
+    // Recalculate caches
+    await recalculateEnrollmentCache(enrollmentId);
+
+    // Fetch updated enrollment for response
+    const updatedEnrollment = await db.enrollment.findUnique({
+      where: { id: BigInt(enrollmentId) },
+      select: {
+        progressPercentCache: true,
+        completedLessonsCountCache: true,
+        timeSpentSecondsCache: true,
+      },
+    });
+
+    return {
+      enrollmentId,
+      lessonId,
+      status: progress.status,
+      completedAt: progress.completedAt?.toISOString() || null,
+      enrollment: {
+        progressPercent: parseFloat(updatedEnrollment.progressPercentCache ?? 0),
+        completedLessonsCount: updatedEnrollment.completedLessonsCountCache,
+        timeSpentSeconds: updatedEnrollment.timeSpentSecondsCache,
+      },
+    };
+  }
+
+  // ─── Get enrollment progress (summary + per-lesson detail) ────────────────
+
+  static async getEnrollmentProgress(
+    enrollmentId: string,
+    requestUserId: string,
+    roleCodes: string[],
+  ) {
+    const db = prisma as any;
+
+    const enrollment = await db.enrollment.findUnique({
+      where: { id: BigInt(enrollmentId) },
+      include: {
+        course: {
+          include: {
+            modules: {
+              orderBy: { orderIndex: 'asc' },
+              include: {
+                lessons: {
+                  orderBy: { orderIndex: 'asc' },
+                  select: {
+                    id: true,
+                    title: true,
+                    lessonType: true,
+                    durationSeconds: true,
+                    orderIndex: true,
+                    isPreview: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        lessonProgress: {
+          select: {
+            lessonId: true,
+            status: true,
+            watchTimeSeconds: true,
+            lastPositionSeconds: true,
+            startedAt: true,
+            completedAt: true,
+            lastAccessedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!enrollment) throw new AppError('Enrollment not found', 404);
+
+    const isAdmin = roleCodes.includes('admin');
+    const isTrainer = roleCodes.includes('trainer');
+    const isOwner = enrollment.userId.toString() === requestUserId;
+
+    if (!isAdmin && !isTrainer && !isOwner) {
+      throw new AppError('You do not have permission to view this enrollment', 403);
+    }
+
+    // Build a map for O(1) lookup
+    const progressMap = new Map(
+      enrollment.lessonProgress.map((lp: any) => [lp.lessonId.toString(), lp]),
+    );
 
     const totalLessons = enrollment.course.modules.reduce(
       (sum: number, m: any) => sum + m.lessons.length,
       0,
     );
-    const completedLessons = enrollment.lessonProgress.filter(
-      (lp: any) => lp.status === 'completed',
-    ).length;
-    const totalWatchTime = enrollment.lessonProgress.reduce(
-      (sum: number, lp: any) => sum + (lp.watchTimeSeconds || 0),
-      0,
-    );
-    const progressPercent = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
 
-    await db.enrollment.update({
-      where: { id: BigInt(enrollmentId) },
-      data: {
-        progressPercentCache: progressPercent.toFixed(2),
-        completedLessonsCountCache: completedLessons,
-        timeSpentSecondsCache: totalWatchTime,
-        lastActivityAt: new Date(),
+    // Build per-module breakdown
+    const modules = enrollment.course.modules.map((module: any) => ({
+      id: module.id.toString(),
+      title: module.title,
+      orderIndex: module.orderIndex,
+      lessons: module.lessons.map((lesson: any) => {
+        const lp = progressMap.get(lesson.id.toString()) as any;
+        return {
+          id: lesson.id.toString(),
+          title: lesson.title,
+          lessonType: lesson.lessonType,
+          durationSeconds: lesson.durationSeconds,
+          orderIndex: lesson.orderIndex,
+          isPreview: lesson.isPreview,
+          progress: lp
+            ? {
+                status: lp.status,
+                watchTimeSeconds: lp.watchTimeSeconds,
+                lastPositionSeconds: lp.lastPositionSeconds,
+                startedAt: lp.startedAt?.toISOString() || null,
+                completedAt: lp.completedAt?.toISOString() || null,
+                lastAccessedAt: lp.lastAccessedAt?.toISOString() || null,
+              }
+            : {
+                status: 'not_started',
+                watchTimeSeconds: 0,
+                lastPositionSeconds: 0,
+                startedAt: null,
+                completedAt: null,
+                lastAccessedAt: null,
+              },
+        };
+      }),
+    }));
+
+    return {
+      enrollmentId,
+      courseId: enrollment.courseId.toString(),
+      enrollmentStatus: enrollment.status,
+      summary: {
+        progressPercent: parseFloat(enrollment.progressPercentCache ?? 0),
+        completedLessonsCount: enrollment.completedLessonsCountCache,
+        totalLessonsCount: totalLessons,
+        timeSpentSeconds: enrollment.timeSpentSecondsCache,
+        lastActivityAt: enrollment.lastActivityAt?.toISOString() || null,
       },
-    });
+      modules,
+    };
+  }
+
+  // ─── Recalculate enrollment progress caches ────────────────────────────────
+
+  private static async recalculateEnrollmentCache(enrollmentId: string, db: any) {
+    await recalculateEnrollmentCache(enrollmentId);
   }
 }

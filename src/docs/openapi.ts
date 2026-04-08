@@ -3992,6 +3992,224 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/enrollments/{enrollmentId}/lessons/{lessonId}/complete`]: {
+      post: {
+        tags: ['Enrollments'],
+        summary: 'Complete a lesson',
+        description: [
+          'Marks a lesson as `completed`, sets `completedAt` timestamp.',
+          'Creates the `LessonProgress` record if it does not exist yet.',
+          'Automatically recalculates `progressPercentCache`, `completedLessonsCountCache`, and `timeSpentSecondsCache` on the enrollment.',
+          'Idempotent — calling again on an already-completed lesson is safe.',
+        ].join(' '),
+        operationId: 'completeLesson',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Enrollment ID',
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Lesson ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Lesson marked as completed',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Lesson completed successfully' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        enrollmentId: { type: 'string' },
+                        lessonId: { type: 'string' },
+                        status: { type: 'string', example: 'completed' },
+                        completedAt: { type: 'string', format: 'date-time' },
+                        enrollment: {
+                          type: 'object',
+                          description: 'Updated enrollment progress caches',
+                          properties: {
+                            progressPercent: { type: 'number', example: 45.45 },
+                            completedLessonsCount: { type: 'integer', example: 5 },
+                            timeSpentSeconds: { type: 'integer', example: 3600 },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden or enrollment cancelled/expired',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Enrollment or lesson not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/enrollments/{enrollmentId}/progress`]: {
+      get: {
+        tags: ['Enrollments'],
+        summary: 'Get enrollment progress',
+        description: [
+          'Returns overall progress summary plus per-lesson detail grouped by module.',
+          'Serves the learning screen and dashboard progress widgets.',
+          '**Permissions:** Enrollment owner, admin, or trainer.',
+        ].join(' '),
+        operationId: 'getEnrollmentProgress',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Enrollment ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Enrollment progress retrieved',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        enrollmentId: { type: 'string' },
+                        courseId: { type: 'string' },
+                        enrollmentStatus: {
+                          type: 'string',
+                          enum: ['assigned', 'in_progress', 'completed', 'cancelled', 'expired'],
+                        },
+                        summary: {
+                          type: 'object',
+                          properties: {
+                            progressPercent: { type: 'number', example: 45.45 },
+                            completedLessonsCount: { type: 'integer', example: 5 },
+                            totalLessonsCount: { type: 'integer', example: 11 },
+                            timeSpentSeconds: { type: 'integer', example: 3600 },
+                            lastActivityAt: { type: 'string', format: 'date-time', nullable: true },
+                          },
+                        },
+                        modules: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              title: { type: 'string' },
+                              orderIndex: { type: 'integer' },
+                              lessons: {
+                                type: 'array',
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    id: { type: 'string' },
+                                    title: { type: 'string' },
+                                    lessonType: {
+                                      type: 'string',
+                                      enum: ['video', 'article', 'quiz'],
+                                    },
+                                    durationSeconds: { type: 'integer' },
+                                    orderIndex: { type: 'integer' },
+                                    isPreview: { type: 'boolean' },
+                                    progress: {
+                                      type: 'object',
+                                      properties: {
+                                        status: {
+                                          type: 'string',
+                                          enum: [
+                                            'not_started',
+                                            'in_progress',
+                                            'completed',
+                                            'skipped',
+                                          ],
+                                        },
+                                        watchTimeSeconds: { type: 'integer' },
+                                        lastPositionSeconds: { type: 'integer' },
+                                        startedAt: {
+                                          type: 'string',
+                                          format: 'date-time',
+                                          nullable: true,
+                                        },
+                                        completedAt: {
+                                          type: 'string',
+                                          format: 'date-time',
+                                          nullable: true,
+                                        },
+                                        lastAccessedAt: {
+                                          type: 'string',
+                                          format: 'date-time',
+                                          nullable: true,
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Enrollment not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/enrollments/courses/{courseId}/enroll`]: {
       post: {
         tags: ['Enrollments'],
