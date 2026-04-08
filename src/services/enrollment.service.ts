@@ -538,4 +538,188 @@ export class EnrollmentService {
       },
     };
   }
+
+  // ─── Start lesson / upsert progress ───────────────────────────────────────
+
+  static async startLesson(enrollmentId: string, lessonId: string, requestUserId: string) {
+    const db = prisma as any;
+
+    // Verify enrollment belongs to user
+    const enrollment = await db.enrollment.findUnique({
+      where: { id: BigInt(enrollmentId) },
+      include: {
+        course: {
+          include: {
+            modules: { include: { lessons: { select: { id: true } } } },
+          },
+        },
+      },
+    });
+    if (!enrollment) throw new AppError('Enrollment not found', 404);
+    if (enrollment.userId.toString() !== requestUserId) {
+      throw new AppError('You do not have permission to access this enrollment', 403);
+    }
+    if (['cancelled', 'expired'].includes(enrollment.status)) {
+      throw new AppError('Cannot start lesson on a cancelled or expired enrollment', 403);
+    }
+
+    // Validate lesson belongs to this course
+    const allLessonIds = enrollment.course.modules.flatMap((m: any) =>
+      m.lessons.map((l: any) => l.id.toString()),
+    );
+    if (!allLessonIds.includes(lessonId)) {
+      throw new AppError('Lesson does not belong to this enrollment course', 404);
+    }
+
+    const now = new Date();
+
+    // Upsert lesson progress
+    const progress = await db.lessonProgress.upsert({
+      where: {
+        enrollmentId_lessonId: { enrollmentId: BigInt(enrollmentId), lessonId: BigInt(lessonId) },
+      },
+      create: {
+        enrollmentId: BigInt(enrollmentId),
+        lessonId: BigInt(lessonId),
+        status: 'in_progress',
+        startedAt: now,
+        lastAccessedAt: now,
+      },
+      update: {
+        lastAccessedAt: now,
+        // Only move to in_progress if currently not_started; don't downgrade completed
+        status: enrollment.status === 'not_started' ? 'in_progress' : undefined,
+      },
+      include: {
+        lesson: { select: { id: true, title: true, lessonType: true, durationSeconds: true } },
+      },
+    });
+
+    // Transition enrollment to in_progress if still assigned
+    const enrollmentUpdates: Record<string, any> = { lastActivityAt: now };
+    if (enrollment.status === 'assigned') {
+      enrollmentUpdates.status = 'in_progress';
+      enrollmentUpdates.startedAt = enrollment.startedAt ?? now;
+    }
+    await db.enrollment.update({ where: { id: BigInt(enrollmentId) }, data: enrollmentUpdates });
+
+    return {
+      enrollmentId,
+      lessonId,
+      status: progress.status,
+      startedAt: progress.startedAt?.toISOString() || null,
+      lastAccessedAt: progress.lastAccessedAt?.toISOString() || null,
+      watchTimeSeconds: progress.watchTimeSeconds,
+      lastPositionSeconds: progress.lastPositionSeconds,
+      lesson: {
+        id: progress.lesson.id.toString(),
+        title: progress.lesson.title,
+        lessonType: progress.lesson.lessonType,
+        durationSeconds: progress.lesson.durationSeconds,
+      },
+    };
+  }
+
+  // ─── Update lesson progress (watch time / position) ───────────────────────
+
+  static async updateLessonProgress(
+    enrollmentId: string,
+    lessonId: string,
+    data: { watchTimeSeconds?: number; lastPositionSeconds?: number; status?: string },
+    requestUserId: string,
+  ) {
+    const db = prisma as any;
+
+    const enrollment = await db.enrollment.findUnique({
+      where: { id: BigInt(enrollmentId) },
+    });
+    if (!enrollment) throw new AppError('Enrollment not found', 404);
+    if (enrollment.userId.toString() !== requestUserId) {
+      throw new AppError('You do not have permission to access this enrollment', 403);
+    }
+
+    const progress = await db.lessonProgress.findUnique({
+      where: {
+        enrollmentId_lessonId: { enrollmentId: BigInt(enrollmentId), lessonId: BigInt(lessonId) },
+      },
+    });
+    if (!progress) throw new AppError('Lesson progress not found. Call start lesson first.', 404);
+
+    const now = new Date();
+    const updateData: Record<string, any> = { lastAccessedAt: now };
+
+    if (data.watchTimeSeconds !== undefined) {
+      // Accumulate watch time (only increase)
+      updateData.watchTimeSeconds = Math.max(progress.watchTimeSeconds, data.watchTimeSeconds);
+    }
+    if (data.lastPositionSeconds !== undefined) {
+      updateData.lastPositionSeconds = data.lastPositionSeconds;
+    }
+    if (data.status && data.status !== 'not_started') {
+      // Don't allow downgrading from completed
+      if (progress.status !== 'completed' || data.status === 'completed') {
+        updateData.status = data.status;
+      }
+      if (data.status === 'completed' && !progress.completedAt) {
+        updateData.completedAt = now;
+      }
+    }
+
+    const updated = await db.lessonProgress.update({
+      where: {
+        enrollmentId_lessonId: { enrollmentId: BigInt(enrollmentId), lessonId: BigInt(lessonId) },
+      },
+      data: updateData,
+    });
+
+    // Recalculate enrollment caches
+    await EnrollmentService.recalculateEnrollmentCache(enrollmentId, db);
+
+    return {
+      enrollmentId,
+      lessonId,
+      status: updated.status,
+      watchTimeSeconds: updated.watchTimeSeconds,
+      lastPositionSeconds: updated.lastPositionSeconds,
+      startedAt: updated.startedAt?.toISOString() || null,
+      completedAt: updated.completedAt?.toISOString() || null,
+      lastAccessedAt: updated.lastAccessedAt?.toISOString() || null,
+    };
+  }
+
+  // ─── Recalculate enrollment progress caches ────────────────────────────────
+
+  private static async recalculateEnrollmentCache(enrollmentId: string, db: any) {
+    const enrollment = await db.enrollment.findUnique({
+      where: { id: BigInt(enrollmentId) },
+      include: {
+        course: { include: { modules: { include: { lessons: { select: { id: true } } } } } },
+        lessonProgress: true,
+      },
+    });
+    if (!enrollment) return;
+
+    const totalLessons = enrollment.course.modules.reduce(
+      (sum: number, m: any) => sum + m.lessons.length,
+      0,
+    );
+    const completedLessons = enrollment.lessonProgress.filter(
+      (lp: any) => lp.status === 'completed',
+    ).length;
+    const totalWatchTime = enrollment.lessonProgress.reduce(
+      (sum: number, lp: any) => sum + (lp.watchTimeSeconds || 0),
+      0,
+    );
+    const progressPercent = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+
+    await db.enrollment.update({
+      where: { id: BigInt(enrollmentId) },
+      data: {
+        progressPercentCache: progressPercent.toFixed(2),
+        completedLessonsCountCache: completedLessons,
+        timeSpentSecondsCache: totalWatchTime,
+        lastActivityAt: new Date(),
+      },
+    });
+  }
 }

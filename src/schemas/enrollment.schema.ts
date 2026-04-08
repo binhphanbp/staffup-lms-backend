@@ -57,3 +57,25 @@ export type GetEnrollmentDetailInput = z.infer<typeof getEnrollmentDetailSchema>
 export type EnrollUsersInput = z.infer<typeof enrollUsersSchema>;
 export type ListEnrollmentsQuery = z.infer<typeof listEnrollmentsSchema>;
 export type UpdateEnrollmentStatusInput = z.infer<typeof updateEnrollmentStatusSchema>;
+
+// ─── Lesson Progress Schemas ───────────────────────────────────────────────
+
+export const startLessonSchema = z.object({
+  enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
+  lessonId: z.string().regex(/^\d+$/, 'Lesson ID must be a valid number'),
+});
+
+export const updateLessonProgressSchema = z.object({
+  params: z.object({
+    enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
+    lessonId: z.string().regex(/^\d+$/, 'Lesson ID must be a valid number'),
+  }),
+  body: z.object({
+    watchTimeSeconds: z.number().int().min(0).optional(),
+    lastPositionSeconds: z.number().int().min(0).optional(),
+    status: z.enum(['in_progress', 'completed', 'skipped']).optional(),
+  }),
+});
+
+export type StartLessonInput = z.infer<typeof startLessonSchema>;
+export type UpdateLessonProgressInput = z.infer<typeof updateLessonProgressSchema>;

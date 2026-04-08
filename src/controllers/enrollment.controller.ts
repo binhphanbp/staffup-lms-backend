@@ -40,4 +40,23 @@ export class EnrollmentController {
     );
     sendSuccess(res, result, 'Enrollment status updated successfully');
   });
+
+  static startLesson = catchAsync(async (req: AuthRequest, res: Response) => {
+    const result = await EnrollmentService.startLesson(
+      req.params.enrollmentId,
+      req.params.lessonId,
+      req.user!.userId,
+    );
+    sendSuccess(res, result, 'Lesson started successfully');
+  });
+
+  static updateLessonProgress = catchAsync(async (req: AuthRequest, res: Response) => {
+    const result = await EnrollmentService.updateLessonProgress(
+      req.params.enrollmentId,
+      req.params.lessonId,
+      req.body,
+      req.user!.userId,
+    );
+    sendSuccess(res, result, 'Lesson progress updated successfully');
+  });
 }
