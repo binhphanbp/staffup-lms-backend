@@ -1,3 +1,5 @@
+export type CourseExpand = 'modules' | 'lessons' | 'resources' | 'quiz' | 'tags' | 'all';
+
 export interface CourseDetailResponse {
   id: string;
   title: string;
@@ -28,13 +30,13 @@ export interface CourseDetailResponse {
     name: string;
   } | null;
 
-  tags: Array<{
+  tags?: Array<{
     id: string;
     name: string;
     slug: string;
   }>;
 
-  modules: Array<{
+  modules?: Array<{
     id: string;
     title: string;
     orderIndex: number;
@@ -68,7 +70,7 @@ export interface CourseDetailResponse {
     }>;
   }>;
 
-  stats: {
+  stats?: {
     totalModules: number;
     totalLessons: number;
     totalDurationMinutes: number;

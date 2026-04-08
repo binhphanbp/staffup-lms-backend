@@ -1,8 +1,13 @@
 import { prisma } from '@/config/database';
 import type { PaginatedResult } from '@/interfaces';
-import type { CourseDetailResponse } from '@/interfaces/course.types';
+import type { CourseDetailResponse, CourseExpand } from '@/interfaces/course.types';
 import { assertPolicy, canAccessOwnedResource } from '@/policies';
-import type { CourseQuery, CreateCourseInput, UpdateCourseInput } from '@/schemas/course.schema';
+import type {
+  CourseDetailQuery,
+  CourseQuery,
+  CreateCourseInput,
+  UpdateCourseInput,
+} from '@/schemas/course.schema';
 import { AppError, slugify } from '@/utils';
 
 type CourseStatus = 'draft' | 'published' | 'archived';
@@ -39,6 +44,8 @@ interface CourseListItem {
     enrollments: number;
   };
 }
+
+const DEFAULT_DETAIL_EXPANDS: CourseExpand[] = ['all'];
 
 export class CourseService {
   private static get db() {
@@ -194,85 +201,135 @@ export class CourseService {
     };
   }
 
-  private static async getCourseOrThrow(id: string) {
-    const course = await this.db.course.findUnique({
-      where: { id: BigInt(id) },
-      include: {
-        trainerUser: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            avatarUrl: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        ownerDepartment: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        courseTags: {
-          include: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            },
-          },
-        },
-        modules: {
-          orderBy: { orderIndex: 'asc' },
-          include: {
-            lessons: {
-              orderBy: { orderIndex: 'asc' },
-              include: {
-                resources: {
-                  orderBy: { orderIndex: 'asc' },
-                  select: {
-                    id: true,
-                    fileName: true,
-                    fileUrl: true,
-                    resourceType: true,
-                    orderIndex: true,
-                  },
-                },
-                quiz: {
-                  select: {
-                    id: true,
-                    title: true,
-                    description: true,
-                    passScorePercent: true,
-                    timeLimitMinutes: true,
-                    maxAttempts: true,
-                    shuffleQuestions: true,
-                    shuffleOptions: true,
-                    _count: {
-                      select: {
-                        quizQuestions: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            enrollments: true,
-          },
+  private static normalizeExpand(expandItems: CourseExpand[] = []) {
+    const expanded = new Set<CourseExpand>(expandItems);
+
+    if (expanded.has('all')) {
+      expanded.add('tags');
+      expanded.add('modules');
+      expanded.add('lessons');
+      expanded.add('resources');
+      expanded.add('quiz');
+    }
+
+    if (expanded.has('resources')) {
+      expanded.add('lessons');
+      expanded.add('modules');
+    }
+
+    if (expanded.has('quiz')) {
+      expanded.add('lessons');
+      expanded.add('modules');
+    }
+
+    if (expanded.has('lessons')) {
+      expanded.add('modules');
+    }
+
+    return expanded;
+  }
+
+  private static buildCourseInclude(expands: Set<CourseExpand>) {
+    const include: Record<string, unknown> = {
+      trainerUser: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          avatarUrl: true,
         },
       },
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+      ownerDepartment: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      _count: {
+        select: {
+          enrollments: true,
+        },
+      },
+    };
+
+    if (expands.has('tags')) {
+      include.courseTags = {
+        include: {
+          tag: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+        },
+      };
+    }
+
+    if (expands.has('modules')) {
+      const lessonInclude: Record<string, unknown> = {};
+
+      if (expands.has('resources')) {
+        lessonInclude.resources = {
+          orderBy: { orderIndex: 'asc' },
+          select: {
+            id: true,
+            fileName: true,
+            fileUrl: true,
+            resourceType: true,
+            orderIndex: true,
+          },
+        };
+      }
+
+      if (expands.has('quiz')) {
+        lessonInclude.quiz = {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            passScorePercent: true,
+            timeLimitMinutes: true,
+            maxAttempts: true,
+            shuffleQuestions: true,
+            shuffleOptions: true,
+            _count: {
+              select: {
+                quizQuestions: true,
+              },
+            },
+          },
+        };
+      }
+
+      include.modules = {
+        orderBy: { orderIndex: 'asc' },
+        include: expands.has('lessons')
+          ? {
+              lessons: {
+                orderBy: { orderIndex: 'asc' },
+                include: lessonInclude,
+              },
+            }
+          : undefined,
+      };
+    }
+
+    return include;
+  }
+
+  private static async getCourseOrThrow(id: string, expandItems: CourseExpand[] = []) {
+    const expands = this.normalizeExpand(expandItems);
+    const course = await this.db.course.findUnique({
+      where: { id: BigInt(id) },
+      include: this.buildCourseInclude(expands),
     });
 
     if (!course) {
@@ -448,10 +505,10 @@ export class CourseService {
   /**
    * Get a single course by ID
    */
-  static async findById(id: string) {
-    const course = await this.getCourseOrThrow(id);
+  static async findById(id: string, query: CourseDetailQuery = { expand: [] }) {
+    const course = await this.getCourseOrThrow(id, query.expand);
 
-    return this.mapCourseDetail(course);
+    return this.mapCourseDetail(course, query.expand);
   }
 
   /**
@@ -604,29 +661,39 @@ export class CourseService {
   /**
    * Get course detail with full structure for learning UI
    */
-  static async getCourseDetail(id: string): Promise<CourseDetailResponse> {
-    const course = await this.getCourseOrThrow(id);
+  static async getCourseDetail(
+    id: string,
+    query: CourseDetailQuery = { expand: DEFAULT_DETAIL_EXPANDS },
+  ): Promise<CourseDetailResponse> {
+    const expandItems = query.expand.length > 0 ? query.expand : DEFAULT_DETAIL_EXPANDS;
+    const course = await this.getCourseOrThrow(id, expandItems);
 
-    return this.mapCourseDetail(course);
+    return this.mapCourseDetail(course, expandItems);
   }
 
-  private static mapCourseDetail(course: CourseEntity): CourseDetailResponse {
-    const totalModules = course.modules.length;
-    const totalLessons = course.modules.reduce(
-      (sum: number, module: any) => sum + module.lessons.length,
-      0,
-    );
-    const totalDurationSeconds = course.modules.reduce(
-      (sum: number, module: any) =>
-        sum +
-        module.lessons.reduce(
-          (lessonSum: number, lesson: any) => lessonSum + lesson.durationSeconds,
+  private static mapCourseDetail(
+    course: CourseEntity,
+    expandItems: CourseExpand[] = [],
+  ): CourseDetailResponse {
+    const expands = this.normalizeExpand(expandItems);
+    const modules = Array.isArray(course.modules) ? course.modules : [];
+    const totalModules = modules.length;
+    const totalLessons = expands.has('lessons')
+      ? modules.reduce((sum: number, module: any) => sum + module.lessons.length, 0)
+      : 0;
+    const totalDurationSeconds = expands.has('lessons')
+      ? modules.reduce(
+          (sum: number, module: any) =>
+            sum +
+            module.lessons.reduce(
+              (lessonSum: number, lesson: any) => lessonSum + lesson.durationSeconds,
+              0,
+            ),
           0,
-        ),
-      0,
-    );
+        )
+      : 0;
 
-    return {
+    const response: CourseDetailResponse = {
       id: course.id.toString(),
       title: course.title,
       slug: course.slug,
@@ -656,57 +723,71 @@ export class CourseService {
             name: course.ownerDepartment.name,
           }
         : null,
-      tags: course.courseTags.map((courseTag: any) => ({
+    };
+
+    if (expands.has('tags') && Array.isArray(course.courseTags)) {
+      response.tags = course.courseTags.map((courseTag: any) => ({
         id: courseTag.tag.id.toString(),
         name: courseTag.tag.name,
         slug: courseTag.tag.slug,
-      })),
-      modules: course.modules.map((module: any) => ({
+      }));
+    }
+
+    if (expands.has('modules')) {
+      response.modules = modules.map((module: any) => ({
         id: module.id.toString(),
         title: module.title,
         orderIndex: module.orderIndex,
-        lessons: module.lessons.map((lesson: any) => {
-          const mappedLesson: CourseDetailResponse['modules'][number]['lessons'][number] = {
-            id: lesson.id.toString(),
-            title: lesson.title,
-            lessonType: lesson.lessonType,
-            durationSeconds: lesson.durationSeconds,
-            orderIndex: lesson.orderIndex,
-            isPreview: lesson.isPreview,
-            videoUrl: lesson.videoUrl,
-            contentText: lesson.contentText,
-            resources: lesson.resources.map((resource: any) => ({
-              id: resource.id.toString(),
-              fileName: resource.fileName,
-              fileUrl: resource.fileUrl,
-              resourceType: resource.resourceType,
-              orderIndex: resource.orderIndex,
-            })),
-          };
+        lessons: expands.has('lessons')
+          ? module.lessons.map((lesson: any) => {
+              const mappedLesson: CourseDetailResponse['modules'][number]['lessons'][number] = {
+                id: lesson.id.toString(),
+                title: lesson.title,
+                lessonType: lesson.lessonType,
+                durationSeconds: lesson.durationSeconds,
+                orderIndex: lesson.orderIndex,
+                isPreview: lesson.isPreview,
+                videoUrl: lesson.videoUrl,
+                contentText: lesson.contentText,
+                resources:
+                  expands.has('resources') && Array.isArray(lesson.resources)
+                    ? lesson.resources.map((resource: any) => ({
+                        id: resource.id.toString(),
+                        fileName: resource.fileName,
+                        fileUrl: resource.fileUrl,
+                        resourceType: resource.resourceType,
+                        orderIndex: resource.orderIndex,
+                      }))
+                    : [],
+              };
 
-          if (lesson.quiz) {
-            mappedLesson.quiz = {
-              id: lesson.quiz.id.toString(),
-              title: lesson.quiz.title,
-              description: lesson.quiz.description,
-              totalQuestions: lesson.quiz._count.quizQuestions,
-              passScorePercent: Number(lesson.quiz.passScorePercent),
-              timeLimitMinutes: lesson.quiz.timeLimitMinutes,
-              maxAttempts: lesson.quiz.maxAttempts,
-              shuffleQuestions: lesson.quiz.shuffleQuestions,
-              shuffleOptions: lesson.quiz.shuffleOptions,
-            };
-          }
+              if (expands.has('quiz') && lesson.quiz) {
+                mappedLesson.quiz = {
+                  id: lesson.quiz.id.toString(),
+                  title: lesson.quiz.title,
+                  description: lesson.quiz.description,
+                  totalQuestions: lesson.quiz._count.quizQuestions,
+                  passScorePercent: Number(lesson.quiz.passScorePercent),
+                  timeLimitMinutes: lesson.quiz.timeLimitMinutes,
+                  maxAttempts: lesson.quiz.maxAttempts,
+                  shuffleQuestions: lesson.quiz.shuffleQuestions,
+                  shuffleOptions: lesson.quiz.shuffleOptions,
+                };
+              }
 
-          return mappedLesson;
-        }),
-      })),
-      stats: {
+              return mappedLesson;
+            })
+          : [],
+      }));
+
+      response.stats = {
         totalModules,
         totalLessons,
         totalDurationMinutes: Math.ceil(totalDurationSeconds / 60),
         totalEnrollments: course._count.enrollments,
-      },
-    };
+      };
+    }
+
+    return response;
   }
 }
