@@ -9,9 +9,16 @@ import {
   createCourseModuleSchema,
   reorderCourseModulesSchema,
   updateCourseModuleSchema,
+  createCourseLessonSchema,
+  updateCourseLessonSchema,
+  reorderCourseLessonsSchema,
+  createLessonResourceSchema,
+  updateLessonResourceSchema,
   courseIdParamSchema,
   courseTagParamsSchema,
   courseModuleParamsSchema,
+  courseLessonParamsSchema,
+  lessonResourceParamsSchema,
   courseDetailQuerySchema,
   courseQuerySchema,
 } from '@/schemas/course.schema';
@@ -95,6 +102,70 @@ router
     requirePermission('course.update'),
     validate(courseModuleParamsSchema, 'params'),
     CourseController.deleteModule,
+  );
+
+router
+  .route('/:id/modules/:moduleId/lessons')
+  .get(
+    requirePermission('course.read'),
+    validate(courseModuleParamsSchema, 'params'),
+    CourseController.listLessons,
+  )
+  .post(
+    requirePermission('course.update'),
+    validate(courseModuleParamsSchema, 'params'),
+    validate(createCourseLessonSchema),
+    CourseController.createLesson,
+  );
+
+router.post(
+  '/:id/modules/:moduleId/lessons/reorder',
+  requirePermission('course.update'),
+  validate(courseModuleParamsSchema, 'params'),
+  validate(reorderCourseLessonsSchema),
+  CourseController.reorderLessons,
+);
+
+router
+  .route('/:id/modules/:moduleId/lessons/:lessonId/resources')
+  .get(
+    requirePermission('course.read'),
+    validate(courseLessonParamsSchema, 'params'),
+    CourseController.listLessonResources,
+  )
+  .post(
+    requirePermission('course.update'),
+    validate(courseLessonParamsSchema, 'params'),
+    validate(createLessonResourceSchema),
+    CourseController.createLessonResource,
+  );
+
+router
+  .route('/:id/modules/:moduleId/lessons/:lessonId/resources/:resourceId')
+  .patch(
+    requirePermission('course.update'),
+    validate(lessonResourceParamsSchema, 'params'),
+    validate(updateLessonResourceSchema),
+    CourseController.updateLessonResource,
+  )
+  .delete(
+    requirePermission('course.update'),
+    validate(lessonResourceParamsSchema, 'params'),
+    CourseController.deleteLessonResource,
+  );
+
+router
+  .route('/:id/modules/:moduleId/lessons/:lessonId')
+  .patch(
+    requirePermission('course.update'),
+    validate(courseLessonParamsSchema, 'params'),
+    validate(updateCourseLessonSchema),
+    CourseController.updateLesson,
+  )
+  .delete(
+    requirePermission('course.update'),
+    validate(courseLessonParamsSchema, 'params'),
+    CourseController.deleteLesson,
   );
 
 router

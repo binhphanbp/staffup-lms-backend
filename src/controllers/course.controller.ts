@@ -141,6 +141,142 @@ export class CourseController {
   );
 
   /**
+   * GET /api/v1/courses/:id/modules/:moduleId/lessons
+   */
+  static listLessons = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.listLessons(
+      req.params.id as string,
+      req.params.moduleId as string,
+    );
+    sendSuccess(res, result, 'Module lessons retrieved successfully');
+  });
+
+  /**
+   * POST /api/v1/courses/:id/modules/:moduleId/lessons
+   */
+  static createLesson = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.createLesson(
+      req.params.id as string,
+      req.params.moduleId as string,
+      req.body,
+      req.user!.userId,
+      req.user!.roleCodes,
+    );
+    sendCreated(res, result, 'Lesson created successfully');
+  });
+
+  /**
+   * PATCH /api/v1/courses/:id/modules/:moduleId/lessons/:lessonId
+   */
+  static updateLesson = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.updateLesson(
+      req.params.id as string,
+      req.params.moduleId as string,
+      req.params.lessonId as string,
+      req.body,
+      req.user!.userId,
+      req.user!.roleCodes,
+    );
+    sendSuccess(res, result, 'Lesson updated successfully');
+  });
+
+  /**
+   * POST /api/v1/courses/:id/modules/:moduleId/lessons/reorder
+   */
+  static reorderLessons = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const result = await CourseService.reorderLessons(
+        req.params.id as string,
+        req.params.moduleId as string,
+        req.body.lessonOrders,
+        req.user!.userId,
+        req.user!.roleCodes,
+      );
+      sendSuccess(res, result, 'Module lessons reordered successfully');
+    },
+  );
+
+  /**
+   * GET /api/v1/courses/:id/modules/:moduleId/lessons/:lessonId/resources
+   */
+  static listLessonResources = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const result = await CourseService.listLessonResources(
+        req.params.id as string,
+        req.params.moduleId as string,
+        req.params.lessonId as string,
+      );
+      sendSuccess(res, result, 'Lesson resources retrieved successfully');
+    },
+  );
+
+  /**
+   * POST /api/v1/courses/:id/modules/:moduleId/lessons/:lessonId/resources
+   */
+  static createLessonResource = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const result = await CourseService.createLessonResource(
+        req.params.id as string,
+        req.params.moduleId as string,
+        req.params.lessonId as string,
+        req.body,
+        req.user!.userId,
+        req.user!.roleCodes,
+      );
+      sendCreated(res, result, 'Lesson resource created successfully');
+    },
+  );
+
+  /**
+   * PATCH /api/v1/courses/:id/modules/:moduleId/lessons/:lessonId/resources/:resourceId
+   */
+  static updateLessonResource = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const result = await CourseService.updateLessonResource(
+        req.params.id as string,
+        req.params.moduleId as string,
+        req.params.lessonId as string,
+        req.params.resourceId as string,
+        req.body,
+        req.user!.userId,
+        req.user!.roleCodes,
+      );
+      sendSuccess(res, result, 'Lesson resource updated successfully');
+    },
+  );
+
+  /**
+   * DELETE /api/v1/courses/:id/modules/:moduleId/lessons/:lessonId/resources/:resourceId
+   */
+  static deleteLessonResource = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const result = await CourseService.deleteLessonResource(
+        req.params.id as string,
+        req.params.moduleId as string,
+        req.params.lessonId as string,
+        req.params.resourceId as string,
+        req.user!.userId,
+        req.user!.roleCodes,
+      );
+      sendSuccess(res, result, 'Lesson resource deleted successfully');
+    },
+  );
+
+  /**
+   * DELETE /api/v1/courses/:id/modules/:moduleId/lessons/:lessonId
+   */
+  static deleteLesson = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await CourseService.deleteLesson(
+      req.params.id as string,
+      req.params.moduleId as string,
+      req.params.lessonId as string,
+      req.user!.userId,
+      req.user!.roleCodes,
+    );
+    sendSuccess(res, result, 'Lesson deleted successfully');
+  });
+
+  /**
    * DELETE /api/v1/courses/:id/modules/:moduleId
    */
   static deleteModule = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {

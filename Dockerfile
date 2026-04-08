@@ -10,6 +10,7 @@ WORKDIR /app
 # ================================
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN pnpm install --frozen-lockfile
 
 # ================================

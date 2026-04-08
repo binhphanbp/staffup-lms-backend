@@ -472,29 +472,51 @@ export const openApiDocument = {
           enrollments: { type: 'integer', example: 120 },
         },
       },
+      CourseCategorySummary: {
+        type: 'object',
+        required: ['id', 'name', 'slug'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '3' },
+          name: { type: 'string', example: 'Backend Development' },
+          slug: { type: 'string', example: 'backend-development' },
+        },
+      },
+      CourseOwnerDepartmentSummary: {
+        type: 'object',
+        required: ['id', 'name'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '1' },
+          name: { type: 'string', example: 'Engineering' },
+        },
+      },
+      CourseTagSummary: {
+        type: 'object',
+        required: ['id', 'name', 'slug'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '7' },
+          name: { type: 'string', example: 'Node.js' },
+          slug: { type: 'string', example: 'node-js' },
+        },
+      },
       CourseListItem: {
         type: 'object',
-        required: ['id', 'trainerUserId', 'title', 'slug', 'status', 'createdAt', 'updatedAt'],
+        required: [
+          'id',
+          'title',
+          'slug',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'trainer',
+          'category',
+          'ownerDepartment',
+          'counts',
+        ],
         properties: {
           id: {
             type: 'string',
             pattern: '^\\d+$',
             example: '10',
-          },
-          ownerDepartmentId: {
-            type: 'string',
-            pattern: '^\\d+$',
-            nullable: true,
-          },
-          trainerUserId: {
-            type: 'string',
-            pattern: '^\\d+$',
-            example: '2',
-          },
-          categoryId: {
-            type: 'string',
-            pattern: '^\\d+$',
-            nullable: true,
           },
           title: {
             type: 'string',
@@ -536,27 +558,74 @@ export const openApiDocument = {
             type: 'string',
             format: 'date-time',
           },
-          trainerUser: {
+          trainer: {
             $ref: '#/components/schemas/TrainerSummary',
           },
-          _count: {
+          category: {
+            anyOf: [{ $ref: '#/components/schemas/CourseCategorySummary' }, { type: 'null' }],
+          },
+          ownerDepartment: {
+            anyOf: [
+              { $ref: '#/components/schemas/CourseOwnerDepartmentSummary' },
+              { type: 'null' },
+            ],
+          },
+          counts: {
             $ref: '#/components/schemas/CourseCounts',
           },
         },
       },
-      Lesson: {
+      CourseDetailResource: {
         type: 'object',
-        required: ['id', 'moduleId', 'title', 'lessonType', 'durationSeconds', 'orderIndex'],
+        required: ['id', 'fileName', 'fileUrl', 'orderIndex'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '88' },
+          fileName: { type: 'string', example: 'slides.pdf' },
+          fileUrl: { type: 'string', format: 'uri', example: 'https://cdn.example.com/slides.pdf' },
+          resourceType: { type: 'string', nullable: true, example: 'pdf' },
+          orderIndex: { type: 'integer', example: 1 },
+        },
+      },
+      CourseDetailQuiz: {
+        type: 'object',
+        required: [
+          'id',
+          'title',
+          'totalQuestions',
+          'passScorePercent',
+          'shuffleQuestions',
+          'shuffleOptions',
+        ],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '12' },
+          title: { type: 'string', example: 'Knowledge Check' },
+          description: { type: 'string', nullable: true, example: 'Basic backend quiz' },
+          totalQuestions: { type: 'integer', example: 10 },
+          passScorePercent: { type: 'number', example: 70 },
+          timeLimitMinutes: { type: 'integer', nullable: true, example: 20 },
+          maxAttempts: { type: 'integer', nullable: true, example: 3 },
+          shuffleQuestions: { type: 'boolean', example: true },
+          shuffleOptions: { type: 'boolean', example: false },
+        },
+      },
+      CourseDetailLesson: {
+        type: 'object',
+        required: [
+          'id',
+          'title',
+          'lessonType',
+          'durationSeconds',
+          'orderIndex',
+          'isPreview',
+          'videoUrl',
+          'contentText',
+          'resources',
+        ],
         properties: {
           id: {
             type: 'string',
             pattern: '^\\d+$',
             example: '100',
-          },
-          moduleId: {
-            type: 'string',
-            pattern: '^\\d+$',
-            example: '20',
           },
           title: {
             type: 'string',
@@ -596,21 +665,23 @@ export const openApiDocument = {
             type: 'string',
             format: 'date-time',
           },
+          resources: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/CourseDetailResource' },
+          },
+          quiz: {
+            anyOf: [{ $ref: '#/components/schemas/CourseDetailQuiz' }, { type: 'null' }],
+          },
         },
       },
-      Module: {
+      CourseDetailModule: {
         type: 'object',
-        required: ['id', 'courseId', 'title', 'orderIndex', 'lessons'],
+        required: ['id', 'title', 'orderIndex', 'lessons'],
         properties: {
           id: {
             type: 'string',
             pattern: '^\\d+$',
             example: '20',
-          },
-          courseId: {
-            type: 'string',
-            pattern: '^\\d+$',
-            example: '10',
           },
           title: {
             type: 'string',
@@ -630,23 +701,63 @@ export const openApiDocument = {
           },
           lessons: {
             type: 'array',
-            items: { $ref: '#/components/schemas/Lesson' },
+            items: { $ref: '#/components/schemas/CourseDetailLesson' },
           },
+        },
+      },
+      CourseDetailStats: {
+        type: 'object',
+        required: ['totalModules', 'totalLessons', 'totalDurationMinutes', 'totalEnrollments'],
+        properties: {
+          totalModules: { type: 'integer', example: 6 },
+          totalLessons: { type: 'integer', example: 24 },
+          totalDurationMinutes: { type: 'integer', example: 95 },
+          totalEnrollments: { type: 'integer', example: 120 },
         },
       },
       CourseDetail: {
         allOf: [
-          { $ref: '#/components/schemas/CourseListItem' },
+          {
+            $ref: '#/components/schemas/CourseListItem',
+          },
           {
             type: 'object',
             properties: {
+              trainer: {
+                type: 'object',
+                required: ['id', 'fullName', 'email', 'avatarUrl'],
+                properties: {
+                  id: { type: 'string', pattern: '^\\d+$', example: '2' },
+                  fullName: { type: 'string', example: 'Trainer User' },
+                  email: { type: 'string', format: 'email', example: 'trainer@staffup.local' },
+                  avatarUrl: { type: 'string', format: 'uri', nullable: true },
+                },
+              },
+              tags: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/CourseTagSummary' },
+              },
               modules: {
                 type: 'array',
-                items: { $ref: '#/components/schemas/Module' },
+                items: { $ref: '#/components/schemas/CourseDetailModule' },
+              },
+              stats: {
+                $ref: '#/components/schemas/CourseDetailStats',
               },
             },
           },
         ],
+      },
+      CourseStatusUpdateRequest: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: {
+            type: 'string',
+            enum: ['draft', 'published', 'archived'],
+            example: 'published',
+          },
+        },
       },
       PaginationMeta: {
         type: 'object',
@@ -723,10 +834,20 @@ export const openApiDocument = {
             pattern: '^\\d+$',
             example: '1',
           },
+          trainerUserId: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '2',
+          },
           estimatedDurationMinutes: {
             type: 'integer',
             minimum: 1,
             example: 90,
+          },
+          status: {
+            type: 'string',
+            enum: ['draft', 'published', 'archived'],
+            example: 'draft',
           },
         },
       },
@@ -755,6 +876,10 @@ export const openApiDocument = {
             type: 'string',
             pattern: '^\\d+$',
           },
+          trainerUserId: {
+            type: 'string',
+            pattern: '^\\d+$',
+          },
           estimatedDurationMinutes: {
             type: 'integer',
             minimum: 1,
@@ -762,6 +887,334 @@ export const openApiDocument = {
           status: {
             type: 'string',
             enum: ['draft', 'published', 'archived'],
+          },
+        },
+      },
+      CourseTagAssignmentRequest: {
+        type: 'object',
+        required: ['tagId'],
+        properties: {
+          tagId: {
+            type: 'string',
+            pattern: '^\\d+$',
+            example: '7',
+          },
+        },
+      },
+      CourseTagAssignmentResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Tag added to course successfully' },
+          data: {
+            allOf: [
+              { $ref: '#/components/schemas/CourseListItem' },
+              {
+                type: 'object',
+                required: ['tags'],
+                properties: {
+                  tags: {
+                    type: 'array',
+                    items: { $ref: '#/components/schemas/CourseTagSummary' },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+      RemoveLinkResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Removed successfully' },
+          data: {
+            type: 'object',
+            additionalProperties: true,
+            example: { removed: true },
+          },
+        },
+      },
+      CourseModuleItem: {
+        type: 'object',
+        required: [
+          'id',
+          'courseId',
+          'title',
+          'orderIndex',
+          'createdAt',
+          'updatedAt',
+          'lessonsCount',
+        ],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '20' },
+          courseId: { type: 'string', pattern: '^\\d+$', example: '10' },
+          title: { type: 'string', example: 'Getting Started' },
+          orderIndex: { type: 'integer', example: 1 },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          lessonsCount: { type: 'integer', example: 3 },
+        },
+      },
+      CreateCourseModuleRequest: {
+        type: 'object',
+        required: ['title', 'orderIndex'],
+        properties: {
+          title: { type: 'string', minLength: 1, maxLength: 200, example: 'Getting Started' },
+          orderIndex: { type: 'integer', minimum: 1, example: 1 },
+        },
+      },
+      UpdateCourseModuleRequest: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', minLength: 1, maxLength: 200, example: 'Setup' },
+          orderIndex: { type: 'integer', minimum: 1, example: 2 },
+        },
+      },
+      ReorderCourseModulesRequest: {
+        type: 'object',
+        required: ['moduleOrders'],
+        properties: {
+          moduleOrders: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'object',
+              required: ['moduleId', 'orderIndex'],
+              properties: {
+                moduleId: { type: 'string', pattern: '^\\d+$', example: '20' },
+                orderIndex: { type: 'integer', minimum: 1, example: 1 },
+              },
+            },
+          },
+        },
+      },
+      CourseModuleListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Course modules retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/CourseModuleItem' },
+          },
+        },
+      },
+      CourseModuleResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Course module created successfully' },
+          data: {
+            $ref: '#/components/schemas/CourseModuleItem',
+          },
+        },
+      },
+      CourseLessonItem: {
+        type: 'object',
+        required: [
+          'id',
+          'moduleId',
+          'title',
+          'lessonType',
+          'contentText',
+          'videoUrl',
+          'durationSeconds',
+          'orderIndex',
+          'isPreview',
+          'createdAt',
+          'updatedAt',
+          'resourcesCount',
+          'progressCount',
+          'hasQuiz',
+        ],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '100' },
+          moduleId: { type: 'string', pattern: '^\\d+$', example: '20' },
+          title: { type: 'string', example: 'Introduction Video' },
+          lessonType: {
+            type: 'string',
+            enum: ['video', 'article', 'quiz'],
+            example: 'video',
+          },
+          contentText: { type: 'string', nullable: true },
+          videoUrl: { type: 'string', format: 'uri', nullable: true },
+          durationSeconds: { type: 'integer', example: 300 },
+          orderIndex: { type: 'integer', example: 1 },
+          isPreview: { type: 'boolean', example: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          resourcesCount: { type: 'integer', example: 0 },
+          progressCount: { type: 'integer', example: 0 },
+          hasQuiz: { type: 'boolean', example: false },
+        },
+      },
+      CreateCourseLessonRequest: {
+        type: 'object',
+        required: ['title', 'lessonType', 'orderIndex'],
+        properties: {
+          title: { type: 'string', minLength: 1, maxLength: 200, example: 'Introduction Video' },
+          lessonType: {
+            type: 'string',
+            enum: ['video', 'article', 'quiz'],
+            example: 'video',
+          },
+          contentText: { type: 'string', maxLength: 50000, nullable: true },
+          videoUrl: { type: 'string', format: 'uri', nullable: true },
+          durationSeconds: { type: 'integer', minimum: 0, default: 0, example: 300 },
+          orderIndex: { type: 'integer', minimum: 1, example: 1 },
+          isPreview: { type: 'boolean', example: false },
+        },
+      },
+      UpdateCourseLessonRequest: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', minLength: 1, maxLength: 200, example: 'Read Me First' },
+          lessonType: { type: 'string', enum: ['video', 'article', 'quiz'] },
+          contentText: { type: 'string', maxLength: 50000, nullable: true },
+          videoUrl: { type: 'string', format: 'uri', nullable: true },
+          durationSeconds: { type: 'integer', minimum: 0, example: 0 },
+          orderIndex: { type: 'integer', minimum: 1, example: 2 },
+          isPreview: { type: 'boolean', example: false },
+        },
+      },
+      ReorderCourseLessonsRequest: {
+        type: 'object',
+        required: ['lessonOrders'],
+        properties: {
+          lessonOrders: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'object',
+              required: ['lessonId', 'orderIndex'],
+              properties: {
+                lessonId: { type: 'string', pattern: '^\\d+$', example: '100' },
+                orderIndex: { type: 'integer', minimum: 1, example: 1 },
+              },
+            },
+          },
+        },
+      },
+      CourseLessonListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Module lessons retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/CourseLessonItem' },
+          },
+        },
+      },
+      CourseLessonResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Lesson created successfully' },
+          data: {
+            $ref: '#/components/schemas/CourseLessonItem',
+          },
+        },
+      },
+      LessonResourceItem: {
+        type: 'object',
+        required: [
+          'id',
+          'lessonId',
+          'fileName',
+          'fileUrl',
+          'resourceType',
+          'orderIndex',
+          'createdAt',
+          'updatedAt',
+        ],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '501' },
+          lessonId: { type: 'string', pattern: '^\\d+$', example: '100' },
+          fileName: { type: 'string', example: 'course-outline.pdf' },
+          fileUrl: {
+            type: 'string',
+            format: 'uri',
+            example: 'https://cdn.example.com/course-outline.pdf',
+          },
+          resourceType: {
+            type: 'string',
+            enum: ['file', 'video', 'material'],
+            nullable: true,
+            example: 'file',
+          },
+          orderIndex: { type: 'integer', example: 1 },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateLessonResourceRequest: {
+        type: 'object',
+        required: ['fileName', 'fileUrl'],
+        properties: {
+          fileName: { type: 'string', minLength: 1, maxLength: 255, example: 'course-outline.pdf' },
+          fileUrl: {
+            type: 'string',
+            format: 'uri',
+            example: 'https://cdn.example.com/course-outline.pdf',
+          },
+          resourceType: {
+            type: 'string',
+            enum: ['file', 'video', 'material'],
+            example: 'file',
+          },
+          orderIndex: { type: 'integer', minimum: 1, example: 1 },
+        },
+      },
+      UpdateLessonResourceRequest: {
+        type: 'object',
+        properties: {
+          fileName: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 255,
+            example: 'updated-outline.pdf',
+          },
+          fileUrl: {
+            type: 'string',
+            format: 'uri',
+            example: 'https://cdn.example.com/updated-outline.pdf',
+          },
+          resourceType: {
+            type: 'string',
+            enum: ['file', 'video', 'material'],
+            example: 'material',
+          },
+          orderIndex: { type: 'integer', minimum: 1, example: 2 },
+        },
+      },
+      LessonResourceListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Lesson resources retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/LessonResourceItem' },
+          },
+        },
+      },
+      LessonResourceResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Lesson resource created successfully' },
+          data: {
+            $ref: '#/components/schemas/LessonResourceItem',
           },
         },
       },
@@ -2052,7 +2505,7 @@ export const openApiDocument = {
             in: 'query',
             schema: {
               type: 'string',
-              enum: ['title', 'createdAt', 'updatedAt'],
+              enum: ['title', 'createdAt', 'updatedAt', 'publishedAt', 'status'],
               default: 'createdAt',
             },
           },
@@ -2077,6 +2530,21 @@ export const openApiDocument = {
             name: 'search',
             in: 'query',
             schema: { type: 'string' },
+          },
+          {
+            name: 'trainerId',
+            in: 'query',
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'categoryId',
+            in: 'query',
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'ownerDepartmentId',
+            in: 'query',
+            schema: { type: 'string', pattern: '^\\d+$' },
           },
         ],
         responses: {
@@ -2105,7 +2573,7 @@ export const openApiDocument = {
       post: {
         tags: ['Courses'],
         summary: 'Create a course',
-        description: 'Requires the `admin` or `trainer` role.',
+        description: 'Create a course draft. Publishing is handled separately.',
         operationId: 'createCourse',
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -2178,6 +2646,16 @@ export const openApiDocument = {
               pattern: '^\\d+$',
             },
             description: 'Course ID as a numeric string.',
+          },
+          {
+            name: 'expand',
+            in: 'query',
+            schema: {
+              type: 'string',
+              example: 'modules,lessons,resources',
+            },
+            description:
+              'Comma-separated expand list: modules, lessons, resources, quiz, tags, all.',
           },
         ],
         responses: {
@@ -2352,9 +2830,9 @@ export const openApiDocument = {
     [`${API_PREFIX}/courses/{id}/detail`]: {
       get: {
         tags: ['Courses'],
-        summary: 'Get course detail with user enrollment',
+        summary: 'Get course detail',
         description:
-          'Get detailed course information including modules, lessons, and user-specific enrollment data',
+          'Get detailed course information, optionally expanded with nested modules, lessons, resources, quiz, and tags.',
         operationId: 'getCourseDetail',
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -2362,8 +2840,18 @@ export const openApiDocument = {
             name: 'id',
             in: 'path',
             required: true,
-            schema: { type: 'string' },
-            description: 'Course ID',
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Course ID as a numeric string.',
+          },
+          {
+            name: 'expand',
+            in: 'query',
+            schema: {
+              type: 'string',
+              example: 'all',
+            },
+            description:
+              'Comma-separated expand list: modules, lessons, resources, quiz, tags, all.',
           },
         ],
         responses: {
@@ -2372,155 +2860,7 @@ export const openApiDocument = {
             content: {
               'application/json': {
                 schema: {
-                  type: 'object',
-                  properties: {
-                    success: { type: 'boolean', example: true },
-                    data: {
-                      type: 'object',
-                      properties: {
-                        id: { type: 'string' },
-                        title: { type: 'string' },
-                        slug: { type: 'string' },
-                        description: { type: 'string', nullable: true },
-                        thumbnailUrl: { type: 'string', nullable: true },
-                        status: { type: 'string', enum: ['draft', 'published', 'archived'] },
-                        estimatedDurationMinutes: { type: 'number', nullable: true },
-                        publishedAt: { type: 'string', format: 'date-time', nullable: true },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' },
-                        trainer: {
-                          type: 'object',
-                          properties: {
-                            id: { type: 'string' },
-                            fullName: { type: 'string' },
-                            email: { type: 'string' },
-                            avatarUrl: { type: 'string', nullable: true },
-                          },
-                        },
-                        category: {
-                          type: 'object',
-                          nullable: true,
-                          properties: {
-                            id: { type: 'string' },
-                            name: { type: 'string' },
-                            slug: { type: 'string' },
-                          },
-                        },
-                        ownerDepartment: {
-                          type: 'object',
-                          nullable: true,
-                          properties: {
-                            id: { type: 'string' },
-                            name: { type: 'string' },
-                          },
-                        },
-                        tags: {
-                          type: 'array',
-                          items: {
-                            type: 'object',
-                            properties: {
-                              id: { type: 'string' },
-                              name: { type: 'string' },
-                              slug: { type: 'string' },
-                            },
-                          },
-                        },
-                        modules: {
-                          type: 'array',
-                          items: {
-                            type: 'object',
-                            properties: {
-                              id: { type: 'string' },
-                              title: { type: 'string' },
-                              orderIndex: { type: 'number' },
-                              lessons: {
-                                type: 'array',
-                                items: {
-                                  type: 'object',
-                                  properties: {
-                                    id: { type: 'string' },
-                                    title: { type: 'string' },
-                                    lessonType: {
-                                      type: 'string',
-                                      enum: ['video', 'article', 'quiz'],
-                                    },
-                                    durationSeconds: { type: 'number' },
-                                    orderIndex: { type: 'number' },
-                                    isPreview: { type: 'boolean' },
-                                    videoUrl: { type: 'string', nullable: true },
-                                    contentText: { type: 'string', nullable: true },
-                                    resources: {
-                                      type: 'array',
-                                      items: {
-                                        type: 'object',
-                                        properties: {
-                                          id: { type: 'string' },
-                                          fileName: { type: 'string' },
-                                          fileUrl: { type: 'string' },
-                                          resourceType: { type: 'string', nullable: true },
-                                          orderIndex: { type: 'number' },
-                                        },
-                                      },
-                                    },
-                                    quiz: {
-                                      type: 'object',
-                                      nullable: true,
-                                      properties: {
-                                        id: { type: 'string' },
-                                        title: { type: 'string' },
-                                        description: { type: 'string', nullable: true },
-                                        totalQuestions: { type: 'number' },
-                                        passScorePercent: { type: 'number' },
-                                        timeLimitMinutes: { type: 'number', nullable: true },
-                                        maxAttempts: { type: 'number', nullable: true },
-                                        shuffleQuestions: { type: 'boolean' },
-                                        shuffleOptions: { type: 'boolean' },
-                                      },
-                                    },
-                                  },
-                                },
-                              },
-                            },
-                          },
-                        },
-                        stats: {
-                          type: 'object',
-                          properties: {
-                            totalModules: { type: 'number' },
-                            totalLessons: { type: 'number' },
-                            totalDurationMinutes: { type: 'number' },
-                            totalEnrollments: { type: 'number' },
-                          },
-                        },
-                        userEnrollment: {
-                          type: 'object',
-                          nullable: true,
-                          properties: {
-                            enrollmentId: { type: 'string' },
-                            status: {
-                              type: 'string',
-                              enum: [
-                                'assigned',
-                                'in_progress',
-                                'completed',
-                                'cancelled',
-                                'expired',
-                              ],
-                            },
-                            progressPercent: { type: 'number' },
-                            completedLessonsCount: { type: 'number' },
-                            timeSpentSeconds: { type: 'number' },
-                            enrolledAt: { type: 'string', format: 'date-time' },
-                            startedAt: { type: 'string', format: 'date-time', nullable: true },
-                            completedAt: { type: 'string', format: 'date-time', nullable: true },
-                            assignmentNote: { type: 'string', nullable: true },
-                            dueAt: { type: 'string', format: 'date-time', nullable: true },
-                          },
-                        },
-                      },
-                    },
-                    message: { type: 'string' },
-                  },
+                  $ref: '#/components/schemas/CourseSuccessResponse',
                 },
               },
             },
@@ -2545,6 +2885,670 @@ export const openApiDocument = {
               },
             },
           },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/status`]: {
+      patch: {
+        tags: ['Courses'],
+        summary: 'Update course status',
+        description:
+          'Publish, archive, or move a course back to draft. Publishing validates the course content first.',
+        operationId: 'updateCourseStatus',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Course ID as a numeric string.',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CourseStatusUpdateRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Course status updated successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseSuccessResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed or course cannot be published yet.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/tags`]: {
+      post: {
+        tags: ['Courses'],
+        summary: 'Assign tag to course',
+        operationId: 'addCourseTag',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Course ID as a numeric string.',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CourseTagAssignmentRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Tag added to course successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseTagAssignmentResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed or tag already assigned.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course or tag not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/tags/{tagId}`]: {
+      delete: {
+        tags: ['Courses'],
+        summary: 'Remove tag from course',
+        operationId: 'removeCourseTag',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'tagId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Tag removed from course successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/RemoveLinkResponse' },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course or course-tag link not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/modules`]: {
+      get: {
+        tags: ['Courses'],
+        summary: 'List course modules',
+        operationId: 'listCourseModules',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Course ID as a numeric string.',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Course modules retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseModuleListResponse' },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token.' },
+          '404': { description: 'Course not found.' },
+        },
+      },
+      post: {
+        tags: ['Courses'],
+        summary: 'Create course module',
+        operationId: 'createCourseModule',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Course ID as a numeric string.',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateCourseModuleRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Course module created successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseModuleResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed or duplicate orderIndex.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/modules/reorder`]: {
+      post: {
+        tags: ['Courses'],
+        summary: 'Reorder course modules',
+        operationId: 'reorderCourseModules',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Course ID as a numeric string.',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ReorderCourseModulesRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Course modules reordered successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseModuleListResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course or modules not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/modules/{moduleId}`]: {
+      patch: {
+        tags: ['Courses'],
+        summary: 'Update course module',
+        operationId: 'updateCourseModule',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateCourseModuleRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Course module updated successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseModuleResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed or duplicate orderIndex.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course or module not found.' },
+        },
+      },
+      delete: {
+        tags: ['Courses'],
+        summary: 'Delete course module',
+        operationId: 'deleteCourseModule',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Course module deleted successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/RemoveLinkResponse' },
+              },
+            },
+          },
+          '400': { description: 'Module still contains lessons.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course or module not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/modules/{moduleId}/lessons`]: {
+      get: {
+        tags: ['Courses'],
+        summary: 'List module lessons',
+        operationId: 'listCourseLessons',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Module lessons retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseLessonListResponse' },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token.' },
+          '404': { description: 'Course or module not found.' },
+        },
+      },
+      post: {
+        tags: ['Courses'],
+        summary: 'Create lesson in module',
+        operationId: 'createCourseLesson',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateCourseLessonRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Lesson created successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseLessonResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed or duplicate orderIndex.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course or module not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/modules/{moduleId}/lessons/reorder`]: {
+      post: {
+        tags: ['Courses'],
+        summary: 'Reorder module lessons',
+        operationId: 'reorderCourseLessons',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d+$' } },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ReorderCourseLessonsRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Module lessons reordered successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseLessonListResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course, module, or lessons not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/modules/{moduleId}/lessons/{lessonId}/resources`]: {
+      get: {
+        tags: ['Courses'],
+        summary: 'List lesson resources',
+        operationId: 'listLessonResources',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d+$' } },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Lesson resources retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/LessonResourceListResponse' },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token.' },
+          '404': { description: 'Course, module, or lesson not found.' },
+        },
+      },
+      post: {
+        tags: ['Courses'],
+        summary: 'Create lesson resource metadata',
+        description:
+          'Creates metadata for a lesson resource. Supports file, video, and material types.',
+        operationId: 'createLessonResource',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d+$' } },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateLessonResourceRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Lesson resource created successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/LessonResourceResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed or duplicate orderIndex.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course, module, or lesson not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/modules/{moduleId}/lessons/{lessonId}/resources/{resourceId}`]: {
+      patch: {
+        tags: ['Courses'],
+        summary: 'Update lesson resource metadata',
+        operationId: 'updateLessonResource',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d+$' } },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'resourceId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateLessonResourceRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Lesson resource updated successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/LessonResourceResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed or duplicate orderIndex.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course, module, lesson, or resource not found.' },
+        },
+      },
+      delete: {
+        tags: ['Courses'],
+        summary: 'Delete lesson resource metadata',
+        operationId: 'deleteLessonResource',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d+$' } },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'resourceId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Lesson resource deleted successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/RemoveLinkResponse' },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course, module, lesson, or resource not found.' },
+        },
+      },
+    },
+    [`${API_PREFIX}/courses/{id}/modules/{moduleId}/lessons/{lessonId}`]: {
+      patch: {
+        tags: ['Courses'],
+        summary: 'Update lesson in module',
+        operationId: 'updateCourseLesson',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d+$' } },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateCourseLessonRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Lesson updated successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CourseLessonResponse' },
+              },
+            },
+          },
+          '400': { description: 'Validation failed or duplicate orderIndex.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course, module, or lesson not found.' },
+        },
+      },
+      delete: {
+        tags: ['Courses'],
+        summary: 'Delete lesson in module',
+        operationId: 'deleteCourseLesson',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d+$' } },
+          {
+            name: 'moduleId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Lesson deleted successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/RemoveLinkResponse' },
+              },
+            },
+          },
+          '400': { description: 'Lesson is linked to resources, progress, or quiz.' },
+          '401': { description: 'Missing or invalid token.' },
+          '403': { description: 'Insufficient permission or ownership.' },
+          '404': { description: 'Course, module, or lesson not found.' },
         },
       },
     },
