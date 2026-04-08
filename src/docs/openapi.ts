@@ -1047,6 +1047,99 @@ export const openApiDocument = {
           data: { $ref: '#/components/schemas/RoleEntity' },
         },
       },
+      PermissionEntity: {
+        allOf: [
+          { $ref: '#/components/schemas/RolePermission' },
+          {
+            type: 'object',
+            required: ['roleCount', 'createdAt'],
+            properties: {
+              roleCount: {
+                type: 'integer',
+                example: 2,
+              },
+              createdAt: {
+                type: 'string',
+                format: 'date-time',
+              },
+            },
+          },
+        ],
+      },
+      CreatePermissionRequest: {
+        type: 'object',
+        required: ['code', 'module', 'action'],
+        properties: {
+          code: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9_.]*$',
+            example: 'course.publish',
+          },
+          module: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9_]*$',
+            example: 'course',
+          },
+          action: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9_]*$',
+            example: 'publish',
+          },
+          description: {
+            type: 'string',
+            maxLength: 500,
+            nullable: true,
+            example: 'Publish courses',
+          },
+        },
+      },
+      UpdatePermissionRequest: {
+        type: 'object',
+        properties: {
+          code: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9_.]*$',
+            example: 'course.archive',
+          },
+          module: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9_]*$',
+            example: 'course',
+          },
+          action: {
+            type: 'string',
+            pattern: '^[a-z][a-z0-9_]*$',
+            example: 'archive',
+          },
+          description: {
+            type: 'string',
+            maxLength: 500,
+            nullable: true,
+            example: 'Archive courses',
+          },
+        },
+      },
+      PermissionListResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Permissions retrieved successfully' },
+          data: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/PermissionEntity' },
+          },
+        },
+      },
+      PermissionDetailResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Permission retrieved successfully' },
+          data: { $ref: '#/components/schemas/PermissionEntity' },
+        },
+      },
       Category: {
         type: 'object',
         required: ['id', 'name', 'slug', 'isActive', 'createdAt', 'updatedAt'],
@@ -3499,6 +3592,361 @@ export const openApiDocument = {
           },
           '404': {
             description: 'Role not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/permissions`]: {
+      get: {
+        tags: ['Permissions'],
+        summary: 'List permissions',
+        description: 'Requires the `admin` role.',
+        operationId: 'listPermissions',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'search',
+            in: 'query',
+            schema: {
+              type: 'string',
+            },
+            description:
+              'Case-insensitive search across permission code, module, action, and description.',
+          },
+          {
+            name: 'module',
+            in: 'query',
+            schema: {
+              type: 'string',
+              pattern: '^[a-z][a-z0-9_]*$',
+            },
+          },
+          {
+            name: 'action',
+            in: 'query',
+            schema: {
+              type: 'string',
+              pattern: '^[a-z][a-z0-9_]*$',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Permissions retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/PermissionListResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Permissions'],
+        summary: 'Create a permission',
+        description: 'Requires the `admin` role.',
+        operationId: 'createPermission',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/CreatePermissionRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Permission created successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/PermissionDetailResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation failed.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '409': {
+            description: 'Permission code or module/action combination already exists.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/permissions/{id}`]: {
+      get: {
+        tags: ['Permissions'],
+        summary: 'Get permission details',
+        description: 'Requires the `admin` role.',
+        operationId: 'getPermissionById',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Permission retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/PermissionDetailResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Permission not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ['Permissions'],
+        summary: 'Update a permission',
+        description:
+          'Requires the `admin` role. When changing permission identity, provide `code`, `module`, and `action` together.',
+        operationId: 'updatePermission',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/UpdatePermissionRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Permission updated successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/PermissionDetailResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation failed.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Permission not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '409': {
+            description: 'Permission code or module/action combination already exists.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Permissions'],
+        summary: 'Delete a permission',
+        description:
+          'Requires the `admin` role. Permissions assigned to roles must be removed from those roles first.',
+        operationId: 'deletePermission',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        responses: {
+          '204': {
+            description: 'Permission deleted successfully.',
+          },
+          '400': {
+            description:
+              'Permission cannot be deleted because it is assigned to one or more roles.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Permission not found.',
             content: {
               'application/json': {
                 schema: {

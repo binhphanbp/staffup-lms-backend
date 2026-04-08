@@ -17,6 +17,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset --force",
     "prisma:seed": "prisma db seed",
+    "prisma:seed:demo": "node -e \"process.env.SEED_DEMO='true'; require('./prisma/seed.js')\"",
     "prisma:studio": "prisma studio",
     "prepare": "husky"
   },
