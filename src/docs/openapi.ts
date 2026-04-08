@@ -3391,6 +3391,256 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/roadmaps/assignments/{assignmentId}/status`]: {
+      patch: {
+        tags: ['Roadmaps'],
+        summary: 'Update roadmap assignment status',
+        description: [
+          'Update the status of a roadmap assignment.',
+          '**Status flow:** assigned → in_progress → completed | dropped',
+          '**Timestamps auto-set:** startedAt (on in_progress), completedAt (on completed), droppedAt (on dropped).',
+          '**Permissions:** Admin can set any status. Assigned user can only set in_progress or dropped.',
+        ].join(' '),
+        operationId: 'updateRoadmapAssignmentStatus',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'assignmentId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Assignment ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['status'],
+                properties: {
+                  status: {
+                    type: 'string',
+                    enum: ['assigned', 'in_progress', 'completed', 'dropped'],
+                    example: 'in_progress',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Assignment status updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Assignment status updated successfully' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        userId: { type: 'string' },
+                        roadmapId: { type: 'string' },
+                        status: {
+                          type: 'string',
+                          enum: ['assigned', 'in_progress', 'completed', 'dropped'],
+                        },
+                        assignedAt: { type: 'string', format: 'date-time' },
+                        startedAt: { type: 'string', format: 'date-time', nullable: true },
+                        completedAt: { type: 'string', format: 'date-time', nullable: true },
+                        droppedAt: { type: 'string', format: 'date-time', nullable: true },
+                        user: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            fullName: { type: 'string' },
+                            email: { type: 'string' },
+                          },
+                        },
+                        roadmap: {
+                          type: 'object',
+                          properties: { id: { type: 'string' }, title: { type: 'string' } },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description:
+              'Forbidden — user can only set in_progress or dropped on their own assignment',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Assignment not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/enrollments/courses/{courseId}/enroll`]: {
+      post: {
+        tags: ['Enrollments'],
+        summary: 'Enroll users into a course',
+        description: [
+          'Enroll one or multiple users into a course.',
+          '**Duplicate prevention:** already-enrolled users are skipped (not an error).',
+          '**Permissions:** Admin or the course trainer can enroll users.',
+          'Response includes enrolled count, skipped count, and skipped user IDs.',
+        ].join(' '),
+        operationId: 'enrollUsers',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'courseId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Course ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['userIds'],
+                properties: {
+                  userIds: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    minItems: 1,
+                    example: ['2', '3', '5'],
+                    description: 'List of user IDs to enroll',
+                  },
+                  dueAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    nullable: true,
+                    example: '2026-06-30T23:59:59Z',
+                    description: 'Optional deadline for completing the course',
+                  },
+                  assignmentNote: {
+                    type: 'string',
+                    maxLength: 500,
+                    nullable: true,
+                    example: 'Required for Q2 performance review',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Users enrolled successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Users enrolled successfully' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        courseId: { type: 'string', example: '10' },
+                        totalRequested: { type: 'integer', example: 3 },
+                        enrolled: {
+                          type: 'integer',
+                          example: 2,
+                          description: 'Number of new enrollments created',
+                        },
+                        skipped: {
+                          type: 'integer',
+                          example: 1,
+                          description: 'Already enrolled users skipped',
+                        },
+                        skippedUserIds: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          example: ['3'],
+                        },
+                        enrollments: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              userId: { type: 'string' },
+                              status: { type: 'string', example: 'assigned' },
+                              enrolledAt: { type: 'string', format: 'date-time' },
+                              dueAt: { type: 'string', format: 'date-time', nullable: true },
+                              assignmentNote: { type: 'string', nullable: true },
+                              user: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string' },
+                                  fullName: { type: 'string' },
+                                  email: { type: 'string' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden — only admin or course trainer can enroll users',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Course or users not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/enrollments/{id}/detail`]: {
       get: {
         tags: ['Enrollments'],

@@ -248,4 +248,81 @@ export class EnrollmentService {
         : null,
     };
   }
+
+  static async enrollUsers(
+    courseId: string,
+    data: { userIds: string[]; dueAt?: string | null; assignmentNote?: string | null },
+    assignedByUserId: string,
+    roleCodes: string[],
+  ) {
+    const db = prisma as any;
+
+    const course = await db.course.findUnique({ where: { id: BigInt(courseId) } });
+    if (!course) throw new AppError('Course not found', 404);
+
+    const isAdmin = roleCodes.includes('admin');
+    const isTrainer = roleCodes.includes('trainer');
+    if (!isAdmin && !(isTrainer && course.trainerUserId.toString() === assignedByUserId)) {
+      throw new AppError('You do not have permission to enroll users in this course', 403);
+    }
+
+    const users = await db.user.findMany({
+      where: { id: { in: data.userIds.map((id) => BigInt(id)) } },
+      select: { id: true, fullName: true, email: true },
+    });
+    if (users.length !== data.userIds.length) {
+      const foundIds = users.map((u: any) => u.id.toString());
+      const missing = data.userIds.filter((id) => !foundIds.includes(id));
+      throw new AppError(`Users not found: ${missing.join(', ')}`, 404);
+    }
+
+    const existing = await db.enrollment.findMany({
+      where: {
+        courseId: BigInt(courseId),
+        userId: { in: data.userIds.map((id) => BigInt(id)) },
+      },
+      select: { userId: true },
+    });
+    const existingUserIds = existing.map((e: any) => e.userId.toString());
+    const newUserIds = data.userIds.filter((id) => !existingUserIds.includes(id));
+
+    let created: any[] = [];
+    if (newUserIds.length > 0) {
+      await db.enrollment.createMany({
+        data: newUserIds.map((userId) => ({
+          courseId: BigInt(courseId),
+          userId: BigInt(userId),
+          assignedByUserId: BigInt(assignedByUserId),
+          status: 'assigned',
+          dueAt: data.dueAt ? new Date(data.dueAt) : null,
+          assignmentNote: data.assignmentNote ?? null,
+        })),
+      });
+
+      created = await db.enrollment.findMany({
+        where: {
+          courseId: BigInt(courseId),
+          userId: { in: newUserIds.map((id) => BigInt(id)) },
+        },
+        include: { user: { select: { id: true, fullName: true, email: true } } },
+      });
+    }
+
+    return {
+      courseId,
+      totalRequested: data.userIds.length,
+      enrolled: newUserIds.length,
+      skipped: existingUserIds.length,
+      skippedUserIds: existingUserIds,
+      enrollments: created.map((e: any) => ({
+        id: e.id.toString(),
+        userId: e.userId.toString(),
+        status: e.status,
+        enrolledAt: e.enrolledAt.toISOString(),
+        dueAt: e.dueAt?.toISOString() || null,
+        assignmentNote: e.assignmentNote,
+        user: { id: e.user.id.toString(), fullName: e.user.fullName, email: e.user.email },
+      })),
+    };
+  }
 }

@@ -73,6 +73,14 @@ export const assignRoadmapToUsersSchema = z.object({
     .min(1, 'At least one user ID is required'),
 });
 
+export const updateAssignmentStatusSchema = z.object({
+  status: z.enum(['assigned', 'in_progress', 'completed', 'dropped']),
+});
+
+export const assignmentIdParamsSchema = z.object({
+  assignmentId: z.string().regex(/^\d+$/, 'Assignment ID must be a valid number'),
+});
+
 export const listRoadmapAssignmentsQuerySchema = z.object({
   userId: z.string().regex(/^\d+$/, 'User ID must be a valid number').optional(),
   roadmapId: z.string().regex(/^\d+$/, 'Roadmap ID must be a valid number').optional(),
@@ -93,3 +101,5 @@ export type RoadmapCourseParams = z.infer<typeof roadmapCourseParamsSchema>;
 export type RoadmapIdOnlyParams = z.infer<typeof roadmapIdOnlyParamsSchema>;
 export type AssignRoadmapToUsersBody = z.infer<typeof assignRoadmapToUsersSchema>;
 export type ListRoadmapAssignmentsQuery = z.infer<typeof listRoadmapAssignmentsQuerySchema>;
+export type UpdateAssignmentStatusBody = z.infer<typeof updateAssignmentStatusSchema>;
+export type AssignmentIdParams = z.infer<typeof assignmentIdParamsSchema>;

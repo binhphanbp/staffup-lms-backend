@@ -1031,4 +1031,92 @@ export class RoadmapService {
       },
     };
   }
+  /**
+   * Update roadmap assignment status
+   * Tracks timestamps: startedAt, completedAt, droppedAt automatically
+   */
+  static async updateAssignmentStatus(
+    assignmentId: string,
+    status: 'assigned' | 'in_progress' | 'completed' | 'dropped',
+    requestUserId: string,
+    roleCodes: string[],
+  ) {
+    const db = prisma as any;
+
+    const assignment = await db.roadmapAssignment.findUnique({
+      where: { id: BigInt(assignmentId) },
+      include: {
+        roadmap: { select: { departmentId: true } },
+        user: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    if (!assignment) throw new AppError('Assignment not found', 404);
+
+    const isAdmin = roleCodes.includes('admin');
+    const isSelf = assignment.userId.toString() === requestUserId;
+
+    // Admin/manager can update any; user can only update their own (in_progress only)
+    if (!isAdmin && !isSelf) {
+      throw new AppError('You do not have permission to update this assignment', 403);
+    }
+
+    // Regular users can only set in_progress (start) or dropped (quit)
+    if (!isAdmin && !['in_progress', 'dropped'].includes(status)) {
+      throw new AppError('You can only set status to in_progress or dropped', 403);
+    }
+
+    const now = new Date();
+    const timestamps: Record<string, Date | null> = {};
+
+    if (status === 'in_progress' && !assignment.startedAt) {
+      timestamps.startedAt = now;
+    }
+    if (status === 'completed') {
+      timestamps.completedAt = now;
+      if (!assignment.startedAt) timestamps.startedAt = now;
+    }
+    if (status === 'dropped') {
+      timestamps.droppedAt = now;
+    }
+    // Reset timestamps when going back to assigned
+    if (status === 'assigned') {
+      timestamps.startedAt = null;
+      timestamps.completedAt = null;
+      timestamps.droppedAt = null;
+    }
+
+    const updated = await db.roadmapAssignment.update({
+      where: { id: BigInt(assignmentId) },
+      data: { status, ...timestamps },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        roadmap: { select: { id: true, title: true } },
+        assignedByUser: { select: { id: true, fullName: true } },
+      },
+    });
+
+    return {
+      id: updated.id.toString(),
+      userId: updated.userId.toString(),
+      roadmapId: updated.roadmapId.toString(),
+      status: updated.status,
+      assignedAt: updated.assignedAt.toISOString(),
+      startedAt: updated.startedAt?.toISOString() || null,
+      completedAt: updated.completedAt?.toISOString() || null,
+      droppedAt: updated.droppedAt?.toISOString() || null,
+      user: {
+        id: updated.user.id.toString(),
+        fullName: updated.user.fullName,
+        email: updated.user.email,
+      },
+      roadmap: { id: updated.roadmap.id.toString(), title: updated.roadmap.title },
+      assignedBy: updated.assignedByUser
+        ? { id: updated.assignedByUser.id.toString(), fullName: updated.assignedByUser.fullName }
+        : null,
+    };
+  }
 }
+
+// Patch: add updateAssignmentStatus to RoadmapService
+// (appended separately to avoid full rewrite)

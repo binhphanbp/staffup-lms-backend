@@ -11,6 +11,7 @@ import {
   reorderRoadmapCourses,
   updateRoadmap,
   updateRoadmapCourse,
+  updateAssignmentStatus,
 } from '@/controllers/roadmap.controller';
 import { authenticate, requirePermission, validate } from '@/middlewares';
 import {
@@ -25,6 +26,8 @@ import {
   roadmapIdParamsSchema,
   updateRoadmapCourseSchema,
   updateRoadmapSchema,
+  updateAssignmentStatusSchema,
+  assignmentIdParamsSchema,
 } from '@/schemas/roadmap.schema';
 
 const router: ExpressRouter = Router();
@@ -162,6 +165,19 @@ router.post(
   validate(roadmapIdOnlyParamsSchema, 'params'),
   validate(assignRoadmapToUsersSchema),
   assignRoadmapToUsers,
+);
+
+/**
+ * @route PATCH /api/v1/roadmaps/assignments/:assignmentId/status
+ * @desc Update roadmap assignment status (assigned/in_progress/completed/dropped)
+ * @access Private (Admin updates any; user updates own to in_progress/dropped)
+ */
+router.patch(
+  '/assignments/:assignmentId/status',
+  authenticate,
+  validate(assignmentIdParamsSchema, 'params'),
+  validate(updateAssignmentStatusSchema),
+  updateAssignmentStatus,
 );
 
 export default router;
