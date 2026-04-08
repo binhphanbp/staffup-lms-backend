@@ -7,6 +7,8 @@ import {
   enrollUsersSchema,
   listEnrollmentsSchema,
   updateEnrollmentStatusSchema,
+  startLessonSchema,
+  updateLessonProgressSchema,
 } from '@/schemas/enrollment.schema';
 
 const router: ExpressRouter = Router();
@@ -35,6 +37,20 @@ router.patch(
   '/:id/status',
   validate(updateEnrollmentStatusSchema),
   EnrollmentController.updateStatus,
+);
+
+// Start lesson / upsert lesson progress
+router.post(
+  '/:enrollmentId/lessons/:lessonId/start',
+  validate(startLessonSchema, 'params'),
+  EnrollmentController.startLesson,
+);
+
+// Update lesson progress (watch time, position, status)
+router.patch(
+  '/:enrollmentId/lessons/:lessonId/progress',
+  validate(updateLessonProgressSchema, 'all'),
+  EnrollmentController.updateLessonProgress,
 );
 
 export default router;

@@ -3791,6 +3791,207 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/enrollments/{enrollmentId}/lessons/{lessonId}/start`]: {
+      post: {
+        tags: ['Enrollments'],
+        summary: 'Start lesson / upsert lesson progress',
+        description: [
+          'Creates or updates a `LessonProgress` record when a learner begins a lesson.',
+          'Validates that the lesson belongs to the enrollment course.',
+          'Automatically transitions enrollment status from `assigned` → `in_progress` on first lesson start.',
+          'If progress already exists (e.g. resuming), only `lastAccessedAt` is refreshed.',
+        ].join(' '),
+        operationId: 'startLesson',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Enrollment ID',
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Lesson ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Lesson started / progress upserted',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Lesson started successfully' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        enrollmentId: { type: 'string' },
+                        lessonId: { type: 'string' },
+                        status: {
+                          type: 'string',
+                          enum: ['not_started', 'in_progress', 'completed', 'skipped'],
+                        },
+                        startedAt: { type: 'string', format: 'date-time', nullable: true },
+                        lastAccessedAt: { type: 'string', format: 'date-time', nullable: true },
+                        watchTimeSeconds: { type: 'integer' },
+                        lastPositionSeconds: { type: 'integer' },
+                        lesson: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            title: { type: 'string' },
+                            lessonType: { type: 'string', enum: ['video', 'article', 'quiz'] },
+                            durationSeconds: { type: 'integer' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden or enrollment cancelled/expired',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Enrollment or lesson not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/enrollments/{enrollmentId}/lessons/{lessonId}/progress`]: {
+      patch: {
+        tags: ['Enrollments'],
+        summary: 'Update lesson progress',
+        description: [
+          'Update `watchTimeSeconds`, `lastPositionSeconds`, and/or `status` for a lesson progress record.',
+          'Used for video/article tracking. `watchTimeSeconds` only increases (max of current vs provided).',
+          'Completing a lesson (`status: completed`) automatically recalculates enrollment progress caches.',
+          'Requires `startLesson` to have been called first.',
+        ].join(' '),
+        operationId: 'updateLessonProgress',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'enrollmentId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Enrollment ID',
+          },
+          {
+            name: 'lessonId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Lesson ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  watchTimeSeconds: {
+                    type: 'integer',
+                    minimum: 0,
+                    description: 'Total seconds watched (monotonically increasing)',
+                  },
+                  lastPositionSeconds: {
+                    type: 'integer',
+                    minimum: 0,
+                    description: 'Current playback position in seconds',
+                  },
+                  status: {
+                    type: 'string',
+                    enum: ['in_progress', 'completed', 'skipped'],
+                    description: 'New progress status',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Lesson progress updated',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Lesson progress updated successfully' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        enrollmentId: { type: 'string' },
+                        lessonId: { type: 'string' },
+                        status: {
+                          type: 'string',
+                          enum: ['not_started', 'in_progress', 'completed', 'skipped'],
+                        },
+                        watchTimeSeconds: { type: 'integer' },
+                        lastPositionSeconds: { type: 'integer' },
+                        startedAt: { type: 'string', format: 'date-time', nullable: true },
+                        completedAt: { type: 'string', format: 'date-time', nullable: true },
+                        lastAccessedAt: { type: 'string', format: 'date-time', nullable: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Enrollment or lesson progress not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/enrollments/courses/{courseId}/enroll`]: {
       post: {
         tags: ['Enrollments'],

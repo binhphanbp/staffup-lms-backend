@@ -991,6 +991,230 @@ async function seedQuizzesAndAttempts(courses, questionBanks, users) {
   );
 }
 
+async function seedAdditionalDemoData(users, courses, roadmaps) {
+  console.log('🔧 Seeding additional demo data...');
+
+  const students = users.slice(3);
+  const admin = users[0];
+  const now = new Date();
+
+  // ── 1. Enrollments with dueAt (including overdue) ──────────────────────────
+  const dueEnrollmentData = [
+    // Overdue — due 5 days ago, still in_progress
+    {
+      userId: students[3].id,
+      courseId: courses[3].id,
+      status: 'in_progress',
+      progressPercent: 35,
+      dueAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+      enrolledAt: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000),
+      startedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000),
+    },
+    // Overdue — due 2 days ago, assigned (never started)
+    {
+      userId: students[4].id,
+      courseId: courses[4].id,
+      status: 'assigned',
+      progressPercent: 0,
+      dueAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+      enrolledAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
+      startedAt: null,
+    },
+    // Due soon — 3 days from now
+    {
+      userId: students[5].id,
+      courseId: courses[5].id,
+      status: 'in_progress',
+      progressPercent: 60,
+      dueAt: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
+      enrolledAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+      startedAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000),
+    },
+    // Due in 7 days — assigned
+    {
+      userId: students[6].id,
+      courseId: courses[6].id,
+      status: 'assigned',
+      progressPercent: 0,
+      dueAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+      enrolledAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+      startedAt: null,
+    },
+  ];
+
+  for (const d of dueEnrollmentData) {
+    // Skip if already enrolled
+    const existing = await prisma.enrollment.findFirst({
+      where: { userId: d.userId, courseId: d.courseId },
+    });
+    if (existing) continue;
+
+    await prisma.enrollment.create({
+      data: {
+        userId: d.userId,
+        courseId: d.courseId,
+        assignedByUserId: admin.id,
+        status: d.status,
+        progressPercentCache: d.progressPercent,
+        completedLessonsCountCache: Math.floor(d.progressPercent / 10),
+        timeSpentSecondsCache: d.progressPercent * 50,
+        dueAt: d.dueAt,
+        enrolledAt: d.enrolledAt,
+        startedAt: d.startedAt,
+        lastActivityAt: d.startedAt
+          ? new Date(d.startedAt.getTime() + 2 * 60 * 60 * 1000)
+          : null,
+      },
+    });
+  }
+
+  // ── 2. Cancelled & expired enrollments ────────────────────────────────────
+  const terminalEnrollments = [
+    {
+      userId: students[0].id,
+      courseId: courses[7].id,
+      status: 'cancelled',
+      progressPercent: 20,
+    },
+    {
+      userId: students[1].id,
+      courseId: courses[8].id,
+      status: 'expired',
+      progressPercent: 45,
+      dueAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+    },
+  ];
+
+  for (const d of terminalEnrollments) {
+    const existing = await prisma.enrollment.findFirst({
+      where: { userId: d.userId, courseId: d.courseId },
+    });
+    if (existing) continue;
+
+    await prisma.enrollment.create({
+      data: {
+        userId: d.userId,
+        courseId: d.courseId,
+        assignedByUserId: admin.id,
+        status: d.status,
+        progressPercentCache: d.progressPercent,
+        completedLessonsCountCache: Math.floor(d.progressPercent / 10),
+        timeSpentSecondsCache: d.progressPercent * 50,
+        dueAt: d.dueAt || null,
+        enrolledAt: new Date(now.getTime() - 40 * 24 * 60 * 60 * 1000),
+        startedAt: new Date(now.getTime() - 38 * 24 * 60 * 60 * 1000),
+        lastActivityAt: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000),
+      },
+    });
+  }
+
+  // ── 3. Skipped lesson progress entries ────────────────────────────────────
+  const inProgressEnrollments = await prisma.enrollment.findMany({
+    where: { status: 'in_progress' },
+    include: {
+      course: { include: { modules: { include: { lessons: { orderBy: { orderIndex: 'asc' } } } } } },
+      lessonProgress: { select: { lessonId: true } },
+    },
+    take: 3,
+  });
+
+  for (const enrollment of inProgressEnrollments) {
+    const trackedIds = new Set(enrollment.lessonProgress.map((lp) => lp.lessonId.toString()));
+    const allLessons = enrollment.course.modules.flatMap((m) => m.lessons);
+    // Find an untracked lesson to mark as skipped
+    const toSkip = allLessons.find((l) => !trackedIds.has(l.id.toString()));
+    if (!toSkip) continue;
+
+    await prisma.lessonProgress.upsert({
+      where: { enrollmentId_lessonId: { enrollmentId: enrollment.id, lessonId: toSkip.id } },
+      create: {
+        enrollmentId: enrollment.id,
+        lessonId: toSkip.id,
+        status: 'skipped',
+        watchTimeSeconds: 0,
+        lastPositionSeconds: 0,
+        lastAccessedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
+      },
+      update: {},
+    });
+  }
+
+  // ── 4. Complete roadmap assignments for remaining students ─────────────────
+  const existingAssignments = await prisma.roadmapAssignment.findMany({
+    select: { userId: true },
+  });
+  const assignedUserIds = new Set(existingAssignments.map((a) => a.userId.toString()));
+
+  for (let i = 0; i < students.length; i++) {
+    const student = students[i];
+    if (assignedUserIds.has(student.id.toString())) continue;
+
+    const roadmap = roadmaps[(i + 3) % roadmaps.length];
+    await prisma.roadmapAssignment.create({
+      data: {
+        userId: student.id,
+        roadmapId: roadmap.id,
+        assignedByUserId: admin.id,
+        status: 'in_progress',
+        assignedAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+        startedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000),
+      },
+    });
+  }
+
+  // ── 5. Add quizzes for remaining 5 courses ─────────────────────────────────
+  const coursesWithoutQuiz = await prisma.course.findMany({
+    where: { quizzes: { none: {} } },
+  });
+
+  const questionBanks = await prisma.questionBank.findMany({ take: 5 });
+
+  for (let i = 0; i < coursesWithoutQuiz.length; i++) {
+    const course = coursesWithoutQuiz[i];
+    const qb = questionBanks[i % questionBanks.length];
+
+    await prisma.quiz.create({
+      data: {
+        courseId: course.id,
+        title: `${course.title} - Assessment`,
+        description: `Knowledge check for ${course.title}`,
+        selectionMode: 'fixed',
+        passScorePercent: 70,
+        timeLimitMinutes: 20,
+        maxAttempts: 3,
+        shuffleQuestions: true,
+        shuffleOptions: true,
+      },
+    });
+  }
+
+  // ── 6. Add a manager-role user ─────────────────────────────────────────────
+  const managerRole = await prisma.role.findFirst({ where: { code: 'manager' } });
+  if (managerRole) {
+    const existingManager = await prisma.user.findFirst({ where: { email: 'manager@example.com' } });
+    if (!existingManager) {
+      const argon2 = require('argon2');
+      const passwordHash = await argon2.hash(DEFAULT_PASSWORD);
+      const depts = await prisma.department.findMany({ take: 1 });
+      const mgr = await prisma.user.create({
+        data: {
+          fullName: 'Mike Manager',
+          email: 'manager@example.com',
+          positionTitle: 'Engineering Manager',
+          departmentId: depts[0].id,
+          passwordHash,
+          avatarUrl: 'https://i.pravatar.cc/150?img=11',
+          isActive: true,
+        },
+      });
+      await prisma.userRole.create({ data: { userId: mgr.id, roleId: managerRole.id } });
+      console.log('  ✓ Manager user created: manager@example.com');
+    }
+  }
+
+  console.log('✅ Additional demo data seeded');
+}
+
 async function seedRiskAssessments() {
   console.log('⚠️  Seeding risk assessments...');
 
@@ -1053,6 +1277,7 @@ async function runDemoSeed(context) {
   const questionBanks = await seedQuestionBanksAndQuestions(users, categories);
   await seedQuizzesAndAttempts(courses, questionBanks, users);
   await seedRiskAssessments();
+  await seedAdditionalDemoData(users, courses, roadmaps);
 
   console.log('\nDemo seed completed successfully.');
   console.log(`
