@@ -3501,6 +3501,296 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/enrollments`]: {
+      get: {
+        tags: ['Enrollments'],
+        summary: 'List enrollments',
+        description: [
+          'List enrollments with filters.',
+          '**Access:** Admin sees all. Trainer sees enrollments for their courses. Learner sees only their own.',
+          '**Filters:** userId, courseId, status, departmentId, overdue (boolean), search (user name/email/course title).',
+        ].join(' '),
+        operationId: 'listEnrollments',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20, maximum: 100 } },
+          {
+            name: 'userId',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Filter by user ID (admin/trainer only)',
+          },
+          { name: 'courseId', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'status',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: ['assigned', 'in_progress', 'completed', 'cancelled', 'expired'],
+            },
+          },
+          { name: 'departmentId', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'overdue',
+            in: 'query',
+            schema: { type: 'boolean' },
+            description: 'Filter enrollments past dueAt and not completed/cancelled/expired',
+          },
+          {
+            name: 'search',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Search by user name, email, or course title',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Enrollments retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Enrollments retrieved successfully' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              userId: { type: 'string' },
+                              courseId: { type: 'string' },
+                              status: {
+                                type: 'string',
+                                enum: [
+                                  'assigned',
+                                  'in_progress',
+                                  'completed',
+                                  'cancelled',
+                                  'expired',
+                                ],
+                              },
+                              progressPercent: { type: 'number', example: 45.5 },
+                              enrolledAt: { type: 'string', format: 'date-time' },
+                              startedAt: { type: 'string', format: 'date-time', nullable: true },
+                              completedAt: { type: 'string', format: 'date-time', nullable: true },
+                              dueAt: { type: 'string', format: 'date-time', nullable: true },
+                              isOverdue: { type: 'boolean' },
+                              assignmentNote: { type: 'string', nullable: true },
+                              user: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string' },
+                                  fullName: { type: 'string' },
+                                  email: { type: 'string' },
+                                  avatarUrl: { type: 'string', nullable: true },
+                                },
+                              },
+                              course: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string' },
+                                  title: { type: 'string' },
+                                  slug: { type: 'string' },
+                                  thumbnailUrl: { type: 'string', nullable: true },
+                                  trainer: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string' },
+                                      fullName: { type: 'string' },
+                                    },
+                                  },
+                                },
+                              },
+                              assignedBy: {
+                                type: 'object',
+                                nullable: true,
+                                properties: {
+                                  id: { type: 'string' },
+                                  fullName: { type: 'string' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        meta: { $ref: '#/components/schemas/PaginationMeta' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/enrollments/{id}/status`]: {
+      patch: {
+        tags: ['Enrollments'],
+        summary: 'Update enrollment status',
+        description: [
+          'Update enrollment status with transition rules.',
+          '**Allowed transitions:**',
+          '`assigned` → `in_progress`, `cancelled`',
+          '`in_progress` → `completed`, `cancelled`',
+          '`completed` → `in_progress` (admin only)',
+          '`cancelled` → `assigned` (admin only)',
+          '`expired` → `assigned` (admin only)',
+          '**Auto timestamps:** startedAt set on in_progress, completedAt set on completed.',
+          '**Permissions:** Admin can do any transition. Trainer (course owner) and learner (self) can do non-admin transitions.',
+        ].join(' '),
+        operationId: 'updateEnrollmentStatus',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Enrollment ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['status'],
+                properties: {
+                  status: {
+                    type: 'string',
+                    enum: ['assigned', 'in_progress', 'completed', 'cancelled', 'expired'],
+                    example: 'in_progress',
+                  },
+                  dueAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    nullable: true,
+                    description: 'Override due date',
+                  },
+                  startedAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    nullable: true,
+                    description: 'Override started timestamp',
+                  },
+                  completedAt: {
+                    type: 'string',
+                    format: 'date-time',
+                    nullable: true,
+                    description: 'Override completed timestamp',
+                  },
+                  note: { type: 'string', maxLength: 500, nullable: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Enrollment status updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Enrollment status updated successfully' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        userId: { type: 'string' },
+                        courseId: { type: 'string' },
+                        status: {
+                          type: 'string',
+                          enum: ['assigned', 'in_progress', 'completed', 'cancelled', 'expired'],
+                        },
+                        progressPercent: { type: 'number' },
+                        enrolledAt: { type: 'string', format: 'date-time' },
+                        startedAt: { type: 'string', format: 'date-time', nullable: true },
+                        completedAt: { type: 'string', format: 'date-time', nullable: true },
+                        dueAt: { type: 'string', format: 'date-time', nullable: true },
+                        user: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            fullName: { type: 'string' },
+                            email: { type: 'string' },
+                          },
+                        },
+                        course: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            title: { type: 'string' },
+                            slug: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden or admin-only transition',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Enrollment not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '422': {
+            description: 'Invalid status transition',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    message: {
+                      type: 'string',
+                      example:
+                        'Invalid transition: assigned → completed. Allowed: in_progress, cancelled',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/enrollments/courses/{courseId}/enroll`]: {
       post: {
         tags: ['Enrollments'],
