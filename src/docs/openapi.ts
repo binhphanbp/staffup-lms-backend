@@ -1379,6 +1379,8 @@ export const openApiDocument = {
       CreateQuestionRequest: {
         type: 'object',
         required: ['questionType', 'content'],
+        description:
+          'Business rules: essay must NOT include options. single_choice/multiple_choice require at least 2 options. single_choice must have exactly 1 correct option. multiple_choice must have at least 1 correct option.',
         properties: {
           questionType: {
             type: 'string',
@@ -1392,21 +1394,39 @@ export const openApiDocument = {
             type: 'array',
             items: { $ref: '#/components/schemas/QuestionOptionInput' },
             description:
-              'Required for single_choice and multiple_choice. single_choice must have exactly 1 correct option.',
+              'Required for single_choice (exactly 1 correct) and multiple_choice (at least 1 correct). Must NOT be provided for essay.',
           },
         },
       },
       UpdateQuestionRequest: {
         type: 'object',
+        description:
+          'Updates question metadata only (content, explanation, defaultPoints). To manage options use the dedicated /options endpoints.',
         properties: {
           content: { type: 'string' },
           explanation: { type: 'string', nullable: true },
           defaultPoints: { type: 'integer', minimum: 1 },
-          options: {
-            type: 'array',
-            items: { $ref: '#/components/schemas/QuestionOptionInput' },
-            description: 'Replaces all existing options when provided.',
-          },
+        },
+      },
+      CreateOptionRequest: {
+        type: 'object',
+        required: ['content', 'isCorrect', 'orderIndex'],
+        description:
+          'Add an option to a single_choice or multiple_choice question. Business rules: essay questions cannot have options. single_choice cannot have more than 1 correct option.',
+        properties: {
+          content: { type: 'string', example: 'Paris' },
+          isCorrect: { type: 'boolean', example: true },
+          orderIndex: { type: 'integer', minimum: 1, example: 1 },
+        },
+      },
+      UpdateOptionRequest: {
+        type: 'object',
+        description:
+          'Update an option. Business rules: cannot unset the only correct option on single_choice. Cannot set isCorrect=true if another correct option already exists on single_choice.',
+        properties: {
+          content: { type: 'string', example: 'London' },
+          isCorrect: { type: 'boolean', example: false },
+          orderIndex: { type: 'integer', minimum: 1, example: 2 },
         },
       },
     },
@@ -8012,6 +8032,229 @@ export const openApiDocument = {
             description: 'Not found',
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    // ─── Question Options ─────────────────────────────────────────────────────
+    [`${API_PREFIX}/question-banks/{bankId}/questions/{questionId}/options`]: {
+      post: {
+        tags: ['Questions'],
+        summary: 'Add an option to a question',
+        description: [
+          'Adds a new option to a single_choice or multiple_choice question.',
+          '**Business rules:**',
+          '- essay questions cannot have options (422)',
+          '- single_choice: adding isCorrect=true fails if another correct option already exists (422)',
+          '- Only the bank owner or admin can modify options',
+        ].join(' '),
+        operationId: 'createQuestionOption',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'questionId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/CreateOptionRequest' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Option created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Option created successfully' },
+                    data: { $ref: '#/components/schemas/QuestionOption' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Question or bank not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '422': {
+            description: 'Business rule violation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    message: { type: 'string', example: 'essay questions cannot have options' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/question-banks/{bankId}/questions/{questionId}/options/{optionId}`]: {
+      put: {
+        tags: ['Questions'],
+        summary: 'Update an option',
+        description: [
+          'Updates content, isCorrect, or orderIndex of an option.',
+          '**Business rules:**',
+          '- single_choice: cannot set isCorrect=true if another correct option already exists',
+          '- single_choice: cannot set isCorrect=false on the only correct option',
+          '- Only the bank owner or admin can modify options',
+        ].join(' '),
+        operationId: 'updateQuestionOption',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'questionId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'optionId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/UpdateOptionRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Option updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Option updated successfully' },
+                    data: { $ref: '#/components/schemas/QuestionOption' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Option not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '422': {
+            description: 'Business rule violation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    message: {
+                      type: 'string',
+                      example: 'single_choice question already has a correct option',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Questions'],
+        summary: 'Delete an option',
+        description: [
+          'Deletes an option from a question.',
+          '**Business rules:**',
+          '- Cannot delete if question would have fewer than 2 options remaining',
+          '- single_choice: cannot delete the correct option (set another to correct first)',
+          '- multiple_choice: cannot delete the only remaining correct option',
+          '- Only the bank owner or admin can delete options',
+        ].join(' '),
+        operationId: 'deleteQuestionOption',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'bankId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'questionId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'optionId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '204': { description: 'Option deleted successfully' },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Option not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '422': {
+            description: 'Business rule violation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    message: {
+                      type: 'string',
+                      example:
+                        'Cannot delete option: choice questions must have at least 2 options',
+                    },
+                  },
+                },
+              },
             },
           },
         },
