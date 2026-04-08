@@ -158,7 +158,7 @@ async function seedUsers(departments, roles) {
     { fullName: 'Admin User', email: 'admin@example.com', positionTitle: 'System Administrator', departmentId: departments[0].id, roleId: adminRole.id },
     { fullName: 'Engineering Manager', email: 'manager1@example.com', positionTitle: 'Engineering Manager', departmentId: departments[0].id, roleId: managerRole.id },
     { fullName: 'Product Manager', email: 'manager2@example.com', positionTitle: 'Product Manager', departmentId: departments[1].id, roleId: managerRole.id },
-    { fullName: 'John Trainer', email: 'trainer1@example.com', positionTitle: 'Senior Trainer', departmentId: departments[0].id, roleId: trainerRole.id },
+    { fullName: 'John Trainer', email: '  ', positionTitle: 'Senior Trainer', departmentId: departments[0].id, roleId: trainerRole.id },
     { fullName: 'Jane Trainer', email: 'trainer2@example.com', positionTitle: 'Lead Trainer', departmentId: departments[1].id, roleId: trainerRole.id },
     { fullName: 'Alice Student', email: 'student1@example.com', positionTitle: 'Software Engineer', departmentId: departments[0].id, roleId: employeeRole.id },
     { fullName: 'Bob Student', email: 'student2@example.com', positionTitle: 'Product Manager', departmentId: departments[1].id, roleId: employeeRole.id },
@@ -202,16 +202,16 @@ async function seedCategoriesAndTags() {
   
   const categories = await prisma.category.createMany({
     data: [
-      { name: 'Backend Development', slug: 'backend-development' },
-      { name: 'Frontend Development', slug: 'frontend-development' },
-      { name: 'DevOps', slug: 'devops' },
-      { name: 'Data Science', slug: 'data-science' },
-      { name: 'Mobile Development', slug: 'mobile-development' },
-      { name: 'Cloud Computing', slug: 'cloud-computing' },
-      { name: 'Security', slug: 'security' },
-      { name: 'Soft Skills', slug: 'soft-skills' },
-      { name: 'Management', slug: 'management' },
-      { name: 'Design', slug: 'design' },
+      { name: 'Backend Development', slug: 'backend-development', isActive: true },
+      { name: 'Frontend Development', slug: 'frontend-development', isActive: true },
+      { name: 'DevOps', slug: 'devops', isActive: true },
+      { name: 'Data Science', slug: 'data-science', isActive: true },
+      { name: 'Mobile Development', slug: 'mobile-development', isActive: true },
+      { name: 'Cloud Computing', slug: 'cloud-computing', isActive: true },
+      { name: 'Security', slug: 'security', isActive: true },
+      { name: 'Soft Skills', slug: 'soft-skills', isActive: true },
+      { name: 'Management', slug: 'management', isActive: true },
+      { name: 'Design', slug: 'design', isActive: true },
     ],
   });
   
