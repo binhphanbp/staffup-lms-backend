@@ -1,6 +1,6 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { AuthController } from '@/controllers/auth.controller';
-import { authenticate, validate, restrictTo } from '@/middlewares';
+import { authenticate, requirePermission, validate } from '@/middlewares';
 import {
   assignUserRolesSchema,
   changePasswordSchema,
@@ -30,7 +30,7 @@ router.get('/me/effective-permissions', authenticate, AuthController.getMyEffect
 router.patch(
   '/users/:id/status',
   authenticate,
-  restrictTo('admin'),
+  requirePermission('user.assign_role'),
   validate(userIdParamSchema, 'params'),
   validate(updateUserStatusSchema),
   AuthController.updateStatus,
@@ -39,7 +39,7 @@ router.patch(
 router.put(
   '/users/:id/roles',
   authenticate,
-  restrictTo('admin'),
+  requirePermission('user.assign_role'),
   validate(userIdParamSchema, 'params'),
   validate(assignUserRolesSchema),
   AuthController.assignRoles,
@@ -48,7 +48,7 @@ router.put(
 router.get(
   '/users/:id/effective-permissions',
   authenticate,
-  restrictTo('admin'),
+  requirePermission('user.read'),
   validate(userIdParamSchema, 'params'),
   AuthController.getUserEffectivePermissions,
 );

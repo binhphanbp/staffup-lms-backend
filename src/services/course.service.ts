@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { assertPolicy, canAccessOwnedResource } from '@/policies';
 import { AppError } from '@/utils';
 import type { CreateCourseInput, UpdateCourseInput, CourseQuery } from '@/schemas/course.schema';
 import type { PaginatedResult } from '@/interfaces';
@@ -171,9 +172,13 @@ export class CourseService {
       throw new AppError('Course not found.', 404);
     }
 
-    if (!roleCodes.includes('admin') && course.trainerUserId !== BigInt(userId)) {
-      throw new AppError('You can only update your own courses.', 403);
-    }
+    assertPolicy(
+      canAccessOwnedResource({
+        actor: { userId, roleCodes },
+        ownerUserId: course.trainerUserId,
+      }),
+      'You can only update your own courses.',
+    );
 
     return db.course.update({
       where: { id: BigInt(id) },
@@ -212,9 +217,13 @@ export class CourseService {
       throw new AppError('Course not found.', 404);
     }
 
-    if (!roleCodes.includes('admin') && course.trainerUserId !== BigInt(userId)) {
-      throw new AppError('You can only delete your own courses.', 403);
-    }
+    assertPolicy(
+      canAccessOwnedResource({
+        actor: { userId, roleCodes },
+        ownerUserId: course.trainerUserId,
+      }),
+      'You can only delete your own courses.',
+    );
 
     await db.course.delete({
       where: { id: BigInt(id) },

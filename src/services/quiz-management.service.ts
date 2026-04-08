@@ -1,7 +1,47 @@
 import { prisma } from '@/config/database';
+import { assertPolicy, canAccessOwnedResource } from '@/policies';
 import { AppError } from '@/utils';
 
 export class QuizManagementService {
+  private static async getQuizAccessContext(userId: string) {
+    const db = prisma as any;
+    const currentUser = await db.user.findUnique({
+      where: { id: BigInt(userId) },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!currentUser) {
+      throw new AppError('User not found', 404);
+    }
+
+    return {
+      userId,
+      roleCodes: currentUser.userRoles.map((ur: any) => ur.role.code),
+    };
+  }
+
+  private static async assertCourseTrainerAccess(
+    userId: string,
+    trainerUserId: string | bigint,
+    message: string,
+  ) {
+    const actor = await this.getQuizAccessContext(userId);
+
+    assertPolicy(
+      canAccessOwnedResource({
+        actor,
+        ownerUserId: trainerUserId,
+      }),
+      message,
+    );
+  }
+
   /**
    * Create quiz
    */
@@ -38,24 +78,11 @@ export class QuizManagementService {
       throw new AppError('Course not found', 404);
     }
 
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
-    const isCourseTrainer = course.trainerUserId.toString() === userId;
-
-    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
-      throw new AppError('You do not have permission to create quiz for this course', 403);
-    }
+    await this.assertCourseTrainerAccess(
+      userId,
+      course.trainerUserId,
+      'You do not have permission to create quiz for this course',
+    );
 
     // Validate lesson if provided
     if (data.lessonId) {
@@ -176,24 +203,11 @@ export class QuizManagementService {
     }
 
     // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
-    const isCourseTrainer = quiz.course.trainerUserId.toString() === userId;
-
-    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
-      throw new AppError('You do not have permission to update this quiz', 403);
-    }
+    await this.assertCourseTrainerAccess(
+      userId,
+      quiz.course.trainerUserId,
+      'You do not have permission to update this quiz',
+    );
 
     // Validate quiz config
     if (data.passScorePercent !== undefined) {
@@ -271,24 +285,11 @@ export class QuizManagementService {
     }
 
     // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
-    const isCourseTrainer = quiz.course.trainerUserId.toString() === userId;
-
-    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
-      throw new AppError('You do not have permission to delete this quiz', 403);
-    }
+    await this.assertCourseTrainerAccess(
+      userId,
+      quiz.course.trainerUserId,
+      'You do not have permission to delete this quiz',
+    );
 
     // Delete quiz (cascade will handle quiz_questions, attempts, etc.)
     await db.quiz.delete({
@@ -339,20 +340,7 @@ export class QuizManagementService {
     }
 
     // Check permission: admin, trainer, or enrolled student
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
-    const isCourseTrainer = quiz.course.trainerUserId.toString() === userId;
+    const actor = await this.getQuizAccessContext(userId);
 
     // Check if user is enrolled
     const enrollment = await db.enrollment.findFirst({
@@ -362,7 +350,13 @@ export class QuizManagementService {
       },
     });
 
-    if (!isAdmin && !(isTrainer && isCourseTrainer) && !enrollment) {
+    if (
+      !canAccessOwnedResource({
+        actor,
+        ownerUserId: quiz.course.trainerUserId,
+      }) &&
+      !enrollment
+    ) {
       throw new AppError('You do not have permission to view this quiz', 403);
     }
 
@@ -440,19 +434,9 @@ export class QuizManagementService {
     }
 
     // Check permission: admin, trainer, or filter by enrolled courses
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
+    const actor = await this.getQuizAccessContext(userId);
+    const isAdmin = actor.roleCodes.includes('admin');
+    const isTrainer = actor.roleCodes.includes('trainer');
 
     if (!isAdmin && !isTrainer) {
       // Student: only show quizzes from enrolled courses
@@ -578,24 +562,11 @@ export class QuizManagementService {
     }
 
     // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
-    const isCourseTrainer = quiz.course.trainerUserId.toString() === userId;
-
-    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
-      throw new AppError('You do not have permission to modify this quiz', 403);
-    }
+    await this.assertCourseTrainerAccess(
+      userId,
+      quiz.course.trainerUserId,
+      'You do not have permission to modify this quiz',
+    );
 
     // Check if question exists
     const question = await db.question.findUnique({
@@ -688,24 +659,11 @@ export class QuizManagementService {
     }
 
     // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
-    const isCourseTrainer = quiz.course.trainerUserId.toString() === userId;
-
-    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
-      throw new AppError('You do not have permission to modify this quiz', 403);
-    }
+    await this.assertCourseTrainerAccess(
+      userId,
+      quiz.course.trainerUserId,
+      'You do not have permission to modify this quiz',
+    );
 
     // Check if question in quiz
     const quizQuestion = await db.quizQuestion.findUnique({
@@ -765,24 +723,11 @@ export class QuizManagementService {
     }
 
     // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
-    const isCourseTrainer = quiz.course.trainerUserId.toString() === userId;
-
-    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
-      throw new AppError('You do not have permission to modify this quiz', 403);
-    }
+    await this.assertCourseTrainerAccess(
+      userId,
+      quiz.course.trainerUserId,
+      'You do not have permission to modify this quiz',
+    );
 
     // Check if question in quiz
     const quizQuestion = await db.quizQuestion.findUnique({
@@ -853,24 +798,11 @@ export class QuizManagementService {
     }
 
     // Check permission
-    const currentUser = await db.user.findUnique({
-      where: { id: BigInt(userId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    const isAdmin = currentUser?.userRoles.some((ur: any) => ur.role.code === 'admin');
-    const isTrainer = currentUser?.userRoles.some((ur: any) => ur.role.code === 'trainer');
-    const isCourseTrainer = quiz.course.trainerUserId.toString() === userId;
-
-    if (!isAdmin && !(isTrainer && isCourseTrainer)) {
-      throw new AppError('You do not have permission to modify this quiz', 403);
-    }
+    await this.assertCourseTrainerAccess(
+      userId,
+      quiz.course.trainerUserId,
+      'You do not have permission to modify this quiz',
+    );
 
     // Update order for each question
     await Promise.all(

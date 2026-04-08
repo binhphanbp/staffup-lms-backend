@@ -30,14 +30,14 @@ export class DashboardService {
     const userRoleCounts = {
       admin: 0,
       trainer: 0,
-      student: 0,
+      employee: 0,
     };
 
     usersByRole.forEach((ur: any) => {
       const roleCode = roleMap.get(ur.roleId.toString());
       if (roleCode === 'admin') userRoleCounts.admin += ur._count;
       else if (roleCode === 'trainer') userRoleCounts.trainer += ur._count;
-      else if (roleCode === 'student') userRoleCounts.student += ur._count;
+      else if (roleCode === 'employee') userRoleCounts.employee += ur._count;
     });
 
     // Get course stats
@@ -137,14 +137,14 @@ export class DashboardService {
   static async getManagerDashboardStats(departmentId: bigint): Promise<ManagerDashboardStats> {
     const now = new Date();
 
-    // Get learners (students) in the department
+    // Get learners in the department
     const [totalLearners, activeLearners] = await Promise.all([
       (prisma as any).user.count({
         where: {
           departmentId,
           userRoles: {
             some: {
-              role: { code: { in: ['student', 'employee'] } },
+              role: { code: 'employee' },
             },
           },
         },
@@ -155,7 +155,7 @@ export class DashboardService {
           isActive: true,
           userRoles: {
             some: {
-              role: { code: { in: ['student', 'employee'] } },
+              role: { code: 'employee' },
             },
           },
         },

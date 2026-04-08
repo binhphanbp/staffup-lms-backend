@@ -10,8 +10,7 @@ import {
   updateQuiz,
   updateQuizQuestion,
 } from '@/controllers/quiz-management.controller';
-import { authenticate } from '@/middlewares/auth.middleware';
-import { validate } from '@/middlewares/validate.middleware';
+import { authenticate, requirePermission, validate } from '@/middlewares';
 import {
   addQuestionToQuizSchema,
   createQuizSchema,
@@ -41,28 +40,44 @@ router.get('/', validate(listQuizzesQuerySchema, 'query'), listQuizzes);
  * @desc Create quiz
  * @access Private (Admin/Trainer)
  */
-router.post('/', validate(createQuizSchema), createQuiz);
+router.post('/', requirePermission('quiz.create'), validate(createQuizSchema), createQuiz);
 
 /**
  * @route GET /api/v1/quizzes/:id
  * @desc Get quiz detail
  * @access Private
  */
-router.get('/:id', validate(quizIdParamsSchema, 'params'), getQuizById);
+router.get(
+  '/:id',
+  requirePermission('quiz.read'),
+  validate(quizIdParamsSchema, 'params'),
+  getQuizById,
+);
 
 /**
  * @route PUT /api/v1/quizzes/:id
  * @desc Update quiz
  * @access Private (Admin/Trainer)
  */
-router.put('/:id', validate(quizIdParamsSchema, 'params'), validate(updateQuizSchema), updateQuiz);
+router.put(
+  '/:id',
+  requirePermission('quiz.update'),
+  validate(quizIdParamsSchema, 'params'),
+  validate(updateQuizSchema),
+  updateQuiz,
+);
 
 /**
  * @route DELETE /api/v1/quizzes/:id
  * @desc Delete quiz
  * @access Private (Admin/Trainer)
  */
-router.delete('/:id', validate(quizIdParamsSchema, 'params'), deleteQuiz);
+router.delete(
+  '/:id',
+  requirePermission('quiz.delete'),
+  validate(quizIdParamsSchema, 'params'),
+  deleteQuiz,
+);
 
 /**
  * @route POST /api/v1/quizzes/:quizId/questions
@@ -71,6 +86,7 @@ router.delete('/:id', validate(quizIdParamsSchema, 'params'), deleteQuiz);
  */
 router.post(
   '/:quizId/questions',
+  requirePermission('quiz.update'),
   validate(quizIdOnlyParamsSchema, 'params'),
   validate(addQuestionToQuizSchema),
   addQuestionToQuiz,
@@ -83,6 +99,7 @@ router.post(
  */
 router.delete(
   '/:quizId/questions/:questionId',
+  requirePermission('quiz.update'),
   validate(quizQuestionParamsSchema, 'params'),
   removeQuestionFromQuiz,
 );
@@ -94,6 +111,7 @@ router.delete(
  */
 router.put(
   '/:quizId/questions/:questionId',
+  requirePermission('quiz.update'),
   validate(quizQuestionParamsSchema, 'params'),
   validate(updateQuizQuestionSchema),
   updateQuizQuestion,
@@ -106,6 +124,7 @@ router.put(
  */
 router.post(
   '/:quizId/questions/reorder',
+  requirePermission('quiz.update'),
   validate(quizIdOnlyParamsSchema, 'params'),
   validate(reorderQuizQuestionsSchema),
   reorderQuizQuestions,

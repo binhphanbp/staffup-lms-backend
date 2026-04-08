@@ -1,6 +1,6 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { CourseController } from '@/controllers/course.controller';
-import { authenticate, restrictTo, validate } from '@/middlewares';
+import { authenticate, requirePermission, validate } from '@/middlewares';
 import {
   createCourseSchema,
   updateCourseSchema,
@@ -15,26 +15,35 @@ router.use(authenticate);
 
 router
   .route('/')
-  .get(validate(courseQuerySchema, 'query'), CourseController.findAll)
-  .post(restrictTo('admin', 'trainer'), validate(createCourseSchema), CourseController.create);
+  .get(
+    requirePermission('course.read'),
+    validate(courseQuerySchema, 'query'),
+    CourseController.findAll,
+  )
+  .post(requirePermission('course.create'), validate(createCourseSchema), CourseController.create);
 
 router.get(
   '/:id/detail',
+  requirePermission('course.read'),
   validate(courseIdParamSchema, 'params'),
   CourseController.getCourseDetail,
 );
 
 router
   .route('/:id')
-  .get(validate(courseIdParamSchema, 'params'), CourseController.findById)
+  .get(
+    requirePermission('course.read'),
+    validate(courseIdParamSchema, 'params'),
+    CourseController.findById,
+  )
   .patch(
-    restrictTo('admin', 'trainer'),
+    requirePermission('course.update'),
     validate(courseIdParamSchema, 'params'),
     validate(updateCourseSchema),
     CourseController.update,
   )
   .delete(
-    restrictTo('admin', 'trainer'),
+    requirePermission('course.delete'),
     validate(courseIdParamSchema, 'params'),
     CourseController.delete,
   );

@@ -7,6 +7,11 @@ import type { AuthRequest } from '@/interfaces';
 interface RoleCodeRecord {
   role: {
     code: string;
+    rolePermissions: {
+      permission: {
+        code: string;
+      };
+    }[];
   };
 }
 
@@ -37,6 +42,15 @@ export const authenticate = async (
             role: {
               select: {
                 code: true,
+                rolePermissions: {
+                  select: {
+                    permission: {
+                      select: {
+                        code: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -52,10 +66,19 @@ export const authenticate = async (
       throw new AppError('Your account has been deactivated. Please contact support.', 403);
     }
 
+    const permissionCodes = [
+      ...new Set(
+        user.userRoles.flatMap((userRole: RoleCodeRecord) =>
+          userRole.role.rolePermissions.map((rolePermission) => rolePermission.permission.code),
+        ),
+      ),
+    ];
+
     req.user = {
       userId: user.id.toString(),
       email: user.email,
       roleCodes: user.userRoles.map((userRole: RoleCodeRecord) => userRole.role.code),
+      permissionCodes,
       isActive: user.isActive,
     };
 
