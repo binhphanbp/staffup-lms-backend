@@ -1,14 +1,16 @@
 import type { Request, Response, NextFunction } from 'express';
 import { CategoryService } from '@/services/category.service';
 import { catchAsync, sendSuccess, sendCreated, sendNoContent } from '@/utils';
+import type { CategoryListQuery } from '@/schemas/category.schema';
 
 export class CategoryController {
   /**
    * Get all categories
    */
   static getCategories = catchAsync(async (req: Request, res: Response, _next: NextFunction) => {
-    const isTree = req.query.tree === 'true';
-    const onlyActive = req.query.activeOnly === 'true';
+    const { tree, activeOnly } = req.query as unknown as CategoryListQuery;
+    const isTree = tree ?? false;
+    const onlyActive = activeOnly ?? false;
     const categories = await CategoryService.getCategories(isTree, onlyActive);
     sendSuccess(res, categories, 'Categories retrieved successfully');
   });

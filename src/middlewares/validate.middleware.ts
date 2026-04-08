@@ -3,6 +3,13 @@ import { type ZodSchema, ZodError } from 'zod';
 
 type ValidationTarget = 'body' | 'query' | 'params' | 'all';
 
+const targetLabels: Record<ValidationTarget, string> = {
+  body: 'request body',
+  query: 'query parameters',
+  params: 'path parameters',
+  all: 'request payload',
+};
+
 /**
  * Generic Zod validation middleware.
  *
@@ -74,14 +81,14 @@ export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') =
     } catch (error) {
       if (error instanceof ZodError) {
         const formattedErrors = error.issues.map((err) => ({
-          field: err.path.join('.'),
-          message: err.message,
+          field: err.path.length > 0 ? err.path.join('.') : target,
+          message: err.message.endsWith('.') ? err.message : `${err.message}.`,
         }));
 
         res.status(400).json({
           success: false,
           status: 'fail',
-          message: 'Validation failed',
+          message: `Invalid ${targetLabels[target]}.`,
           errors: formattedErrors,
         });
         return;

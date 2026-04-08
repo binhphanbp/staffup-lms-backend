@@ -4,11 +4,13 @@ import { authenticate } from '@/middlewares/auth.middleware';
 import { validate } from '@/middlewares/validate.middleware';
 import {
   getEnrollmentDetailSchema,
+  enrollCourseParamsSchema,
   enrollUsersSchema,
   listEnrollmentsSchema,
+  updateEnrollmentStatusParamsSchema,
   updateEnrollmentStatusSchema,
   startLessonSchema,
-  updateLessonProgressSchema,
+  updateLessonProgressBodySchema,
   completeLessonSchema,
   getEnrollmentProgressSchema,
 } from '@/schemas/enrollment.schema';
@@ -23,6 +25,7 @@ router.get('/', validate(listEnrollmentsSchema, 'query'), EnrollmentController.l
 // Enroll users into a course
 router.post(
   '/courses/:courseId/enroll',
+  validate(enrollCourseParamsSchema, 'params'),
   validate(enrollUsersSchema),
   EnrollmentController.enrollUsers,
 );
@@ -30,13 +33,14 @@ router.post(
 // Get enrollment detail (owner only)
 router.get(
   '/:id/detail',
-  validate(getEnrollmentDetailSchema, 'all'),
+  validate(getEnrollmentDetailSchema, 'params'),
   EnrollmentController.getEnrollmentDetail,
 );
 
 // Update enrollment status with transition rules
 router.patch(
   '/:id/status',
+  validate(updateEnrollmentStatusParamsSchema, 'params'),
   validate(updateEnrollmentStatusSchema),
   EnrollmentController.updateStatus,
 );
@@ -51,7 +55,8 @@ router.post(
 // Update lesson progress (watch time, position, status)
 router.patch(
   '/:enrollmentId/lessons/:lessonId/progress',
-  validate(updateLessonProgressSchema, 'all'),
+  validate(startLessonSchema, 'params'),
+  validate(updateLessonProgressBodySchema),
   EnrollmentController.updateLessonProgress,
 );
 

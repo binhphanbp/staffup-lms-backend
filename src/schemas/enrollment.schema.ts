@@ -1,32 +1,43 @@
 import { z } from 'zod';
+import {
+  numericIdStringSchema,
+  optionalBooleanQuerySchema,
+  optionalNullableDescriptionSchema,
+  paginationLimitQuerySchema,
+  paginationPageQuerySchema,
+  searchQuerySchema,
+  uniqueStringArraySchema,
+} from '@/schemas/shared.schema';
 
-export const getEnrollmentDetailSchema = z.object({
-  params: z.object({
-    id: z.string().min(1, 'Enrollment ID is required'),
-  }),
+export const enrollmentIdParamSchema = z.object({
+  id: numericIdStringSchema('Enrollment ID'),
+});
+
+export const getEnrollmentDetailSchema = enrollmentIdParamSchema;
+
+export const enrollCourseParamsSchema = z.object({
+  courseId: numericIdStringSchema('Course ID'),
 });
 
 export const enrollUsersSchema = z.object({
-  userIds: z
-    .array(z.string().regex(/^\d+$/, 'User ID must be a valid number'))
-    .min(1, 'At least one user ID is required'),
+  userIds: uniqueStringArraySchema(numericIdStringSchema('User ID'), 'userIds', 1, 500),
   dueAt: z
     .string()
-    .datetime({ message: 'dueAt must be a valid ISO datetime' })
+    .datetime({ message: 'dueAt must be a valid ISO datetime.' })
     .optional()
     .nullable(),
-  assignmentNote: z.string().max(500).optional().nullable(),
+  assignmentNote: optionalNullableDescriptionSchema.optional(),
 });
 
 export const listEnrollmentsSchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().positive().max(100).optional(),
-  userId: z.string().regex(/^\d+$/).optional(),
-  courseId: z.string().regex(/^\d+$/).optional(),
+  page: paginationPageQuerySchema,
+  limit: paginationLimitQuerySchema,
+  userId: numericIdStringSchema('User ID').optional(),
+  courseId: numericIdStringSchema('Course ID').optional(),
   status: z.enum(['assigned', 'in_progress', 'completed', 'cancelled', 'expired']).optional(),
-  departmentId: z.string().regex(/^\d+$/).optional(),
-  overdue: z.coerce.boolean().optional(),
-  search: z.string().optional(),
+  departmentId: numericIdStringSchema('Department ID').optional(),
+  overdue: optionalBooleanQuerySchema,
+  search: searchQuerySchema,
 });
 
 // Status transition rules:
@@ -43,12 +54,26 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   expired: ['assigned'], // admin only
 };
 
+export const updateEnrollmentStatusParamsSchema = enrollmentIdParamSchema;
+
 export const updateEnrollmentStatusSchema = z.object({
   status: z.enum(['assigned', 'in_progress', 'completed', 'cancelled', 'expired']),
-  dueAt: z.string().datetime().optional().nullable(),
-  startedAt: z.string().datetime().optional().nullable(),
-  completedAt: z.string().datetime().optional().nullable(),
-  note: z.string().max(500).optional().nullable(),
+  dueAt: z
+    .string()
+    .datetime({ message: 'dueAt must be a valid ISO datetime.' })
+    .optional()
+    .nullable(),
+  startedAt: z
+    .string()
+    .datetime({ message: 'startedAt must be a valid ISO datetime.' })
+    .optional()
+    .nullable(),
+  completedAt: z
+    .string()
+    .datetime({ message: 'completedAt must be a valid ISO datetime.' })
+    .optional()
+    .nullable(),
+  note: optionalNullableDescriptionSchema.optional(),
 });
 
 export { ALLOWED_TRANSITIONS };
@@ -60,30 +85,47 @@ export type UpdateEnrollmentStatusInput = z.infer<typeof updateEnrollmentStatusS
 
 // ─── Lesson Progress Schemas ───────────────────────────────────────────────
 
-export const startLessonSchema = z.object({
-  enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
-  lessonId: z.string().regex(/^\d+$/, 'Lesson ID must be a valid number'),
+export const enrollmentLessonParamsSchema = z.object({
+  enrollmentId: numericIdStringSchema('Enrollment ID'),
+  lessonId: numericIdStringSchema('Lesson ID'),
 });
+
+export const startLessonSchema = enrollmentLessonParamsSchema;
+
+export const updateLessonProgressBodySchema = z
+  .object({
+    watchTimeSeconds: z.coerce
+      .number()
+      .int()
+      .min(0, 'watchTimeSeconds must be at least 0.')
+      .optional(),
+    lastPositionSeconds: z.coerce
+      .number()
+      .int()
+      .min(0, 'lastPositionSeconds must be at least 0.')
+      .optional(),
+    status: z.enum(['in_progress', 'completed', 'skipped']).optional(),
+  })
+  .refine(
+    (data) =>
+      data.watchTimeSeconds !== undefined ||
+      data.lastPositionSeconds !== undefined ||
+      data.status !== undefined,
+    {
+      message: 'At least one field must be provided.',
+      path: [],
+    },
+  );
 
 export const updateLessonProgressSchema = z.object({
-  params: z.object({
-    enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
-    lessonId: z.string().regex(/^\d+$/, 'Lesson ID must be a valid number'),
-  }),
-  body: z.object({
-    watchTimeSeconds: z.number().int().min(0).optional(),
-    lastPositionSeconds: z.number().int().min(0).optional(),
-    status: z.enum(['in_progress', 'completed', 'skipped']).optional(),
-  }),
+  params: enrollmentLessonParamsSchema,
+  body: updateLessonProgressBodySchema,
 });
 
-export const completeLessonSchema = z.object({
-  enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
-  lessonId: z.string().regex(/^\d+$/, 'Lesson ID must be a valid number'),
-});
+export const completeLessonSchema = enrollmentLessonParamsSchema;
 
 export const getEnrollmentProgressSchema = z.object({
-  enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
+  enrollmentId: numericIdStringSchema('Enrollment ID'),
 });
 
 export type StartLessonInput = z.infer<typeof startLessonSchema>;

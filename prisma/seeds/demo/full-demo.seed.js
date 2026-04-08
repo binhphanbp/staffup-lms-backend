@@ -1278,12 +1278,13 @@ async function runDemoSeed(context) {
   await seedQuizzesAndAttempts(courses, questionBanks, users);
   await seedRiskAssessments();
   await seedAdditionalDemoData(users, courses, roadmaps);
+  const totalUsers = await prisma.user.count();
 
   console.log('\nDemo seed completed successfully.');
   console.log(`
 📊 Summary:
 - Departments: ${departments.length}
-- Users: ${users.length} (password: ${DEFAULT_PASSWORD})
+- Users: ${totalUsers} (password: ${DEFAULT_PASSWORD})
 - Roles: ${roles.length}
 - Permissions: ${permissions.length}
 - Categories: ${categories.length}

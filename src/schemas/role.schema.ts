@@ -1,56 +1,37 @@
 import { z } from 'zod';
+import {
+  numericIdStringSchema,
+  optionalBooleanQuerySchema,
+  optionalNullableDescriptionSchema,
+  permissionCodeSchema,
+  requiredStringSchema,
+  roleCodeSchema,
+  searchQuerySchema,
+  uniqueStringArraySchema,
+} from '@/schemas/shared.schema';
 
-const roleCodeSchema = z
-  .string()
-  .trim()
-  .min(2, 'Role code must be at least 2 characters')
-  .max(50, 'Role code must be at most 50 characters')
-  .regex(
-    /^[a-z][a-z0-9_]*$/,
-    'Role code must start with a lowercase letter and contain only lowercase letters, numbers, and underscores',
-  )
-  .transform((value) => value.toLowerCase());
-
-const roleNameSchema = z
-  .string()
-  .trim()
-  .min(2, 'Role name must be at least 2 characters')
-  .max(100, 'Role name must be at most 100 characters');
-
-const descriptionSchema = z
-  .union([z.string().trim().max(500, 'Description must be at most 500 characters'), z.null()])
-  .transform((value) => {
-    if (value === null) {
-      return null;
-    }
-
-    return value.length > 0 ? value : null;
-  });
-
-const permissionCodeSchema = z
-  .string()
-  .trim()
-  .min(1, 'Permission code is required')
-  .max(100, 'Permission code must be at most 100 characters')
-  .regex(
-    /^[a-z][a-z0-9_.]*$/,
-    'Permission code must start with a lowercase letter and contain only lowercase letters, numbers, underscores, and dots',
-  )
-  .transform((value) => value.toLowerCase());
+const roleNameSchema = requiredStringSchema('Role name', 2, 100);
 
 export const createRoleSchema = z.object({
   code: roleCodeSchema,
   name: roleNameSchema,
-  description: descriptionSchema.optional(),
-  permissionCodes: z.array(permissionCodeSchema).max(200).optional().default([]),
+  description: optionalNullableDescriptionSchema.optional(),
+  permissionCodes: uniqueStringArraySchema(permissionCodeSchema, 'permissionCodes', 0, 200)
+    .optional()
+    .default([]),
 });
 
 export const updateRoleSchema = z
   .object({
     code: roleCodeSchema.optional(),
     name: roleNameSchema.optional(),
-    description: descriptionSchema.optional(),
-    permissionCodes: z.array(permissionCodeSchema).max(200).optional(),
+    description: optionalNullableDescriptionSchema.optional(),
+    permissionCodes: uniqueStringArraySchema(
+      permissionCodeSchema,
+      'permissionCodes',
+      0,
+      200,
+    ).optional(),
   })
   .refine(
     (data) =>
@@ -59,25 +40,18 @@ export const updateRoleSchema = z
       data.description !== undefined ||
       data.permissionCodes !== undefined,
     {
-      message: 'At least one field must be provided',
+      message: 'At least one field must be provided.',
       path: [],
     },
   );
 
 export const roleIdParamSchema = z.object({
-  id: z.string().regex(/^\d+$/, 'Invalid role ID format'),
+  id: numericIdStringSchema('Role ID'),
 });
 
 export const roleListQuerySchema = z.object({
-  search: z.string().trim().max(100).optional(),
-  isSystem: z
-    .string()
-    .optional()
-    .transform((value) => {
-      if (value === 'true') return true;
-      if (value === 'false') return false;
-      return undefined;
-    }),
+  search: searchQuerySchema,
+  isSystem: optionalBooleanQuerySchema,
 });
 
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;

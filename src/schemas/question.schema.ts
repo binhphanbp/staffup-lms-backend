@@ -1,18 +1,45 @@
 import { z } from 'zod';
+import {
+  numericIdStringSchema,
+  optionalBooleanQuerySchema,
+  optionalNullableDescriptionSchema,
+  paginationLimitQuerySchema,
+  paginationPageQuerySchema,
+  requiredStringSchema,
+  searchQuerySchema,
+} from '@/schemas/shared.schema';
 
 const questionOptionSchema = z.object({
-  content: z.string().min(1),
+  content: requiredStringSchema('Option content', 1, 5000),
   isCorrect: z.boolean().default(false),
-  orderIndex: z.number().int().positive(),
+  orderIndex: z.coerce.number().int().positive(),
 });
 
 export const createQuestionSchema = z
   .object({
     questionType: z.enum(['single_choice', 'multiple_choice', 'essay']),
-    content: z.string().min(1),
-    explanation: z.string().optional().nullable(),
-    defaultPoints: z.number().int().positive().optional(),
-    options: z.array(questionOptionSchema).optional(),
+    content: requiredStringSchema('Question content', 1, 10000),
+    explanation: optionalNullableDescriptionSchema.optional(),
+    defaultPoints: z.coerce.number().int().positive().optional(),
+    options: z
+      .array(questionOptionSchema)
+      .superRefine((items, ctx) => {
+        const seen = new Set<number>();
+
+        items.forEach((item, index) => {
+          if (seen.has(item.orderIndex)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [index, 'orderIndex'],
+              message: 'Duplicate option orderIndex is not allowed.',
+            });
+            return;
+          }
+
+          seen.add(item.orderIndex);
+        });
+      })
+      .optional(),
   })
   .refine(
     (data) => {
@@ -21,7 +48,7 @@ export const createQuestionSchema = z
       }
       return true;
     },
-    { message: 'essay questions must not have options' },
+    { message: 'Essay questions must not have options.' },
   )
   .refine(
     (data) => {
@@ -30,7 +57,7 @@ export const createQuestionSchema = z
       }
       return true;
     },
-    { message: 'single_choice and multiple_choice questions require at least 2 options' },
+    { message: 'Single choice and multiple choice questions require at least 2 options.' },
   )
   .refine(
     (data) => {
@@ -39,7 +66,7 @@ export const createQuestionSchema = z
       }
       return true;
     },
-    { message: 'single_choice question must have exactly 1 correct option' },
+    { message: 'Single choice question must have exactly 1 correct option.' },
   )
   .refine(
     (data) => {
@@ -48,21 +75,47 @@ export const createQuestionSchema = z
       }
       return true;
     },
-    { message: 'multiple_choice question must have at least 1 correct option' },
+    { message: 'Multiple choice question must have at least 1 correct option.' },
   );
 
-export const updateQuestionSchema = z.object({
-  content: z.string().min(1).optional(),
-  explanation: z.string().optional().nullable(),
-  defaultPoints: z.number().int().positive().optional(),
-});
+export const updateQuestionSchema = z
+  .object({
+    content: requiredStringSchema('Question content', 1, 10000).optional(),
+    explanation: optionalNullableDescriptionSchema.optional(),
+    defaultPoints: z.coerce.number().int().positive().optional(),
+  })
+  .refine(
+    (data) =>
+      data.content !== undefined ||
+      data.explanation !== undefined ||
+      data.defaultPoints !== undefined,
+    {
+      message: 'At least one field must be provided.',
+      path: [],
+    },
+  );
 
 export const listQuestionsSchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().positive().max(100).optional(),
+  page: paginationPageQuerySchema,
+  limit: paginationLimitQuerySchema,
   questionType: z.enum(['single_choice', 'multiple_choice', 'essay']).optional(),
-  search: z.string().optional(),
-  isActive: z.coerce.boolean().optional(),
+  search: searchQuerySchema,
+  isActive: optionalBooleanQuerySchema,
+});
+
+export const questionParamsSchema = z.object({
+  bankId: numericIdStringSchema('Question bank ID'),
+  id: numericIdStringSchema('Question ID'),
+});
+
+export const questionOptionParamsSchema = z.object({
+  bankId: numericIdStringSchema('Question bank ID'),
+  questionId: numericIdStringSchema('Question ID'),
+  optionId: numericIdStringSchema('Option ID'),
+});
+
+export const questionInBankParamsSchema = z.object({
+  bankId: numericIdStringSchema('Question bank ID'),
 });
 
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>;

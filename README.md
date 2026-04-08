@@ -123,6 +123,8 @@ docker compose exec api pnpm prisma:studio    # Open database GUI
 | `SEED_ADMIN_POSITION_TITLE`     | Seed admin title             | `Administrator`         |
 | `SEED_ADMIN_EMAIL`              | Seed admin email             | `admin@staffup.local`   |
 | `SEED_ADMIN_PASSWORD`           | Seed admin password          | `ChangeMe123`           |
+| `SEED_DEMO`                     | Enable full demo dataset     | `false`                 |
+| `SEED_DEMO_PASSWORD`            | Demo account password        | `Test1234`              |
 
 ## Default Seed Data
 
@@ -136,6 +138,7 @@ The seed script is idempotent, so it can be run multiple times without creating 
 
 If you need a full demo dataset for local development, run `pnpm prisma:seed:demo`.
 That demo script is destructive by design: it clears the current database before loading sample departments, users, courses, roadmaps, quizzes, and progress data.
+It also seeds modules, lessons, lesson resources, roadmap assignments, enrollments, certificates, quiz attempts, and risk assessments for end-to-end testing.
 
 ## Seed Conventions
 
