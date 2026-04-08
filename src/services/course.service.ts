@@ -4,11 +4,16 @@ import type { CourseDetailResponse, CourseExpand } from '@/interfaces/course.typ
 import { assertPolicy, canAccessOwnedResource } from '@/policies';
 import type {
   CreateCourseModuleInput,
+  CreateCourseLessonInput,
+  CreateLessonResourceInput,
   CourseDetailQuery,
   CourseQuery,
   CreateCourseInput,
+  ReorderCourseLessonsInput,
   ReorderCourseModulesInput,
   UpdateCourseStatusInput,
+  UpdateCourseLessonInput,
+  UpdateLessonResourceInput,
   UpdateCourseModuleInput,
   UpdateCourseInput,
 } from '@/schemas/course.schema';
@@ -57,6 +62,34 @@ interface CourseModuleItem {
   createdAt: string;
   updatedAt: string;
   lessonsCount: number;
+}
+
+interface CourseLessonItem {
+  id: string;
+  moduleId: string;
+  title: string;
+  lessonType: 'video' | 'article' | 'quiz';
+  contentText: string | null;
+  videoUrl: string | null;
+  durationSeconds: number;
+  orderIndex: number;
+  isPreview: boolean;
+  createdAt: string;
+  updatedAt: string;
+  resourcesCount: number;
+  progressCount: number;
+  hasQuiz: boolean;
+}
+
+interface LessonResourceItem {
+  id: string;
+  lessonId: string;
+  fileName: string;
+  fileUrl: string;
+  resourceType: 'file' | 'video' | 'material' | null;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const DEFAULT_DETAIL_EXPANDS: CourseExpand[] = ['all'];
@@ -275,6 +308,38 @@ export class CourseService {
     };
   }
 
+  private static mapCourseLessonItem(lesson: any): CourseLessonItem {
+    return {
+      id: lesson.id.toString(),
+      moduleId: lesson.moduleId.toString(),
+      title: lesson.title,
+      lessonType: lesson.lessonType,
+      contentText: lesson.contentText,
+      videoUrl: lesson.videoUrl,
+      durationSeconds: lesson.durationSeconds,
+      orderIndex: lesson.orderIndex,
+      isPreview: lesson.isPreview,
+      createdAt: lesson.createdAt.toISOString(),
+      updatedAt: lesson.updatedAt.toISOString(),
+      resourcesCount: lesson._count?.resources ?? 0,
+      progressCount: lesson._count?.progress ?? 0,
+      hasQuiz: Boolean(lesson.quiz),
+    };
+  }
+
+  private static mapLessonResourceItem(resource: any): LessonResourceItem {
+    return {
+      id: resource.id.toString(),
+      lessonId: resource.lessonId.toString(),
+      fileName: resource.fileName,
+      fileUrl: resource.fileUrl,
+      resourceType: resource.resourceType,
+      orderIndex: resource.orderIndex,
+      createdAt: resource.createdAt.toISOString(),
+      updatedAt: resource.updatedAt.toISOString(),
+    };
+  }
+
   private static normalizeExpand(expandItems: CourseExpand[] = []) {
     const expanded = new Set<CourseExpand>(expandItems);
 
@@ -472,6 +537,134 @@ export class CourseService {
     }
 
     return module;
+  }
+
+  private static async assertLessonOrderIndexAvailable(
+    moduleId: string,
+    orderIndex: number,
+    excludeLessonId?: string,
+  ) {
+    const existingLesson = await this.db.lesson.findUnique({
+      where: {
+        moduleId_orderIndex: {
+          moduleId: BigInt(moduleId),
+          orderIndex,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingLesson && existingLesson.id.toString() !== excludeLessonId) {
+      throw new AppError(
+        `Order index ${orderIndex} is already used by another lesson in this module.`,
+        400,
+      );
+    }
+  }
+
+  private static assertLessonContentRequirement(
+    lessonType: 'video' | 'article' | 'quiz',
+    data: {
+      contentText?: string | null;
+      videoUrl?: string | null;
+    },
+  ) {
+    if (lessonType === 'video' && !data.videoUrl?.trim()) {
+      throw new AppError('videoUrl is required for video lessons.', 400);
+    }
+
+    if (lessonType === 'article' && !data.contentText?.trim()) {
+      throw new AppError('contentText is required for article lessons.', 400);
+    }
+  }
+
+  private static async getLessonInModuleOrThrow(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+  ) {
+    await this.getCourseModuleOrThrow(courseId, moduleId);
+
+    const lesson = await this.db.lesson.findUnique({
+      where: { id: BigInt(lessonId) },
+      include: {
+        quiz: {
+          select: {
+            id: true,
+          },
+        },
+        _count: {
+          select: {
+            resources: true,
+            progress: true,
+          },
+        },
+      },
+    });
+
+    if (!lesson || lesson.moduleId.toString() !== moduleId) {
+      throw new AppError('Lesson not found in this module.', 404);
+    }
+
+    return lesson;
+  }
+
+  private static async getResourceInLessonOrThrow(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    resourceId: string,
+  ) {
+    await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
+
+    const resource = await this.db.lessonResource.findUnique({
+      where: { id: BigInt(resourceId) },
+    });
+
+    if (!resource || resource.lessonId.toString() !== lessonId) {
+      throw new AppError('Resource not found in this lesson.', 404);
+    }
+
+    return resource;
+  }
+
+  private static async assertLessonResourceOrderIndexAvailable(
+    lessonId: string,
+    orderIndex: number,
+    excludeResourceId?: string,
+  ) {
+    const existingResource = await this.db.lessonResource.findUnique({
+      where: {
+        lessonId_orderIndex: {
+          lessonId: BigInt(lessonId),
+          orderIndex,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingResource && existingResource.id.toString() !== excludeResourceId) {
+      throw new AppError(
+        `Order index ${orderIndex} is already used by another resource in this lesson.`,
+        400,
+      );
+    }
+  }
+
+  private static async getNextLessonResourceOrderIndex(lessonId: string) {
+    const lastResource = await this.db.lessonResource.findFirst({
+      where: { lessonId: BigInt(lessonId) },
+      orderBy: { orderIndex: 'desc' },
+      select: {
+        orderIndex: true,
+      },
+    });
+
+    return (lastResource?.orderIndex ?? 0) + 1;
   }
 
   /**
@@ -1234,6 +1427,354 @@ export class CourseService {
     });
 
     return reorderedModules.map((module: any) => this.mapCourseModuleItem(module));
+  }
+
+  /**
+   * List module lessons
+   */
+  static async listLessons(courseId: string, moduleId: string) {
+    await this.getCourseModuleOrThrow(courseId, moduleId);
+
+    const lessons = await this.db.lesson.findMany({
+      where: { moduleId: BigInt(moduleId) },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        quiz: {
+          select: {
+            id: true,
+          },
+        },
+        _count: {
+          select: {
+            resources: true,
+            progress: true,
+          },
+        },
+      },
+    });
+
+    return lessons.map((lesson: any) => this.mapCourseLessonItem(lesson));
+  }
+
+  /**
+   * Create lesson in module
+   */
+  static async createLesson(
+    courseId: string,
+    moduleId: string,
+    data: CreateCourseLessonInput,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    await this.getCourseModuleOrThrow(courseId, moduleId);
+    await this.assertLessonOrderIndexAvailable(moduleId, data.orderIndex);
+    this.assertLessonContentRequirement(data.lessonType, {
+      contentText: data.contentText,
+      videoUrl: data.videoUrl,
+    });
+
+    const lesson = await this.db.lesson.create({
+      data: {
+        moduleId: BigInt(moduleId),
+        title: data.title,
+        lessonType: data.lessonType,
+        contentText: data.contentText ?? null,
+        videoUrl: data.videoUrl ?? null,
+        durationSeconds: data.durationSeconds,
+        orderIndex: data.orderIndex,
+        isPreview: data.isPreview ?? false,
+      },
+      include: {
+        quiz: {
+          select: {
+            id: true,
+          },
+        },
+        _count: {
+          select: {
+            resources: true,
+            progress: true,
+          },
+        },
+      },
+    });
+
+    return this.mapCourseLessonItem(lesson);
+  }
+
+  /**
+   * Update lesson in module
+   */
+  static async updateLesson(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    data: UpdateCourseLessonInput,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    const lesson = await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
+
+    if (data.orderIndex !== undefined) {
+      await this.assertLessonOrderIndexAvailable(moduleId, data.orderIndex, lessonId);
+    }
+
+    const nextLessonType = data.lessonType ?? lesson.lessonType;
+    this.assertLessonContentRequirement(nextLessonType, {
+      contentText: data.contentText ?? lesson.contentText,
+      videoUrl: data.videoUrl ?? lesson.videoUrl,
+    });
+
+    const updatedLesson = await this.db.lesson.update({
+      where: { id: BigInt(lessonId) },
+      data: {
+        title: data.title,
+        lessonType: data.lessonType,
+        contentText: data.contentText,
+        videoUrl: data.videoUrl,
+        durationSeconds: data.durationSeconds,
+        orderIndex: data.orderIndex,
+        isPreview: data.isPreview,
+      },
+      include: {
+        quiz: {
+          select: {
+            id: true,
+          },
+        },
+        _count: {
+          select: {
+            resources: true,
+            progress: true,
+          },
+        },
+      },
+    });
+
+    return this.mapCourseLessonItem(updatedLesson);
+  }
+
+  /**
+   * Delete lesson in module
+   */
+  static async deleteLesson(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    const lesson = await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
+
+    if (lesson._count.resources > 0 || lesson._count.progress > 0 || lesson.quiz) {
+      throw new AppError(
+        'Cannot delete lesson because it is linked to resources, learner progress, or a quiz.',
+        400,
+      );
+    }
+
+    await this.db.lesson.delete({
+      where: { id: BigInt(lessonId) },
+    });
+
+    return {
+      courseId,
+      moduleId,
+      lessonId,
+      removed: true,
+    };
+  }
+
+  /**
+   * Reorder module lessons
+   */
+  static async reorderLessons(
+    courseId: string,
+    moduleId: string,
+    lessonOrders: ReorderCourseLessonsInput['lessonOrders'],
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    await this.getCourseModuleOrThrow(courseId, moduleId);
+
+    const lessons = await this.db.lesson.findMany({
+      where: {
+        moduleId: BigInt(moduleId),
+        id: {
+          in: lessonOrders.map((item) => BigInt(item.lessonId)),
+        },
+      },
+      include: {
+        quiz: {
+          select: {
+            id: true,
+          },
+        },
+        _count: {
+          select: {
+            resources: true,
+            progress: true,
+          },
+        },
+      },
+    });
+
+    if (lessons.length !== lessonOrders.length) {
+      const foundLessonIds = new Set(lessons.map((lesson: any) => lesson.id.toString()));
+      const missingLessonIds = lessonOrders
+        .map((item) => item.lessonId)
+        .filter((lessonId) => !foundLessonIds.has(lessonId));
+
+      throw new AppError(`Lessons not found in this module: ${missingLessonIds.join(', ')}`, 404);
+    }
+
+    await this.db.$transaction(async (tx: any) => {
+      for (let index = 0; index < lessonOrders.length; index += 1) {
+        const item = lessonOrders[index];
+        await tx.lesson.update({
+          where: { id: BigInt(item.lessonId) },
+          data: {
+            orderIndex: -1 * (index + 1),
+          },
+        });
+      }
+
+      for (const item of lessonOrders) {
+        await tx.lesson.update({
+          where: { id: BigInt(item.lessonId) },
+          data: {
+            orderIndex: item.orderIndex,
+          },
+        });
+      }
+    });
+
+    const reorderedLessons = await this.db.lesson.findMany({
+      where: { moduleId: BigInt(moduleId) },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        quiz: {
+          select: {
+            id: true,
+          },
+        },
+        _count: {
+          select: {
+            resources: true,
+            progress: true,
+          },
+        },
+      },
+    });
+
+    return reorderedLessons.map((lesson: any) => this.mapCourseLessonItem(lesson));
+  }
+
+  /**
+   * List lesson resources
+   */
+  static async listLessonResources(courseId: string, moduleId: string, lessonId: string) {
+    await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
+
+    const resources = await this.db.lessonResource.findMany({
+      where: { lessonId: BigInt(lessonId) },
+      orderBy: { orderIndex: 'asc' },
+    });
+
+    return resources.map((resource: any) => this.mapLessonResourceItem(resource));
+  }
+
+  /**
+   * Create lesson resource metadata
+   */
+  static async createLessonResource(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    data: CreateLessonResourceInput,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
+
+    const orderIndex = data.orderIndex ?? (await this.getNextLessonResourceOrderIndex(lessonId));
+    await this.assertLessonResourceOrderIndexAvailable(lessonId, orderIndex);
+
+    const resource = await this.db.lessonResource.create({
+      data: {
+        lessonId: BigInt(lessonId),
+        fileName: data.fileName,
+        fileUrl: data.fileUrl,
+        resourceType: data.resourceType ?? null,
+        orderIndex,
+      },
+    });
+
+    return this.mapLessonResourceItem(resource);
+  }
+
+  /**
+   * Update lesson resource metadata
+   */
+  static async updateLessonResource(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    resourceId: string,
+    data: UpdateLessonResourceInput,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    await this.getResourceInLessonOrThrow(courseId, moduleId, lessonId, resourceId);
+
+    if (data.orderIndex !== undefined) {
+      await this.assertLessonResourceOrderIndexAvailable(lessonId, data.orderIndex, resourceId);
+    }
+
+    const updatedResource = await this.db.lessonResource.update({
+      where: { id: BigInt(resourceId) },
+      data: {
+        fileName: data.fileName,
+        fileUrl: data.fileUrl,
+        resourceType: data.resourceType,
+        orderIndex: data.orderIndex,
+      },
+    });
+
+    return this.mapLessonResourceItem(updatedResource);
+  }
+
+  /**
+   * Delete lesson resource metadata
+   */
+  static async deleteLessonResource(
+    courseId: string,
+    moduleId: string,
+    lessonId: string,
+    resourceId: string,
+    userId: string,
+    roleCodes: string[],
+  ) {
+    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
+    await this.getResourceInLessonOrThrow(courseId, moduleId, lessonId, resourceId);
+
+    await this.db.lessonResource.delete({
+      where: { id: BigInt(resourceId) },
+    });
+
+    return {
+      courseId,
+      moduleId,
+      lessonId,
+      resourceId,
+      removed: true,
+    };
   }
 
   /**
