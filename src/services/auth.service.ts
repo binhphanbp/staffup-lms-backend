@@ -4,7 +4,12 @@ import { getRefreshTokenExpiryDate } from '@/config/auth-cookie.config';
 import { prisma } from '@/config/database';
 import { signToken } from '@/config/jwt.config';
 import { AppError } from '@/utils';
-import type { ChangePasswordInput, LoginInput, RegisterInput } from '@/schemas/auth.schema';
+import type {
+  AssignUserRolesInput,
+  ChangePasswordInput,
+  LoginInput,
+  RegisterInput,
+} from '@/schemas/auth.schema';
 
 interface SessionContext {
   ipAddress?: string | null;
@@ -15,6 +20,37 @@ interface RoleCodeRecord {
   role: {
     code: string;
   };
+}
+
+interface UserPermissionDetailRecord {
+  id: bigint;
+  email: string;
+  fullName: string;
+  isActive: boolean;
+  userRoles: {
+    assignedAt: Date;
+    role: {
+      id: bigint;
+      code: string;
+      name: string;
+      description: string | null;
+      isSystem: boolean;
+      rolePermissions: {
+        permission: {
+          id: bigint;
+          code: string;
+          module: string;
+          action: string;
+          description: string | null;
+        };
+      }[];
+    };
+    assignedByUser: {
+      id: bigint;
+      email: string;
+      fullName: string;
+    } | null;
+  }[];
 }
 
 interface AuthUserRecord {
@@ -350,6 +386,148 @@ export class AuthService {
     };
   }
 
+  static async assignUserRoles(
+    userId: string,
+    roleCodes: AssignUserRolesInput['roleCodes'],
+    assignedByUserId: string,
+  ) {
+    const targetUserId = BigInt(userId);
+    const actorUserId = BigInt(assignedByUserId);
+    const uniqueRoleCodes = [...new Set(roleCodes)];
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new AppError('User not found.', 404);
+    }
+
+    const roles = await prisma.role.findMany({
+      where: {
+        code: {
+          in: uniqueRoleCodes,
+        },
+      },
+      select: {
+        id: true,
+        code: true,
+      },
+    });
+
+    if (roles.length !== uniqueRoleCodes.length) {
+      const foundCodes = new Set(roles.map((role) => role.code));
+      const missingCodes = uniqueRoleCodes.filter((code) => !foundCodes.has(code));
+      throw new AppError(`Invalid role code(s): ${missingCodes.join(', ')}`, 400);
+    }
+
+    const currentAssignments = await prisma.userRole.findMany({
+      where: { userId: targetUserId },
+      select: {
+        roleId: true,
+        role: {
+          select: {
+            code: true,
+          },
+        },
+      },
+    });
+
+    const currentRoleIdByCode = new Map(
+      currentAssignments.map((item) => [item.role.code, item.roleId]),
+    );
+
+    const roleIdsToDelete = currentAssignments
+      .filter((assignment) => !uniqueRoleCodes.includes(assignment.role.code))
+      .map((assignment) => assignment.roleId);
+
+    const roleIdsToCreate = roles
+      .filter((role) => !currentRoleIdByCode.has(role.code))
+      .map((role) => role.id);
+
+    await prisma.$transaction(async (tx) => {
+      if (roleIdsToDelete.length > 0) {
+        await tx.userRole.deleteMany({
+          where: {
+            userId: targetUserId,
+            roleId: {
+              in: roleIdsToDelete,
+            },
+          },
+        });
+      }
+
+      if (roleIdsToCreate.length > 0) {
+        await tx.userRole.createMany({
+          data: roleIdsToCreate.map((roleId) => ({
+            userId: targetUserId,
+            roleId,
+            assignedByUserId: actorUserId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    });
+
+    return this.getUserEffectivePermissions(userId);
+  }
+
+  static async getUserEffectivePermissions(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        isActive: true,
+        userRoles: {
+          orderBy: {
+            assignedAt: 'asc',
+          },
+          select: {
+            assignedAt: true,
+            assignedByUser: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+              },
+            },
+            role: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                description: true,
+                isSystem: true,
+                rolePermissions: {
+                  select: {
+                    permission: {
+                      select: {
+                        id: true,
+                        code: true,
+                        module: true,
+                        action: true,
+                        description: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found.', 404);
+    }
+
+    return this.serializeUserEffectivePermissions(user as UserPermissionDetailRecord);
+  }
+
   private static async createAuthResult(user: AuthUserRecord, sessionContext: SessionContext) {
     const db = prisma;
     const refreshToken = this.generateRefreshToken();
@@ -395,6 +573,65 @@ export class AuthService {
 
   private static extractRoleCodes(userRoles: RoleCodeRecord[]): string[] {
     return userRoles.map((userRole) => userRole.role.code);
+  }
+
+  private static serializeUserEffectivePermissions(user: UserPermissionDetailRecord) {
+    const roles = user.userRoles
+      .map((userRole) => ({
+        id: userRole.role.id.toString(),
+        code: userRole.role.code,
+        name: userRole.role.name,
+        description: userRole.role.description,
+        isSystem: userRole.role.isSystem,
+        assignedAt: userRole.assignedAt,
+        assignedByUser: userRole.assignedByUser
+          ? {
+              id: userRole.assignedByUser.id.toString(),
+              email: userRole.assignedByUser.email,
+              fullName: userRole.assignedByUser.fullName,
+            }
+          : null,
+      }))
+      .sort((left, right) => left.code.localeCompare(right.code));
+
+    const permissionMap = new Map<
+      string,
+      {
+        id: string;
+        code: string;
+        module: string;
+        action: string;
+        description: string | null;
+      }
+    >();
+
+    for (const userRole of user.userRoles) {
+      for (const rolePermission of userRole.role.rolePermissions) {
+        const permission = rolePermission.permission;
+        permissionMap.set(permission.code, {
+          id: permission.id.toString(),
+          code: permission.code,
+          module: permission.module,
+          action: permission.action,
+          description: permission.description,
+        });
+      }
+    }
+
+    const effectivePermissions = [...permissionMap.values()].sort((left, right) =>
+      left.code.localeCompare(right.code),
+    );
+
+    return {
+      id: user.id.toString(),
+      email: user.email,
+      fullName: user.fullName,
+      isActive: user.isActive,
+      roleCodes: roles.map((role) => role.code),
+      roles,
+      effectivePermissionCodes: effectivePermissions.map((permission) => permission.code),
+      effectivePermissions,
+    };
   }
 
   private static generateRefreshToken(): string {

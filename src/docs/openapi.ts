@@ -324,6 +324,105 @@ export const openApiDocument = {
           },
         },
       },
+      AssignUserRolesRequest: {
+        type: 'object',
+        required: ['roleCodes'],
+        properties: {
+          roleCodes: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'string',
+              pattern: '^[a-z][a-z0-9_]*$',
+              example: 'trainer',
+            },
+            example: ['trainer', 'employee'],
+          },
+        },
+      },
+      EffectivePermission: {
+        type: 'object',
+        required: ['id', 'code', 'module', 'action'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '12' },
+          code: { type: 'string', example: 'course.read' },
+          module: { type: 'string', example: 'course' },
+          action: { type: 'string', example: 'read' },
+          description: { type: 'string', nullable: true, example: 'Read course data' },
+        },
+      },
+      AssignedRole: {
+        type: 'object',
+        required: ['id', 'code', 'name', 'isSystem', 'assignedAt'],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '2' },
+          code: { type: 'string', example: 'trainer' },
+          name: { type: 'string', example: 'Trainer' },
+          description: { type: 'string', nullable: true, example: 'Course and quiz authoring' },
+          isSystem: { type: 'boolean', example: true },
+          assignedAt: { type: 'string', format: 'date-time' },
+          assignedByUser: {
+            anyOf: [
+              {
+                type: 'object',
+                required: ['id', 'email', 'fullName'],
+                properties: {
+                  id: { type: 'string', pattern: '^\\d+$', example: '1' },
+                  email: { type: 'string', format: 'email', example: 'admin@staffup.local' },
+                  fullName: { type: 'string', example: 'System Administrator' },
+                },
+              },
+              { type: 'null' },
+            ],
+          },
+        },
+      },
+      EffectivePermissionsUser: {
+        type: 'object',
+        required: [
+          'id',
+          'email',
+          'fullName',
+          'isActive',
+          'roleCodes',
+          'roles',
+          'effectivePermissionCodes',
+          'effectivePermissions',
+        ],
+        properties: {
+          id: { type: 'string', pattern: '^\\d+$', example: '5' },
+          email: { type: 'string', format: 'email', example: 'trainer@staffup.local' },
+          fullName: { type: 'string', example: 'Trainer User' },
+          isActive: { type: 'boolean', example: true },
+          roleCodes: {
+            type: 'array',
+            items: { type: 'string' },
+            example: ['employee', 'trainer'],
+          },
+          roles: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/AssignedRole' },
+          },
+          effectivePermissionCodes: {
+            type: 'array',
+            items: { type: 'string' },
+            example: ['course.read', 'quiz.create', 'quiz.grade'],
+          },
+          effectivePermissions: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/EffectivePermission' },
+          },
+        },
+      },
+      EffectivePermissionsSuccessResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Effective permissions retrieved successfully' },
+          data: { $ref: '#/components/schemas/EffectivePermissionsUser' },
+        },
+      },
       MessageSuccessResponse: {
         type: 'object',
         required: ['success', 'message'],
@@ -1558,6 +1657,191 @@ export const openApiDocument = {
           },
           '403': {
             description: 'Account is deactivated.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/me/effective-permissions`]: {
+      get: {
+        tags: ['Auth'],
+        summary: 'Get current user effective permissions',
+        operationId: 'getMyEffectivePermissions',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Current user effective permissions.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/EffectivePermissionsSuccessResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Account is deactivated.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/users/{id}/roles`]: {
+      put: {
+        tags: ['Auth'],
+        summary: 'Assign roles to a user',
+        description:
+          'Requires the `admin` role. Replaces the user role set with the supplied role codes.',
+        operationId: 'assignUserRoles',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/AssignUserRolesRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'User roles updated successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/EffectivePermissionsSuccessResponse',
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation failed or one or more role codes are invalid.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'User not found.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/auth/users/{id}/effective-permissions`]: {
+      get: {
+        tags: ['Auth'],
+        summary: 'Get a user effective permissions',
+        description: 'Requires the `admin` role.',
+        operationId: 'getUserEffectivePermissions',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              pattern: '^\\d+$',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'User effective permissions retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/EffectivePermissionsSuccessResponse',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '403': {
+            description: 'Insufficient role.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'User not found.',
             content: {
               'application/json': {
                 schema: {

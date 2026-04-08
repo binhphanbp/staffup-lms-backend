@@ -46,6 +46,13 @@ export class AuthController {
     sendSuccess(res, user, 'Profile retrieved successfully');
   });
 
+  static getMyEffectivePermissions = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const result = await AuthService.getUserEffectivePermissions(req.user!.userId);
+      sendSuccess(res, result, 'Effective permissions retrieved successfully');
+    },
+  );
+
   private static extractRefreshToken(req: AuthRequest): string | undefined {
     const cookieToken = req.cookies?.[env.REFRESH_TOKEN_COOKIE_NAME];
     const bodyToken =
@@ -82,4 +89,20 @@ export class AuthController {
     const result = await AuthService.updateUserStatus(id as string, isActive);
     sendSuccess(res, result, 'User status updated successfully');
   });
+
+  static assignRoles = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const result = await AuthService.assignUserRoles(
+      req.params.id as string,
+      req.body.roleCodes,
+      req.user!.userId,
+    );
+    sendSuccess(res, result, 'User roles updated successfully');
+  });
+
+  static getUserEffectivePermissions = catchAsync(
+    async (req: AuthRequest, res: Response, _next: NextFunction) => {
+      const result = await AuthService.getUserEffectivePermissions(req.params.id as string);
+      sendSuccess(res, result, 'Effective permissions retrieved successfully');
+    },
+  );
 }
