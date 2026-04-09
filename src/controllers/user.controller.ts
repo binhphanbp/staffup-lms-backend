@@ -10,7 +10,7 @@ export class UserController {
   });
 
   static getUser = catchAsync(async (req: AuthRequest, res: Response) => {
-    const result = await UserService.getUser(req.params.id);
+    const result = await UserService.getUser(String(req.params.id));
     sendSuccess(res, result, 'User retrieved successfully');
   });
 
@@ -20,7 +20,7 @@ export class UserController {
   });
 
   static updateUser = catchAsync(async (req: AuthRequest, res: Response) => {
-    const result = await UserService.updateUser(req.params.id, req.body);
+    const result = await UserService.updateUser(String(req.params.id), req.body);
     sendSuccess(res, result, 'User updated successfully');
   });
 }

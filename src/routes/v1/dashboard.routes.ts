@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { DashboardController } from '@/controllers/dashboard.controller';
 import { authenticate, restrictTo } from '@/middlewares';
 
-const router = Router();
+const router: Router = Router();
 
 // Admin only - get dashboard statistics
 router.get('/', authenticate, restrictTo('admin'), DashboardController.getDashboardStats);

@@ -43,8 +43,8 @@ export class EnrollmentController {
 
   static startLesson = catchAsync(async (req: AuthRequest, res: Response) => {
     const result = await EnrollmentService.startLesson(
-      req.params.enrollmentId,
-      req.params.lessonId,
+      String(req.params.enrollmentId),
+      String(req.params.lessonId),
       req.user!.userId,
     );
     sendSuccess(res, result, 'Lesson started successfully');
@@ -52,8 +52,8 @@ export class EnrollmentController {
 
   static updateLessonProgress = catchAsync(async (req: AuthRequest, res: Response) => {
     const result = await EnrollmentService.updateLessonProgress(
-      req.params.enrollmentId,
-      req.params.lessonId,
+      String(req.params.enrollmentId),
+      String(req.params.lessonId),
       req.body,
       req.user!.userId,
     );
@@ -62,8 +62,8 @@ export class EnrollmentController {
 
   static completeLesson = catchAsync(async (req: AuthRequest, res: Response) => {
     const result = await EnrollmentService.completeLesson(
-      req.params.enrollmentId,
-      req.params.lessonId,
+      String(req.params.enrollmentId),
+      String(req.params.lessonId),
       req.user!.userId,
     );
     sendSuccess(res, result, 'Lesson completed successfully');
@@ -71,7 +71,7 @@ export class EnrollmentController {
 
   static getEnrollmentProgress = catchAsync(async (req: AuthRequest, res: Response) => {
     const result = await EnrollmentService.getEnrollmentProgress(
-      req.params.enrollmentId,
+      String(req.params.enrollmentId),
       req.user!.userId,
       req.user!.roleCodes,
     );
