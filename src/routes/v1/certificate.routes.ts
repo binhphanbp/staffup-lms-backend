@@ -16,7 +16,7 @@ import {
   revokeCertificateParamsSchema,
 } from '@/schemas/certificate.schema';
 
-const router = Router();
+const router: Router = Router();
 
 // All routes require authentication
 router.use(authenticate);

@@ -13,8 +13,8 @@ export const listRiskAssessmentsQuerySchema = z.object({
 export const ingestRiskAssessmentSchema = z.object({
   enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
   riskScore: z.number().min(0).max(100, 'Risk score must be between 0 and 100'),
-  riskLevel: z.enum(['low', 'medium', 'high'], {
-    errorMap: () => ({ message: 'Risk level must be low, medium, or high' }),
+  riskLevel: z.enum(['low', 'medium', 'high'] as const, {
+    error: 'Risk level must be low, medium, or high',
   }),
   modelVersion: z.string().max(50).optional(),
   reasons: z.any().optional(),

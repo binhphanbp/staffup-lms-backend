@@ -19,13 +19,13 @@ export class QuestionBankController {
   });
 
   static findById = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    const bank = await QuestionBankService.findById(req.params.id);
+    const bank = await QuestionBankService.findById(String(req.params.id));
     sendSuccess(res, bank, 'Question bank retrieved successfully');
   });
 
   static update = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
     const bank = await QuestionBankService.update(
-      req.params.id,
+      String(req.params.id),
       req.body,
       req.user!.userId,
       req.user!.roleCodes,
@@ -34,7 +34,7 @@ export class QuestionBankController {
   });
 
   static delete = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    await QuestionBankService.delete(req.params.id, req.user!.userId, req.user!.roleCodes);
+    await QuestionBankService.delete(String(req.params.id), req.user!.userId, req.user!.roleCodes);
     sendNoContent(res);
   });
 }

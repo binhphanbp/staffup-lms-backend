@@ -23,7 +23,7 @@ import {
   updateQuizSchema,
 } from '@/schemas/quiz-management.schema';
 
-const router = Router();
+const router: Router = Router();
 
 // All routes require authentication
 router.use(authenticate);

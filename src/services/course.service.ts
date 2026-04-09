@@ -710,7 +710,7 @@ export class CourseService {
         estimatedDurationMinutes: data.estimatedDurationMinutes ?? null,
         trainerUserId: BigInt(trainerUserId),
         status,
-        publishedAt: status === 'published' ? new Date() : null,
+        publishedAt: null,
       },
       include: {
         trainerUser: {
@@ -840,9 +840,10 @@ export class CourseService {
    * Get a single course by ID
    */
   static async findById(id: string, query: CourseDetailQuery = { expand: [] }) {
-    const course = await this.getCourseOrThrow(id, query.expand);
+    const expand = query.expand as CourseExpand[];
+    const course = await this.getCourseOrThrow(id, expand);
 
-    return this.mapCourseDetail(course, query.expand);
+    return this.mapCourseDetail(course, expand);
   }
 
   /**
@@ -1831,7 +1832,10 @@ export class CourseService {
     id: string,
     query: CourseDetailQuery = { expand: DEFAULT_DETAIL_EXPANDS },
   ): Promise<CourseDetailResponse> {
-    const expandItems = query.expand.length > 0 ? query.expand : DEFAULT_DETAIL_EXPANDS;
+    const expandItems =
+      (query.expand as CourseExpand[]).length > 0
+        ? (query.expand as CourseExpand[])
+        : DEFAULT_DETAIL_EXPANDS;
     const course = await this.getCourseOrThrow(id, expandItems);
 
     return this.mapCourseDetail(course, expandItems);
@@ -1906,7 +1910,9 @@ export class CourseService {
         orderIndex: module.orderIndex,
         lessons: expands.has('lessons')
           ? module.lessons.map((lesson: any) => {
-              const mappedLesson: CourseDetailResponse['modules'][number]['lessons'][number] = {
+              const mappedLesson: NonNullable<
+                CourseDetailResponse['modules']
+              >[number]['lessons'][number] = {
                 id: lesson.id.toString(),
                 title: lesson.title,
                 lessonType: lesson.lessonType,
