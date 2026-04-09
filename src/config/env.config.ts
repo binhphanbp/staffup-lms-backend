@@ -12,6 +12,7 @@ const envSchema = z.object({
   REFRESH_TOKEN_EXPIRES_IN_DAYS: z.coerce.number().int().positive().default(30),
   REFRESH_TOKEN_COOKIE_NAME: z.string().min(1).default('staffup_refresh_token'),
   CORS_ORIGIN: z.string().default('*'),
+  GEMINI_API_KEY: z.string().min(1, 'GEMINI_API_KEY is required'),
 });
 
 const parsed = envSchema.safeParse(process.env);
