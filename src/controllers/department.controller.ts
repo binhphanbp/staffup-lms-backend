@@ -36,9 +36,9 @@ export class DepartmentController {
       const result = await DepartmentService.getUsersByDepartment(
         id as string,
         {
-          page: page as number,
-          limit: limit as number,
-          isActive: isActive as boolean | undefined,
+          page: page ? Number(page as string) : 1,
+          limit: limit ? Number(limit as string) : 10,
+          isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
         },
         requestUserId,
       );

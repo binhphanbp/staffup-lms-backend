@@ -31,6 +31,7 @@ export class DashboardService {
       admin: 0,
       trainer: 0,
       employee: 0,
+      student: 0,
     };
 
     usersByRole.forEach((ur: any) => {
@@ -38,6 +39,7 @@ export class DashboardService {
       if (roleCode === 'admin') userRoleCounts.admin += ur._count;
       else if (roleCode === 'trainer') userRoleCounts.trainer += ur._count;
       else if (roleCode === 'employee') userRoleCounts.employee += ur._count;
+      else if (roleCode === 'student') userRoleCounts.student += ur._count;
     });
 
     // Get course stats

@@ -6099,7 +6099,8 @@ export const openApiDocument = {
       delete: {
         tags: ['Tags'],
         summary: 'Delete tag',
-        description: 'Delete a tag. Cannot delete if tag is linked to courses. Requires admin role.',
+        description:
+          'Delete a tag. Cannot delete if tag is linked to courses. Requires admin role.',
         operationId: 'deleteTag',
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -6841,151 +6842,6 @@ export const openApiDocument = {
               },
             },
           },
-        },
-      },
-    },
-    [`${API_PREFIX}/tags`]: {
-      get: {
-        tags: ['Tags'],
-        summary: 'List all tags',
-        operationId: 'listTags',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'page',
-            in: 'query',
-            schema: { type: 'integer', minimum: 1, default: 1 },
-          },
-          {
-            name: 'limit',
-            in: 'query',
-            schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
-          },
-          {
-            name: 'search',
-            in: 'query',
-            schema: { type: 'string' },
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Tags retrieved successfully.',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/TagListResponse' },
-              },
-            },
-          },
-        },
-      },
-      post: {
-        tags: ['Tags'],
-        summary: 'Create a new tag',
-        description: 'Requires the `admin` role.',
-        operationId: 'createTag',
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/CreateTagRequest' },
-            },
-          },
-        },
-        responses: {
-          '201': {
-            description: 'Tag created successfully.',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/TagResponse' },
-              },
-            },
-          },
-          '403': { description: 'Forbidden' },
-          '409': { description: 'Tag already exists' },
-        },
-      },
-    },
-    [`${API_PREFIX}/tags/{id}`]: {
-      get: {
-        tags: ['Tags'],
-        summary: 'Get tag details',
-        operationId: 'getTagById',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: { type: 'string', pattern: '^\\d+$' },
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Tag details returned.',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/TagResponse' },
-              },
-            },
-          },
-          '404': { description: 'Tag not found' },
-        },
-      },
-      put: {
-        tags: ['Tags'],
-        summary: 'Update a tag',
-        description: 'Requires the `admin` role.',
-        operationId: 'updateTag',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: { type: 'string', pattern: '^\\d+$' },
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/UpdateTagRequest' },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Tag updated successfully.',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/TagResponse' },
-              },
-            },
-          },
-          '403': { description: 'Forbidden' },
-          '404': { description: 'Tag not found' },
-          '409': { description: 'Tag name already exists' },
-        },
-      },
-      delete: {
-        tags: ['Tags'],
-        summary: 'Delete a tag',
-        description: 'Requires the `admin` role.',
-        operationId: 'deleteTag',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: { type: 'string', pattern: '^\\d+$' },
-          },
-        ],
-        responses: {
-          '204': { description: 'Tag deleted successfully' },
-          '403': { description: 'Forbidden' },
-          '404': { description: 'Tag not found' },
         },
       },
     },
@@ -11915,7 +11771,11 @@ export const openApiDocument = {
                             id: { type: 'string', example: '5' },
                             fullName: { type: 'string', example: 'John Manager' },
                             email: { type: 'string', example: 'manager@example.com' },
-                            positionTitle: { type: 'string', nullable: true, example: 'Senior Manager' },
+                            positionTitle: {
+                              type: 'string',
+                              nullable: true,
+                              example: 'Senior Manager',
+                            },
                           },
                         },
                         createdAt: { type: 'string', format: 'date-time' },
@@ -11942,7 +11802,8 @@ export const openApiDocument = {
                     status: { type: 'string', example: 'fail' },
                     message: {
                       type: 'string',
-                      example: 'Manager must belong to the same department. Please transfer the user to this department first.',
+                      example:
+                        'Manager must belong to the same department. Please transfer the user to this department first.',
                     },
                   },
                 },
