@@ -1,5 +1,4 @@
 import type { Request } from 'express';
-import type { Role } from '@prisma/client';
 
 // ========================
 // API Response
@@ -19,11 +18,16 @@ export interface ApiResponse<T = unknown> {
 export interface JwtPayload {
   userId: string;
   email: string;
-  role: Role;
+  roleCodes: string[];
+}
+
+export interface AuthenticatedUser extends JwtPayload {
+  isActive: boolean;
+  permissionCodes: string[];
 }
 
 export interface AuthRequest extends Request {
-  user?: JwtPayload;
+  user?: AuthenticatedUser;
 }
 
 // ========================
@@ -46,3 +50,13 @@ export interface PaginatedResult<T> {
     totalPages: number;
   };
 }
+
+// ========================
+// Module Exports
+// ========================
+
+export * from './course.types';
+export * from './roadmap.types';
+export * from './enrollment.types';
+export * from './quiz.types';
+export * from './dashboard.types';

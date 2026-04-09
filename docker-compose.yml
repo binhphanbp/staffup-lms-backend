@@ -6,7 +6,7 @@ services:
     image: postgres:16-alpine
     container_name: staffup-db
     restart: unless-stopped
-    env_file: .env
+    env_file: .env.docker
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -31,9 +31,12 @@ services:
       target: development
     container_name: staffup-api
     restart: unless-stopped
-    env_file: .env
+    env_file: .env.docker
     ports:
       - '${PORT:-3000}:${PORT:-3000}'
+      - '5555:5555'
+    environment:
+      - BROWSER=none
     depends_on:
       db:
         condition: service_healthy

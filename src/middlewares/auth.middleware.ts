@@ -4,31 +4,58 @@ import { prisma } from '@/config/database';
 import { AppError } from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 
+interface RoleCodeRecord {
+  role: {
+    code: string;
+    rolePermissions: {
+      permission: {
+        code: string;
+      };
+    }[];
+  };
+}
+
 export const authenticate = async (
   req: AuthRequest,
   _res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // 1) Extract token from Authorization header
-    const authHeader = req.headers.authorization;
-    let token: string | undefined;
+    const db = prisma;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    }
+    const [scheme, token] = req.headers.authorization?.split(' ') ?? [];
 
-    if (!token) {
+    if (scheme !== 'Bearer' || !token) {
       throw new AppError('You are not logged in. Please log in to get access.', 401);
     }
 
-    // 2) Verify the token
     const decoded = verifyToken(token);
 
-    // 3) Check if user still exists
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, email: true, role: true, isActive: true },
+    const user = await db.user.findUnique({
+      where: { id: BigInt(decoded.userId) },
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+        userRoles: {
+          select: {
+            role: {
+              select: {
+                code: true,
+                rolePermissions: {
+                  select: {
+                    permission: {
+                      select: {
+                        code: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -39,11 +66,20 @@ export const authenticate = async (
       throw new AppError('Your account has been deactivated. Please contact support.', 403);
     }
 
-    // 4) Attach user payload to request
+    const permissionCodes = [
+      ...new Set(
+        user.userRoles.flatMap((userRole: RoleCodeRecord) =>
+          userRole.role.rolePermissions.map((rolePermission) => rolePermission.permission.code),
+        ),
+      ),
+    ];
+
     req.user = {
-      userId: user.id,
+      userId: user.id.toString(),
       email: user.email,
-      role: user.role,
+      roleCodes: user.userRoles.map((userRole: RoleCodeRecord) => userRole.role.code),
+      permissionCodes,
+      isActive: user.isActive,
     };
 
     next();
