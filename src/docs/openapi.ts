@@ -5855,6 +5855,293 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/tags`]: {
+      get: {
+        tags: ['Tags'],
+        summary: 'List all tags',
+        description: 'Get all tags with course count',
+        operationId: 'getTags',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Tags retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', example: '1' },
+                          name: { type: 'string', example: 'JavaScript' },
+                          slug: { type: 'string', example: 'javascript' },
+                          courseCount: { type: 'number', example: 5 },
+                          createdAt: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Tags retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Tags'],
+        summary: 'Create tag',
+        description: 'Create a new tag. Slug is auto-generated. Requires admin role.',
+        operationId: 'createTag',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', minLength: 1, maxLength: 100, example: 'TypeScript' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Tag created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '10' },
+                        name: { type: 'string', example: 'TypeScript' },
+                        slug: { type: 'string', example: 'typescript' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: { type: 'string', example: 'Tag created successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Tag with this name already exists',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - Admin role required',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/tags/{id}`]: {
+      get: {
+        tags: ['Tags'],
+        summary: 'Get tag by ID',
+        description: 'Get tag details with course count',
+        operationId: 'getTagById',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Tag ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Tag retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '1' },
+                        name: { type: 'string', example: 'JavaScript' },
+                        slug: { type: 'string', example: 'javascript' },
+                        courseCount: { type: 'number', example: 5 },
+                        createdAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: { type: 'string', example: 'Tag retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Tag not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ['Tags'],
+        summary: 'Update tag',
+        description: 'Update tag name. Slug is auto-regenerated. Requires admin role.',
+        operationId: 'updateTag',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Tag ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', minLength: 1, maxLength: 100, example: 'React.js' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Tag updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '1' },
+                        name: { type: 'string', example: 'React.js' },
+                        slug: { type: 'string', example: 'react-js' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: { type: 'string', example: 'Tag updated successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Tag with this name already exists',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - Admin role required',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Tag not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Tags'],
+        summary: 'Delete tag',
+        description: 'Delete a tag. Cannot delete if tag is linked to courses. Requires admin role.',
+        operationId: 'deleteTag',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Tag ID',
+          },
+        ],
+        responses: {
+          '204': {
+            description: 'Tag deleted successfully',
+          },
+          '400': {
+            description: 'Cannot delete tag linked to courses',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - Admin role required',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Tag not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/roles`]: {
       get: {
         tags: ['Roles'],
@@ -11060,6 +11347,686 @@ export const openApiDocument = {
           },
           '404': {
             description: 'User not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/departments`]: {
+      get: {
+        tags: ['Departments'],
+        summary: 'List all departments',
+        description: 'Get all departments with their managers',
+        operationId: 'getDepartments',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Departments retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', example: '162' },
+                          name: { type: 'string', example: 'Engineering' },
+                          isActive: { type: 'boolean', example: true },
+                          manager: {
+                            type: 'object',
+                            nullable: true,
+                            properties: {
+                              id: { type: 'string', example: '1' },
+                              fullName: { type: 'string', example: 'John Manager' },
+                              email: { type: 'string', example: 'manager@example.com' },
+                            },
+                          },
+                          createdAt: { type: 'string', format: 'date-time' },
+                          updatedAt: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Departments retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Departments'],
+        summary: 'Create department',
+        description: 'Create a new department. Requires admin role.',
+        operationId: 'createDepartment',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', minLength: 2, maxLength: 100, example: 'Marketing' },
+                  isActive: { type: 'boolean', example: true },
+                  managerUserId: {
+                    type: 'string',
+                    nullable: true,
+                    example: '5',
+                    description: 'User ID of the department manager',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Department created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '170' },
+                        name: { type: 'string', example: 'Marketing' },
+                        isActive: { type: 'boolean', example: true },
+                        managerUserId: { type: 'string', nullable: true, example: '5' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: { type: 'string', example: 'Department created successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error or duplicate name',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - Admin role required',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Manager user not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/departments/{id}`]: {
+      get: {
+        tags: ['Departments'],
+        summary: 'Get department by ID',
+        description: 'Get department details including users, roadmaps, and courses',
+        operationId: 'getDepartment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Department ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Department retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '162' },
+                        name: { type: 'string', example: 'Engineering' },
+                        isActive: { type: 'boolean', example: true },
+                        manager: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string' },
+                            fullName: { type: 'string' },
+                            email: { type: 'string' },
+                          },
+                        },
+                        users: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              fullName: { type: 'string' },
+                              email: { type: 'string' },
+                            },
+                          },
+                        },
+                        roadmaps: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              title: { type: 'string' },
+                            },
+                          },
+                        },
+                        ownedCourses: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              title: { type: 'string' },
+                              slug: { type: 'string' },
+                              thumbnailUrl: { type: 'string', nullable: true },
+                              status: { type: 'string' },
+                              estimatedDurationMinutes: { type: 'number', nullable: true },
+                            },
+                          },
+                        },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: { type: 'string', example: 'Department retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Department not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ['Departments'],
+        summary: 'Update department',
+        description: 'Update department details. Requires admin or manager role.',
+        operationId: 'updateDepartment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Department ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', minLength: 2, maxLength: 100 },
+                  isActive: { type: 'boolean' },
+                  managerUserId: { type: 'string', nullable: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Department updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        name: { type: 'string' },
+                        isActive: { type: 'boolean' },
+                        managerUserId: { type: 'string', nullable: true },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: { type: 'string', example: 'Department updated successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error or duplicate name',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Department or manager user not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Departments'],
+        summary: 'Delete department',
+        description:
+          'Delete a department. Requires admin role. Cannot delete if department has users or courses.',
+        operationId: 'deleteDepartment',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Department ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Department deleted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'null' },
+                    message: { type: 'string', example: 'Department deleted successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Cannot delete department with associated users or courses',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - Admin role required',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Department not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/departments/{id}/users`]: {
+      get: {
+        tags: ['Departments'],
+        summary: 'Get department users',
+        description:
+          'Get paginated list of users in a department with optional isActive filter. Admins can view all departments. Managers can only view users in departments they manage.',
+        operationId: 'getDepartmentUsers',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Department ID',
+          },
+          {
+            name: 'page',
+            in: 'query',
+            schema: { type: 'number', default: 1 },
+            description: 'Page number',
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'number', default: 20 },
+            description: 'Items per page',
+          },
+          {
+            name: 'isActive',
+            in: 'query',
+            schema: { type: 'boolean' },
+            description: 'Filter by active status',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Department users retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', example: '185' },
+                              fullName: { type: 'string', example: 'John Doe' },
+                              email: { type: 'string', example: 'john.doe@example.com' },
+                              positionTitle: {
+                                type: 'string',
+                                nullable: true,
+                                example: 'Senior Developer',
+                              },
+                              avatarUrl: {
+                                type: 'string',
+                                nullable: true,
+                                example: 'https://example.com/avatar.jpg',
+                              },
+                              isActive: { type: 'boolean', example: true },
+                              roles: {
+                                type: 'array',
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    code: { type: 'string', example: 'employee' },
+                                    name: { type: 'string', example: 'Employee' },
+                                  },
+                                },
+                              },
+                              createdAt: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        meta: {
+                          type: 'object',
+                          properties: {
+                            total: { type: 'number', example: 50 },
+                            page: { type: 'number', example: 1 },
+                            limit: { type: 'number', example: 20 },
+                            totalPages: { type: 'number', example: 3 },
+                          },
+                        },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Department users retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - Manager can only view users in their own department',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You do not have permission to view users in this department',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Department not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/departments/{id}/manager`]: {
+      post: {
+        tags: ['Departments'],
+        summary: 'Assign manager to department',
+        description:
+          'Assign a user as manager of the department. Manager must be active and belong to the same department. Requires admin role.',
+        operationId: 'assignManager',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Department ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['managerUserId'],
+                properties: {
+                  managerUserId: {
+                    type: 'string',
+                    example: '5',
+                    description: 'User ID to assign as manager',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Manager assigned successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '162' },
+                        name: { type: 'string', example: 'Engineering' },
+                        isActive: { type: 'boolean', example: true },
+                        manager: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '5' },
+                            fullName: { type: 'string', example: 'John Manager' },
+                            email: { type: 'string', example: 'manager@example.com' },
+                            positionTitle: { type: 'string', nullable: true, example: 'Senior Manager' },
+                          },
+                        },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Manager assigned to department successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Manager is not active or not in the same department',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'Manager must belong to the same department. Please transfer the user to this department first.',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - Admin role required',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Department or manager user not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Departments'],
+        summary: 'Remove manager from department',
+        description: 'Remove the current manager from the department. Requires admin role.',
+        operationId: 'removeManager',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Department ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Manager removed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '162' },
+                        name: { type: 'string', example: 'Engineering' },
+                        isActive: { type: 'boolean', example: true },
+                        manager: { type: 'null', example: null },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: {
+                      type: 'string',
+                      example: 'Manager removed from department successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - Admin role required',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Department not found',
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
             },

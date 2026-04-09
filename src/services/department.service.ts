@@ -90,18 +90,57 @@ export class DepartmentService {
   static async getUsersByDepartment(
     id: string,
     options: { page: number; limit: number; isActive?: boolean },
+    requestUserId?: string,
   ) {
     const departmentId = BigInt(id);
-    const { page, limit, isActive } = options;
+    // Ensure page and limit are numbers
+    const page = Number(options.page) || 1;
+    const limit = Number(options.limit) || 10;
+    const { isActive } = options;
 
     // Verify department exists
     const department = await prisma.department.findUnique({
       where: { id: departmentId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, managerUserId: true },
     });
 
     if (!department) {
       throw new AppError('Department not found', 404);
+    }
+
+    // Check permission: if requestUserId is provided, verify access
+    if (requestUserId) {
+      const requestUser = await prisma.user.findUnique({
+        where: { id: BigInt(requestUserId) },
+        select: {
+          id: true,
+          departmentId: true,
+          userRoles: {
+            select: {
+              role: {
+                select: { code: true },
+              },
+            },
+          },
+          managedDepartments: {
+            select: { id: true },
+          },
+        },
+      });
+
+      if (!requestUser) {
+        throw new AppError('Request user not found', 404);
+      }
+
+      const isAdmin = requestUser.userRoles.some((ur: any) => ur.role.code === 'admin');
+      const isManagerOfThisDept = requestUser.managedDepartments.some(
+        (dept: any) => dept.id.toString() === id,
+      );
+
+      // Manager can only view users in their own department
+      if (!isAdmin && !isManagerOfThisDept) {
+        throw new AppError('You do not have permission to view users in this department', 403);
+      }
     }
 
     const where = {
@@ -117,6 +156,8 @@ export class DepartmentService {
           id: true,
           fullName: true,
           email: true,
+          positionTitle: true,
+          avatarUrl: true,
           isActive: true,
           userRoles: {
             select: {
@@ -234,6 +275,112 @@ export class DepartmentService {
         ...(data.managerUserId !== undefined && {
           managerUserId: data.managerUserId ? BigInt(data.managerUserId) : null,
         }),
+      },
+    });
+
+    return updatedDepartment;
+  }
+
+  /**
+   * Assign manager to department
+   */
+  static async assignManager(departmentId: string, managerUserId: string) {
+    const deptId = BigInt(departmentId);
+    const managerId = BigInt(managerUserId);
+
+    // Check department exists
+    const department = await prisma.department.findUnique({
+      where: { id: deptId },
+    });
+
+    if (!department) {
+      throw new AppError('Department not found', 404);
+    }
+
+    // Check manager user exists and is active
+    const manager = await prisma.user.findUnique({
+      where: { id: managerId },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        isActive: true,
+        departmentId: true,
+      },
+    });
+
+    if (!manager) {
+      throw new AppError('Manager user not found', 404);
+    }
+
+    if (!manager.isActive) {
+      throw new AppError('Manager user is not active', 400);
+    }
+
+    // Check if manager belongs to the same department
+    if (manager.departmentId.toString() !== departmentId) {
+      throw new AppError(
+        'Manager must belong to the same department. Please transfer the user to this department first.',
+        400,
+      );
+    }
+
+    // Update department with new manager
+    const updatedDepartment = await prisma.department.update({
+      where: { id: deptId },
+      data: { managerUserId: managerId },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        manager: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            positionTitle: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return updatedDepartment;
+  }
+
+  /**
+   * Remove manager from department
+   */
+  static async removeManager(departmentId: string) {
+    const deptId = BigInt(departmentId);
+
+    // Check department exists
+    const department = await prisma.department.findUnique({
+      where: { id: deptId },
+    });
+
+    if (!department) {
+      throw new AppError('Department not found', 404);
+    }
+
+    // Update department to remove manager
+    const updatedDepartment = await prisma.department.update({
+      where: { id: deptId },
+      data: { managerUserId: null },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        manager: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
       },
     });
 

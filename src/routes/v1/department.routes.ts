@@ -6,6 +6,7 @@ import {
   updateDepartmentSchema,
   departmentIdParamSchema,
   getDepartmentUsersQuerySchema,
+  assignManagerSchema,
 } from '@/schemas/department.schema';
 
 const router: ExpressRouter = Router();
@@ -26,7 +27,22 @@ router
 router
   .route('/:id/users')
   .all(validate(departmentIdParamSchema, 'params'))
-  .get(validate(getDepartmentUsersQuerySchema, 'query'), DepartmentController.getDepartmentUsers);
+  .get(
+    restrictTo('admin', 'manager'),
+    validate(getDepartmentUsersQuerySchema, 'query'),
+    DepartmentController.getDepartmentUsers,
+  );
+
+// POST /:id/manager — assign manager to department
+router
+  .route('/:id/manager')
+  .all(validate(departmentIdParamSchema, 'params'))
+  .post(
+    restrictTo('admin'),
+    validate(assignManagerSchema),
+    DepartmentController.assignManager,
+  )
+  .delete(restrictTo('admin'), DepartmentController.removeManager);
 
 router
   .route('/:id')
