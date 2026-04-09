@@ -38,6 +38,11 @@ export const getDepartmentUsersQuerySchema = z.object({
   isActive: optionalBooleanQuerySchema,
 });
 
+export const assignManagerSchema = z.object({
+  managerUserId: numericIdStringSchema('Manager user ID'),
+});
+
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
 export type UpdateDepartmentInput = z.infer<typeof updateDepartmentSchema>;
 export type GetDepartmentUsersQuery = z.infer<typeof getDepartmentUsersQuerySchema>;
+export type AssignManagerInput = z.infer<typeof assignManagerSchema>;
