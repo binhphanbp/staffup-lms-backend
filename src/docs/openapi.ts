@@ -11896,4 +11896,5 @@ export const openApiDocument = {
       },
     },
   },
+  security: [{ bearerAuth: [] }],
 };
