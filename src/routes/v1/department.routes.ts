@@ -11,17 +11,18 @@ import {
 
 const router: ExpressRouter = Router();
 
-// Apply auth middleware to all department routes
+// GET / — list departments is public (needed for self-registration)
+router.get('/', DepartmentController.getDepartments);
+
+// All other department routes require authentication
 router.use(authenticate);
 
-router
-  .route('/')
-  .get(DepartmentController.getDepartments)
-  .post(
-    restrictTo('admin'),
-    validate(createDepartmentSchema),
-    DepartmentController.createDepartment,
-  );
+router.post(
+  '/',
+  restrictTo('admin'),
+  validate(createDepartmentSchema),
+  DepartmentController.createDepartment,
+);
 
 // GET /:id/users — list users in a department with pagination & isActive filter
 router
@@ -37,11 +38,7 @@ router
 router
   .route('/:id/manager')
   .all(validate(departmentIdParamSchema, 'params'))
-  .post(
-    restrictTo('admin'),
-    validate(assignManagerSchema),
-    DepartmentController.assignManager,
-  )
+  .post(restrictTo('admin'), validate(assignManagerSchema), DepartmentController.assignManager)
   .delete(restrictTo('admin'), DepartmentController.removeManager);
 
 router
