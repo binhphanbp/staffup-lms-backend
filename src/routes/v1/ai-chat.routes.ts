@@ -11,6 +11,7 @@ import {
 } from '@/controllers/ai-chat.controller';
 import { authenticate } from '@/middlewares/auth.middleware';
 import { validate } from '@/middlewares/validate.middleware';
+import { restrictTo } from '@/middlewares/rbac.middleware';
 import {
   createSessionSchema,
   documentParamsSchema,
@@ -82,13 +83,18 @@ router.post('/message/stream', validate(sendMessageSchema), sendMessageStream);
  * @desc    Index all active company documents for RAG
  * @access  Private (Admin only — add authorize middleware as needed)
  */
-router.post('/admin/index-all', indexAllDocuments);
+router.post('/admin/index-all', restrictTo('admin'), indexAllDocuments);
 
 /**
  * @route   POST /api/v1/ai-chat/admin/index/:documentId
  * @desc    Index a specific company document
  * @access  Private (Admin only)
  */
-router.post('/admin/index/:documentId', validate(documentParamsSchema, 'params'), indexDocument);
+router.post(
+  '/admin/index/:documentId',
+  restrictTo('admin'),
+  validate(documentParamsSchema, 'params'),
+  indexDocument,
+);
 
 export default router;

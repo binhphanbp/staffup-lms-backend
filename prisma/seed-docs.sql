@@ -1,0 +1,91 @@
+-- ============================================================
+-- Seed Company Documents for RAG AI Chatbot
+-- Run: cat prisma/seed-docs.sql | docker exec -i staffup-db psql -U admin -d staffup_lms
+-- ============================================================
+
+-- Clear existing data
+DELETE FROM document_chunks;
+DELETE FROM company_documents;
+
+-- 1. NỘI QUY LAO ĐỘNG
+INSERT INTO company_documents (title, content, category, uploaded_by_id, created_at, updated_at)
+VALUES (
+  'Nội quy lao động công ty StaffUp',
+  E'# NỘI QUY LAO ĐỘNG CÔNG TY STAFFUP\n\n## CHƯƠNG I: QUY ĐỊNH CHUNG\n\n### Điều 1: Phạm vi áp dụng\nNội quy này áp dụng cho toàn bộ nhân viên đang làm việc tại Công ty StaffUp, bao gồm nhân viên chính thức, nhân viên thử việc, nhân viên hợp đồng và cộng tác viên.\n\n### Điều 2: Giờ làm việc\n1. **Giờ làm việc chính thức:** Thứ 2 đến Thứ 6, từ 08:00 đến 17:30.\n2. **Giờ nghỉ trưa:** 12:00 – 13:30.\n3. **Tổng thời gian làm việc:** 40 giờ/tuần.\n4. **Chế độ Flexible Time:** Nhân viên có thể đến muộn hoặc về sớm 30 phút so với giờ quy định, với điều kiện đảm bảo đủ 8 tiếng làm việc/ngày và được quản lý trực tiếp đồng ý.\n5. **Làm việc từ xa (Remote Work):** Nhân viên được phép làm việc từ xa tối đa 2 ngày/tuần sau khi hoàn thành thời gian thử việc. Cần đăng ký trước với quản lý ít nhất 1 ngày.\n\n### Điều 3: Chấm công\n1. Nhân viên chấm công bằng hệ thống nhận diện khuôn mặt tại cổng vào.\n2. Đi trễ quá 15 phút mà không có lý do chính đáng sẽ bị trừ 0.5 ngày phép.\n3. Đi trễ quá 3 lần/tháng sẽ bị nhắc nhở bằng văn bản.\n4. Vắng mặt không phép 3 ngày liên tục sẽ bị kỷ luật theo quy định.\n\n### Điều 4: Trang phục\n1. **Thứ 2 - Thứ 5:** Trang phục công sở lịch sự, gọn gàng. Nam mặc áo sơ mi, quần tây. Nữ mặc áo sơ mi hoặc áo kiểu công sở.\n2. **Thứ 6 (Casual Friday):** Được phép mặc trang phục thoải mái nhưng lịch sự. Không được mặc quần đùi, dép lê, áo ba lỗ.\n3. **Ngày có khách hàng đến:** Tất cả nhân viên phải mặc đồng phục công ty.\n\n## CHƯƠNG II: QUYỀN VÀ NGHĨA VỤ CỦA NHÂN VIÊN\n\n### Điều 5: Quyền lợi\n1. Được hưởng đầy đủ lương, thưởng theo hợp đồng lao động.\n2. Được tham gia BHXH, BHYT, BHTN theo quy định pháp luật.\n3. Được cấp trang thiết bị làm việc: laptop, màn hình phụ, bàn phím cơ.\n4. Trợ cấp ăn trưa: 50,000 VND/ngày.\n5. Trợ cấp đi lại: 500,000 VND/tháng (nhân viên ở cách công ty > 10km).\n6. Trợ cấp điện thoại: 200,000 VND/tháng cho nhân viên từ cấp Senior trở lên.\n\n### Điều 6: Nghĩa vụ\n1. Tuân thủ nội quy và các quy định của công ty.\n2. Hoàn thành công việc đúng tiến độ và chất lượng.\n3. Bảo mật thông tin khách hàng và thông tin nội bộ công ty.\n4. Giữ gìn văn minh nơi làm việc.\n5. Tham gia đầy đủ các buổi họp và đào tạo bắt buộc.',
+  'Nội quy',
+  2,
+  NOW(), NOW()
+);
+
+-- 2. CHÍNH SÁCH NGHỈ PHÉP
+INSERT INTO company_documents (title, content, category, uploaded_by_id, created_at, updated_at)
+VALUES (
+  'Chính sách nghỉ phép và ngày lễ',
+  E'# CHÍNH SÁCH NGHỈ PHÉP VÀ NGÀY LỄ\n\n## I. NGHỈ PHÉP NĂM\n\n### 1. Số ngày phép\n- **Nhân viên chính thức:** 12 ngày phép/năm.\n- **Nhân viên từ 5 năm trở lên:** Cộng thêm 1 ngày phép cho mỗi 5 năm làm việc.\n- **Cấp quản lý (Manager trở lên):** 15 ngày phép/năm.\n- **Nhân viên thử việc:** Không có phép năm, chỉ được nghỉ không lương khi có lý do chính đáng.\n\n### 2. Quy trình xin nghỉ phép\n1. Gửi đơn xin phép qua hệ thống HR Portal trước ít nhất **3 ngày làm việc**.\n2. Nghỉ phép trên 3 ngày liên tục cần gửi đơn trước **1 tuần**.\n3. Nghỉ phép trên 5 ngày liên tục cần được phê duyệt bởi **Giám đốc bộ phận**.\n4. Trường hợp khẩn cấp: Thông báo qua điện thoại cho quản lý trực tiếp trước 08:00 sáng và gửi đơn bổ sung trong vòng 24 giờ.\n\n### 3. Chuyển phép năm\n- Được phép chuyển tối đa **5 ngày** phép chưa sử dụng sang năm sau.\n- Phép chuyển sang phải được sử dụng trước **31/03** của năm tiếp theo.\n- Không được quy đổi phép thành tiền.\n\n## II. NGHỈ KHÔNG LƯƠNG\n\n- Nhân viên có thể xin nghỉ không lương khi đã sử dụng hết phép năm.\n- Tối đa **10 ngày** nghỉ không lương/năm.\n- Cần được phê duyệt bởi quản lý trực tiếp và phòng HR.\n- Nghỉ không lương trên 5 ngày liên tục cần có đơn giải trình.\n\n## III. NGHỈ PHÉP ĐẶC BIỆT (CÓ LƯƠNG)\n\n| Loại nghỉ phép | Số ngày |\n|----------------|---------|\n| Kết hôn (bản thân) | 3 ngày |\n| Kết hôn (con) | 1 ngày |\n| Tang (bố mẹ, vợ/chồng, con) | 3 ngày |\n| Tang (ông bà, anh chị em) | 1 ngày |\n| Sinh con (nam) | 5 ngày |\n| Thai sản (nữ) | 6 tháng |\n| Hiến máu | 1 ngày |\n| Chuyển nhà | 1 ngày |\n\n## IV. NGÀY LỄ\n\nNhân viên được nghỉ có lương vào các ngày lễ theo quy định pháp luật:\n1. **Tết Dương lịch:** 1 ngày (01/01)\n2. **Tết Âm lịch:** 5 ngày (từ 29 Tết đến mùng 3)\n3. **Giỗ Tổ Hùng Vương:** 1 ngày (10/3 Âm lịch)\n4. **Ngày Giải phóng:** 1 ngày (30/04)\n5. **Ngày Quốc tế Lao động:** 1 ngày (01/05)\n6. **Quốc khánh:** 2 ngày (02/09 - 03/09)\n\n**Nếu ngày lễ trùng thứ 7 hoặc Chủ nhật:** Được nghỉ bù vào ngày làm việc kế tiếp.',
+  'Chính sách',
+  2,
+  NOW(), NOW()
+);
+
+-- 3. CHÍNH SÁCH LƯƠNG THƯỞNG
+INSERT INTO company_documents (title, content, category, uploaded_by_id, created_at, updated_at)
+VALUES (
+  'Chính sách lương, thưởng và phúc lợi',
+  E'# CHÍNH SÁCH LƯƠNG, THƯỞNG VÀ PHÚC LỢI\n\n## I. CƠ CẤU LƯƠNG\n\n### 1. Thành phần lương\n- **Lương cơ bản:** Theo hợp đồng lao động, trả vào ngày **10 hàng tháng**.\n- **Phụ cấp cố định:** Ăn trưa (50,000/ngày), đi lại, điện thoại.\n- **Phụ cấp chức vụ:** Áp dụng cho cấp Team Lead trở lên.\n- **Thưởng KPI:** Đánh giá hàng quý, chi trả vào tháng cuối quý.\n\n### 2. Kỳ trả lương\n- Lương trả qua chuyển khoản ngân hàng vào ngày **10 hàng tháng**.\n- Nếu ngày 10 trùng ngày nghỉ, lương sẽ được chuyển vào ngày làm việc trước đó.\n- Nhân viên nhận bảng lương chi tiết qua email.\n\n### 3. Tăng lương\n- Xét tăng lương **1 lần/năm** vào tháng 4.\n- Mức tăng lương dựa trên: Kết quả đánh giá KPI, năng lực, thái độ làm việc, và tình hình kinh doanh công ty.\n- Mức tăng tối thiểu: 5%% (đạt KPI). Tối đa: 20%% (xuất sắc).\n\n## II. THƯỞNG\n\n### 1. Thưởng cố định\n- **Thưởng Tết Nguyên đán:** 1 tháng lương (nhân viên đã làm đủ 12 tháng). Tỷ lệ pro-rata cho nhân viên chưa đủ 12 tháng.\n- **Thưởng tháng 13:** 1 tháng lương, trả vào cuối tháng 12.\n- **Thưởng giữa năm:** 0.5 tháng lương cho nhân viên đạt KPI xuất sắc, trả cuối tháng 6.\n\n### 2. Thưởng đột xuất\n- **Thưởng dự án:** 2-10 triệu VND cho các dự án hoàn thành đúng hạn và chất lượng.\n- **Thưởng sáng kiến:** 1-5 triệu VND cho các đề xuất cải tiến được áp dụng.\n- **Thưởng nhân viên xuất sắc quý:** 3 triệu VND + Giấy khen.\n- **Thưởng giới thiệu nhân sự:** 5 triệu VND khi giới thiệu ứng viên được tuyển dụng và qua thử việc.\n\n## III. PHÚC LỢI\n\n### 1. Bảo hiểm\n- BHXH, BHYT, BHTN theo quy định pháp luật.\n- Bảo hiểm sức khỏe bổ sung (gói Premium) cho nhân viên chính thức.\n- Bảo hiểm tai nạn 24/7.\n\n### 2. Đào tạo & Phát triển\n- Ngân sách đào tạo cá nhân: **10 triệu VND/năm** cho các khóa học, chứng chỉ chuyên môn.\n- Tài khoản Udemy Business miễn phí.\n- Hỗ trợ 50%% chi phí học tiếng Anh (tối đa 3 triệu VND/năm).\n\n### 3. Team Building & Hoạt động\n- **Team building quý:** Ngân sách 500,000 VND/người/quý.\n- **Company trip hàng năm:** 2 ngày, công ty chi trả 100%%.\n- **Sinh nhật nhân viên:** Quà tặng 500,000 VND + Team party.\n- **Quà tặng dịp lễ:** Tết, 8/3, 20/10, 1/6 (cho nhân viên có con).\n\n### 4. Thiết bị & Công cụ\n- Laptop theo cấp bậc (MacBook Pro cho Senior+, ThinkPad cho Junior).\n- Màn hình phụ 27 inch.\n- Bàn phím cơ, chuột không dây.\n- Tai nghe chống ồn (cho vị trí Dev/Design).\n- Ghế công thái học.',
+  'Chính sách',
+  2,
+  NOW(), NOW()
+);
+
+-- 4. QUY TRÌNH NGHỈ VIỆC
+INSERT INTO company_documents (title, content, category, uploaded_by_id, created_at, updated_at)
+VALUES (
+  'Quy trình xin nghỉ việc và thôi việc',
+  E'# QUY TRÌNH XIN NGHỈ VIỆC VÀ THÔI VIỆC\n\n## I. THỜI HẠN BÁO TRƯỚC\n\n| Loại hợp đồng | Thời hạn báo trước |\n|----------------|-------------------|\n| Nhân viên thử việc | 3 ngày làm việc |\n| Hợp đồng xác định thời hạn | 30 ngày |\n| Hợp đồng không xác định thời hạn | 45 ngày |\n| Cấp quản lý (Manager+) | 60 ngày |\n\n## II. QUY TRÌNH CHI TIẾT\n\n### Bước 1: Gửi đơn xin nghỉ việc\n- Gửi đơn xin nghỉ việc bằng email cho quản lý trực tiếp và CC phòng HR.\n- Email cần ghi rõ: lý do nghỉ việc, ngày làm việc cuối cùng dự kiến.\n\n### Bước 2: Phỏng vấn giữ chân (Retention Interview)\n- Phòng HR sẽ sắp xếp buổi phỏng vấn trong vòng 3 ngày sau khi nhận đơn.\n\n### Bước 3: Phê duyệt\n- Quản lý trực tiếp phê duyệt đơn trong vòng 5 ngày làm việc.\n- Phòng HR gửi thông báo chính thức về ngày làm việc cuối cùng.\n\n### Bước 4: Bàn giao công việc\n- Lập danh sách chi tiết các công việc đang thực hiện.\n- Chuyển giao toàn bộ tài liệu, file dự án cho người thay thế hoặc quản lý.\n- Hoàn thành bàn giao trước ngày làm việc cuối cùng ít nhất 5 ngày.\n\n### Bước 5: Hoàn tất thủ tục\n- Trả lại tài sản công ty: laptop, thẻ nhân viên, khóa tủ.\n- Phòng HR chuẩn bị: Quyết định thôi việc, Sổ BHXH, Giấy chứng nhận làm việc.\n- Thanh toán lương và phép còn lại trong vòng **14 ngày** sau ngày làm việc cuối.\n\n## III. CHẾ ĐỘ KHI NGHỈ VIỆC\n\n- **Phép năm chưa sử dụng:** Được thanh toán bằng tiền.\n- **Thưởng Tết:** Nếu nghỉ trước Tết, được hưởng thưởng pro-rata theo số tháng đã làm trong năm.\n- **Giấy chứng nhận:** Công ty cấp Giấy chứng nhận kinh nghiệm và Thư giới thiệu (nếu yêu cầu).\n- **Cam kết bảo mật:** Nhân viên tiếp tục chịu ràng buộc bảo mật thông tin trong 2 năm sau khi nghỉ việc.\n\n## IV. SA THẢI\n\nCông ty có quyền sa thải nhân viên trong các trường hợp:\n1. Vi phạm nghiêm trọng nội quy (gian lận, trộm cắp, bạo lực).\n2. Tiết lộ bí mật kinh doanh cho đối thủ cạnh tranh.\n3. Bị kết án hình sự.\n4. Vắng mặt không phép 5 ngày cộng dồn trong 1 tháng hoặc 20 ngày cộng dồn trong 1 năm.',
+  'Quy trình',
+  2,
+  NOW(), NOW()
+);
+
+-- 5. CHÍNH SÁCH BẢO MẬT
+INSERT INTO company_documents (title, content, category, uploaded_by_id, created_at, updated_at)
+VALUES (
+  'Chính sách bảo mật và an toàn thông tin',
+  E'# CHÍNH SÁCH BẢO MẬT VÀ AN TOÀN THÔNG TIN\n\n## I. QUY ĐỊNH CHUNG\n\n### 1. Phân loại thông tin\n- **Công khai (Public):** Thông tin có thể chia sẻ rộng rãi.\n- **Nội bộ (Internal):** Thông tin chỉ chia sẻ trong công ty.\n- **Bảo mật (Confidential):** Thông tin nhạy cảm (lương nhân viên, chiến lược kinh doanh).\n- **Tối mật (Strictly Confidential):** Thông tin tối quan trọng (thông tin khách hàng, mã nguồn sản phẩm).\n\n### 2. Nguyên tắc Need-to-Know\n- Nhân viên chỉ được truy cập thông tin cần thiết cho công việc của mình.\n- Không được chia sẻ thông tin bảo mật với người không có quyền truy cập.\n\n## II. BẢO MẬT TÀI KHOẢN\n\n### 1. Mật khẩu\n- Mật khẩu phải có ít nhất **12 ký tự**, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.\n- Thay đổi mật khẩu mỗi **90 ngày**.\n- Không sử dụng cùng mật khẩu cho nhiều hệ thống.\n\n### 2. Xác thực hai yếu tố (2FA)\n- Bắt buộc bật 2FA cho tất cả hệ thống nội bộ.\n- Sử dụng ứng dụng xác thực (Google Authenticator, Microsoft Authenticator).\n\n### 3. Thiết bị\n- Laptop phải được mã hóa ổ cứng (BitLocker/FileVault).\n- Bật tự động khóa màn hình sau **5 phút** không hoạt động.\n- Không cài đặt phần mềm không được phê duyệt bởi bộ phận IT.\n\n## III. BẢO MẬT DỮ LIỆU KHÁCH HÀNG\n\n1. Dữ liệu khách hàng là tài sản **Tối mật** của công ty.\n2. Không được sao chép, chuyển dữ liệu khách hàng ra khỏi hệ thống công ty.\n3. Tuân thủ quy định PDPA và GDPR khi làm việc với khách hàng quốc tế.\n4. Báo cáo ngay lập tức nếu phát hiện rò rỉ dữ liệu cho bộ phận IT Security qua email security@staffup.vn.\n\n## IV. XỬ LÝ VI PHẠM\n\n| Mức độ vi phạm | Hình thức xử lý |\n|----------------|----------------|\n| Nhẹ (quên khóa màn hình) | Nhắc nhở bằng email |\n| Trung bình (chia sẻ mật khẩu) | Cảnh cáo bằng văn bản, đào tạo lại |\n| Nghiêm trọng (rò rỉ dữ liệu khách hàng) | Đình chỉ công tác, điều tra |\n| Đặc biệt nghiêm trọng (bán thông tin) | Sa thải ngay lập tức, kiện tụng pháp lý |',
+  'Bảo mật',
+  2,
+  NOW(), NOW()
+);
+
+-- 6. QUY TRÌNH ĐÁNH GIÁ HIỆU SUẤT
+INSERT INTO company_documents (title, content, category, uploaded_by_id, created_at, updated_at)
+VALUES (
+  'Quy trình đánh giá hiệu suất và KPI',
+  E'# QUY TRÌNH ĐÁNH GIÁ HIỆU SUẤT VÀ KPI\n\n## I. CHU KỲ ĐÁNH GIÁ\n\n### 1. Đánh giá hàng quý (Quarterly Review)\n- Thực hiện vào tuần cuối cùng của mỗi quý (tháng 3, 6, 9, 12).\n- Đánh giá dựa trên KPI cá nhân đã đặt ra đầu quý.\n- Quản lý trực tiếp thực hiện đánh giá 1-on-1 với nhân viên.\n\n### 2. Đánh giá hàng năm (Annual Review)\n- Thực hiện vào tháng 12 - tháng 1 hàng năm.\n- Tổng hợp 4 quý đánh giá + đánh giá tổng thể.\n- Là cơ sở cho quyết định tăng lương, thăng chức.\n\n## II. TIÊU CHÍ ĐÁNH GIÁ\n\n### 1. KPI Công việc (60%%)\n- Hoàn thành mục tiêu công việc theo OKR đã cam kết.\n- Chất lượng deliverables.\n- Tiến độ hoàn thành dự án.\n\n### 2. Năng lực chuyên môn (20%%)\n- Kỹ năng kỹ thuật/chuyên môn.\n- Khả năng giải quyết vấn đề.\n- Học tập và phát triển bản thân.\n\n### 3. Thái độ và Teamwork (20%%)\n- Tinh thần hợp tác với đồng nghiệp.\n- Tuân thủ nội quy, quy trình.\n- Chủ động, sáng tạo trong công việc.\n\n## III. THANG ĐIỂM\n\n| Mức đánh giá | Điểm | Mô tả |\n|-------------|------|-------|\n| Xuất sắc (Outstanding) | 9-10 | Vượt xa mong đợi |\n| Tốt (Exceeds) | 7-8 | Hoàn thành tốt |\n| Đạt (Meets) | 5-6 | Đáp ứng kỳ vọng |\n| Cần cải thiện (Below) | 3-4 | Chưa đạt mục tiêu |\n| Không đạt (Unsatisfactory) | 1-2 | Không đáp ứng yêu cầu |\n\n## IV. KẾ HOẠCH CẢI THIỆN (PIP)\n\n- Nhân viên có điểm dưới 4 sẽ vào chương trình PIP (Performance Improvement Plan).\n- Thời gian PIP: **90 ngày**.\n- Trong thời gian PIP: Họp 1-on-1 hàng tuần với quản lý.\n- Nếu không cải thiện sau PIP: Xem xét chuyển vị trí hoặc chấm dứt hợp đồng.\n\n## V. THĂNG CHỨC\n\n### Điều kiện xét thăng chức:\n1. Đánh giá KPI 2 quý liên tiếp đạt mức Tốt trở lên (>= 7 điểm).\n2. Làm việc tại vị trí hiện tại ít nhất **12 tháng**.\n3. Hoàn thành các khóa đào tạo bắt buộc cho cấp bậc tiếp theo.\n4. Được đề xuất bởi quản lý trực tiếp.\n5. Được phê duyệt bởi Ban Giám đốc.',
+  'Quy trình',
+  2,
+  NOW(), NOW()
+);
+
+-- 7. QUY ĐỊNH LÀM THÊM GIỜ
+INSERT INTO company_documents (title, content, category, uploaded_by_id, created_at, updated_at)
+VALUES (
+  'Quy định làm thêm giờ và công tác phí',
+  E'# QUY ĐỊNH LÀM THÊM GIỜ VÀ CÔNG TÁC PHÍ\n\n## I. LÀM THÊM GIỜ (OVERTIME)\n\n### 1. Quy định chung\n- Làm thêm giờ phải được quản lý trực tiếp phê duyệt **trước khi thực hiện**.\n- Tối đa **40 giờ** làm thêm/tháng.\n- Tối đa **200 giờ** làm thêm/năm.\n- Không được ép buộc nhân viên làm thêm giờ, trừ trường hợp khẩn cấp.\n\n### 2. Mức lương làm thêm giờ\n| Thời gian | Hệ số lương |\n|-----------|-------------|\n| Ngày thường (sau 17:30) | 150%% |\n| Thứ 7 | 200%% |\n| Chủ nhật | 300%% |\n| Ngày lễ | 400%% |\n\n### 3. Quy trình\n1. Gửi đề xuất OT trên HR Portal trước ít nhất **1 ngày**.\n2. Quản lý phê duyệt trên hệ thống.\n3. Chấm công OT riêng biệt.\n4. Tiền OT được thanh toán cùng kỳ lương hàng tháng.\n\n## II. CÔNG TÁC PHÍ\n\n### 1. Đi công tác nội địa\n| Hạng mục | Mức chi |\n|---------|---------|\n| Vé máy bay | Economy class |\n| Khách sạn | Tối đa 1,500,000 VND/đêm |\n| Ăn uống | 300,000 VND/ngày |\n| Di chuyển nội thành | Tối đa 200,000 VND/ngày |\n| Phụ cấp công tác | 200,000 VND/ngày |\n\n### 2. Đi công tác quốc tế\n| Hạng mục | Mức chi |\n|---------|---------|\n| Vé máy bay | Economy class (Business class cho cấp Director+) |\n| Ăn uống | $50 USD/ngày (Châu Á), $80 USD/ngày (Châu Âu/Mỹ) |\n| Phụ cấp công tác | $30 USD/ngày |\n\n### 3. Quy trình thanh toán\n1. Gửi đề xuất công tác trên HR Portal trước ít nhất **5 ngày làm việc**.\n2. Sau khi công tác: Gửi báo cáo + hóa đơn trong vòng **7 ngày**.\n3. Phòng Kế toán thanh toán trong vòng **14 ngày**.\n4. Tạm ứng công tác phí: Tạm ứng trước 70%% chi phí dự kiến.',
+  'Quy định',
+  2,
+  NOW(), NOW()
+);
+
+-- 8. CHÍNH SÁCH ĐÀO TẠO
+INSERT INTO company_documents (title, content, category, uploaded_by_id, created_at, updated_at)
+VALUES (
+  'Chính sách đào tạo và phát triển nhân sự',
+  E'# CHÍNH SÁCH ĐÀO TẠO VÀ PHÁT TRIỂN NHÂN SỰ\n\n## I. CHƯƠNG TRÌNH ONBOARDING\n\n### 1. Tuần đầu tiên\n- **Ngày 1:** Giới thiệu công ty, văn hóa, giá trị cốt lõi. Nhận tài khoản, thiết bị.\n- **Ngày 2-3:** Đào tạo nội quy, quy trình, công cụ làm việc. Giới thiệu team và mentor.\n- **Ngày 4-5:** Bắt đầu tìm hiểu dự án. Pair programming/shadowing với buddy.\n\n### 2. Tháng đầu tiên\n- Hoàn thành các khóa đào tạo bắt buộc trên StaffUp LMS.\n- Họp 1-on-1 hàng tuần với mentor.\n- Hoàn thành bài kiểm tra kiến thức nội bộ.\n\n### 3. Tháng 2-3 (Giai đoạn thử việc)\n- Nhận task thực tế, bắt đầu đóng góp vào dự án.\n- Đánh giá giữa kỳ thử việc (cuối tháng 2).\n- Cuối tháng 3: Đánh giá kết quả thử việc.\n\n## II. ĐÀO TẠO NỘI BỘ\n\n### 1. Khóa học bắt buộc (Mandatory)\n- **Seri Onboarding:** Cho tất cả nhân viên mới.\n- **Bảo mật thông tin:** Cập nhật hàng năm.\n- **Phòng chống quấy rối:** Cập nhật hàng năm.\n- **Kỹ năng giao tiếp:** Cho tất cả nhân viên.\n\n### 2. Khóa học chuyên môn (Technical)\n- Tổ chức bởi các Senior/Lead trong công ty.\n- **Tech Talk thứ 6:** Mỗi tuần 1 buổi, 30-45 phút.\n- **Workshop tháng:** Chủ đề chuyên sâu, 2-3 giờ.\n- **Code Review Session:** Hàng tuần cho dev team.\n\n### 3. Đào tạo bên ngoài\n- Ngân sách cá nhân: **10 triệu VND/năm**.\n- Quy trình: Đề xuất > Quản lý duyệt > HR duyệt > Đăng ký > Thanh toán.\n- Ưu tiên: Chứng chỉ quốc tế (AWS, Google Cloud, PMP, Scrum Master).\n\n## III. LỘ TRÌNH THĂNG TIẾN\n\n### Engineering Track:\nJunior > Mid > Senior > Lead > Staff > Principal > VP of Engineering\n\n### Management Track:\nIC > Team Lead > Manager > Senior Manager > Director > VP\n\n### Thời gian tối thiểu tại mỗi cấp:\n- Junior > Mid: 1-2 năm\n- Mid > Senior: 2-3 năm\n- Senior > Lead/Manager: 2-3 năm\n- Lead > Staff/Senior Manager: 3-5 năm\n\n## IV. CHƯƠNG TRÌNH MENTOR\n\n- Mỗi nhân viên mới được assign 1 **Buddy** (hỗ trợ hòa nhập) và 1 **Mentor** (hướng dẫn chuyên môn).\n- Buddy: Nhân viên cùng team, đã làm việc >= 6 tháng.\n- Mentor: Senior+ cùng domain, được đào tạo về mentoring skills.\n- Chương trình mentor kéo dài **6 tháng**, họp 1-on-1 mỗi 2 tuần.',
+  'Đào tạo',
+  2,
+  NOW(), NOW()
+);
+
+-- Verify
+SELECT id, title, category, length(content) as content_length FROM company_documents ORDER BY id;
