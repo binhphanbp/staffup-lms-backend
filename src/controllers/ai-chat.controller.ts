@@ -3,6 +3,8 @@ import { catchAsync, sendCreated, sendSuccess } from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 import * as chatService from '@/services/ai-chat.service';
 import * as embeddingService from '@/services/embedding.service';
+import * as learningAssistantService from '@/services/learning-assistant.service';
+import * as aiGradingService from '@/services/ai-grading.service';
 import { logger } from '@/config/logger';
 
 // ========================
@@ -116,5 +118,95 @@ export const indexDocument = catchAsync(
       { documentId: documentId.toString(), chunks },
       'Đánh chỉ mục tài liệu thành công',
     );
+  },
+);
+
+// ========================
+// Admin: Course Lesson Indexing
+// ========================
+
+export const indexLesson = catchAsync(
+  async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const lessonId = BigInt(req.params['lessonId'] as string);
+    const chunks = await embeddingService.indexCourseLesson(lessonId);
+    sendSuccess(res, { lessonId: lessonId.toString(), chunks }, 'Đánh chỉ mục bài học thành công');
+  },
+);
+
+export const indexCourseLessons = catchAsync(
+  async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const courseId = BigInt(req.params['courseId'] as string);
+    const result = await embeddingService.indexCourseLessons(courseId);
+    sendSuccess(
+      res,
+      { courseId: courseId.toString(), ...result },
+      'Đánh chỉ mục tất cả bài học trong khóa học thành công',
+    );
+  },
+);
+
+// ========================
+// Learning Assistant: Course Q&A
+// ========================
+
+export const askCourse = catchAsync(
+  async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const userId = BigInt(req.user!.userId);
+    const courseId = BigInt(req.params['courseId'] as string);
+    const { question } = req.body;
+
+    const result = await learningAssistantService.askAboutCourse(userId, courseId, question);
+    sendSuccess(res, result, 'Trả lời thành công');
+  },
+);
+
+export const askCourseStream = catchAsync(
+  async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const userId = BigInt(req.user!.userId);
+    const courseId = BigInt(req.params['courseId'] as string);
+    const { question } = req.body;
+
+    // SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    try {
+      const stream = learningAssistantService.askAboutCourseStream(userId, courseId, question);
+
+      for await (const event of stream) {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+    } catch (error) {
+      logger.error('Learning Assistant SSE stream error:', error);
+      res.write(
+        `data: ${JSON.stringify({ type: 'error', data: 'Đã xảy ra lỗi. Vui lòng thử lại.' })}\n\n`,
+      );
+    }
+
+    res.end();
+  },
+);
+
+// ========================
+// AI Grading: Essay Auto-Grading
+// ========================
+
+export const gradeEssay = catchAsync(
+  async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const attemptQuestionId = BigInt(req.params['attemptQuestionId'] as string);
+    const result = await aiGradingService.gradeEssay(attemptQuestionId);
+    sendSuccess(res, result, 'Chấm bài tự luận thành công');
+  },
+);
+
+export const gradeQuizEssays = catchAsync(
+  async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const quizAttemptId = BigInt(req.params['quizAttemptId'] as string);
+    const result = await aiGradingService.gradeQuizEssays(quizAttemptId);
+    sendSuccess(res, result, 'Chấm tất cả câu tự luận thành công');
   },
 );

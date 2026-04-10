@@ -23,3 +23,34 @@ export const sessionParamsSchema = z.object({
 export const documentParamsSchema = z.object({
   documentId: z.string().min(1, 'Document ID is required'),
 });
+
+// ========================
+// Learning Assistant Schemas
+// ========================
+
+export const courseParamsSchema = z.object({
+  courseId: z.string().min(1, 'Course ID is required'),
+});
+
+export const lessonParamsSchema = z.object({
+  lessonId: z.string().min(1, 'Lesson ID is required'),
+});
+
+export const courseAskSchema = z.object({
+  question: z
+    .string()
+    .min(1, 'Câu hỏi không được để trống')
+    .max(2000, 'Câu hỏi không được vượt quá 2000 ký tự'),
+});
+
+// ========================
+// AI Grading Schemas
+// ========================
+
+export const attemptQuestionParamsSchema = z.object({
+  attemptQuestionId: z.string().min(1, 'Attempt Question ID is required'),
+});
+
+export const quizAttemptParamsSchema = z.object({
+  quizAttemptId: z.string().min(1, 'Quiz Attempt ID is required'),
+});
