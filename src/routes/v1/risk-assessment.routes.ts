@@ -4,11 +4,15 @@ import {
   getLatestAssessment,
   ingestRiskAssessment,
   listRiskAssessments,
+  calculateSingleRisk,
+  calculateBatchRisk,
 } from '@/controllers/risk-assessment.controller';
 import { authenticate } from '@/middlewares/auth.middleware';
+import { requireRole } from '@/middlewares/rbac.middleware';
 import { validate } from '@/middlewares/validate.middleware';
 import {
   assessmentHistoryQuerySchema,
+  calculateRiskParamsSchema,
   enrollmentIdParamsSchema,
   ingestRiskAssessmentSchema,
   listRiskAssessmentsQuerySchema,
@@ -32,6 +36,25 @@ router.get('/', validate(listRiskAssessmentsQuerySchema, 'query'), listRiskAsses
  * @access Private (Admin/System)
  */
 router.post('/ingest', validate(ingestRiskAssessmentSchema, 'body'), ingestRiskAssessment);
+
+/**
+ * @route POST /api/v1/risk-assessments/calculate/:enrollmentId
+ * @desc Calculate AI risk score for a single enrollment
+ * @access Private (Admin/Manager)
+ */
+router.post(
+  '/calculate/:enrollmentId',
+  requireRole('admin', 'manager'),
+  validate(calculateRiskParamsSchema, 'params'),
+  calculateSingleRisk,
+);
+
+/**
+ * @route POST /api/v1/risk-assessments/calculate-batch
+ * @desc Trigger batch risk calculation for all active enrollments
+ * @access Private (Admin only)
+ */
+router.post('/calculate-batch', requireRole('admin'), calculateBatchRisk);
 
 /**
  * @route GET /api/v1/risk-assessments/enrollment/:enrollmentId/latest

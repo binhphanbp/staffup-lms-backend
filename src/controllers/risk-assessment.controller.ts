@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import type { AuthRequest } from '@/interfaces';
 import { RiskAssessmentService } from '@/services/risk-assessment.service';
+import { runBatchRiskCalculation } from '@/jobs/risk-calculation.job';
 import { catchAsync, sendSuccess } from '@/utils';
 
 export const listRiskAssessments = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -55,4 +56,26 @@ export const getAssessmentHistory = catchAsync(async (req: AuthRequest, res: Res
   );
 
   sendSuccess(res, result, 'Risk assessment history retrieved successfully');
+});
+
+/**
+ * Calculate risk score for a single enrollment using AI prediction engine.
+ * Requires ADMIN or MANAGER role.
+ */
+export const calculateSingleRisk = catchAsync(async (req: AuthRequest, res: Response) => {
+  const enrollmentId = req.params.enrollmentId as string;
+
+  const result = await RiskAssessmentService.calculateRiskScore(enrollmentId);
+
+  sendSuccess(res, result, 'Risk score calculated successfully');
+});
+
+/**
+ * Trigger batch risk calculation for all active enrollments.
+ * Admin-only operation. May take several minutes.
+ */
+export const calculateBatchRisk = catchAsync(async (req: AuthRequest, res: Response) => {
+  const result = await runBatchRiskCalculation();
+
+  sendSuccess(res, result, 'Batch risk calculation completed');
 });

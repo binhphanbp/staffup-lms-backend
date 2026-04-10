@@ -249,8 +249,12 @@ export class DashboardService {
         select: {
           riskLevel: true,
           riskScore: true,
+          reasons: true,
+          interventions: true,
+          calculatedAt: true,
           enrollment: {
             select: {
+              id: true,
               userId: true,
               user: {
                 select: {
@@ -285,11 +289,15 @@ export class DashboardService {
     });
 
     const riskLearnersData = highRiskLearners.map((rl: any) => ({
+      enrollmentId: rl.enrollment.id?.toString(),
       userId: rl.enrollment.userId,
       userName: rl.enrollment.user.fullName,
       riskLevel: rl.riskLevel,
       riskScore: Number(rl.riskScore),
       courseTitle: rl.enrollment.course.title,
+      reasons: rl.reasons ?? null,
+      interventions: rl.interventions ?? null,
+      calculatedAt: rl.calculatedAt ?? null,
     }));
 
     return {

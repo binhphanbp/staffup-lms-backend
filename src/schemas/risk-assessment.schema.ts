@@ -37,3 +37,10 @@ export type ListRiskAssessmentsQuery = z.infer<typeof listRiskAssessmentsQuerySc
 export type IngestRiskAssessmentBody = z.infer<typeof ingestRiskAssessmentSchema>;
 export type EnrollmentIdParams = z.infer<typeof enrollmentIdParamsSchema>;
 export type AssessmentHistoryQuery = z.infer<typeof assessmentHistoryQuerySchema>;
+
+// Params schema for single risk calculation
+export const calculateRiskParamsSchema = z.object({
+  enrollmentId: z.string().regex(/^\d+$/, 'Enrollment ID must be a valid number'),
+});
+
+export type CalculateRiskParams = z.infer<typeof calculateRiskParamsSchema>;
