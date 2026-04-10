@@ -19,6 +19,7 @@ jobs:
             git pull origin main
             cd ..
             docker compose up -d --build backend
+            docker image prune -f
 
       - name: Notify Telegram
         if: always()
