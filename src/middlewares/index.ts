@@ -9,4 +9,4 @@ export {
 } from './rbac.middleware';
 export { validate } from './validate.middleware';
 export { checkActive } from './checkActive.middleware';
-export { excelUpload } from './upload.middleware';
+export { excelUpload, mediaUpload } from './upload.middleware';

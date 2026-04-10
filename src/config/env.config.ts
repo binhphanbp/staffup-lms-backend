@@ -13,6 +13,10 @@ const envSchema = z.object({
   REFRESH_TOKEN_COOKIE_NAME: z.string().min(1).default('staffup_refresh_token'),
   CORS_ORIGIN: z.string().default('*'),
   GEMINI_API_KEY: z.string().min(1, 'GEMINI_API_KEY is required'),
+  CLOUDINARY_CLOUD_NAME: z.string().trim().optional(),
+  CLOUDINARY_API_KEY: z.string().trim().optional(),
+  CLOUDINARY_API_SECRET: z.string().trim().optional(),
+  CLOUDINARY_UPLOAD_FOLDER: z.string().trim().default('staffup-lms'),
   GEMINI_MODEL: z.string().default('gemini-3-flash-preview'),
 });
 
