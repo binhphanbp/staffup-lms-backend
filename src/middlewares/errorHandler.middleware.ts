@@ -68,6 +68,12 @@ export const errorHandler = (
     message = 'Validation failed';
   }
 
+  if (err.name === 'MulterError') {
+    statusCode = 400;
+    status = 'fail';
+    message = err.message;
+  }
+
   const response: ErrorResponse = {
     success: false,
     status,

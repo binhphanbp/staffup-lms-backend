@@ -838,6 +838,79 @@ export const openApiDocument = {
           },
         },
       },
+      UserImportError: {
+        type: 'object',
+        required: ['row', 'email', 'reason'],
+        properties: {
+          row: { type: 'integer', example: 4 },
+          email: { type: 'string', example: 'duplicate@staffup.local' },
+          reason: {
+            type: 'string',
+            example: 'User with email "duplicate@staffup.local" already exists',
+          },
+        },
+      },
+      UserImportCreatedItem: {
+        type: 'object',
+        required: ['row', 'user'],
+        properties: {
+          row: { type: 'integer', example: 2 },
+          user: { $ref: '#/components/schemas/UserResponse' },
+        },
+      },
+      UserImportSummary: {
+        type: 'object',
+        required: ['totalRows', 'successCount', 'errorCount', 'createdDepartmentCount'],
+        properties: {
+          totalRows: { type: 'integer', example: 10 },
+          successCount: { type: 'integer', example: 8 },
+          errorCount: { type: 'integer', example: 2 },
+          createdDepartmentCount: { type: 'integer', example: 1 },
+        },
+      },
+      UserImportResponseData: {
+        type: 'object',
+        required: ['summary', 'createdDepartments', 'createdUsers', 'errors', 'acceptedColumns'],
+        properties: {
+          summary: { $ref: '#/components/schemas/UserImportSummary' },
+          createdDepartments: {
+            type: 'array',
+            items: { type: 'string' },
+            example: ['Engineering'],
+          },
+          createdUsers: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/UserImportCreatedItem' },
+          },
+          errors: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/UserImportError' },
+          },
+          acceptedColumns: {
+            type: 'array',
+            items: { type: 'string' },
+            example: [
+              'fullName | name | hoten',
+              'email',
+              'password',
+              'department | departmentName | phongban',
+              'positionTitle | position | chucvu',
+              'avatarUrl',
+              'roleCode | role',
+              'isActive | active | trangthai',
+            ],
+          },
+        },
+      },
+      UserImportSuccessResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'User import completed' },
+          data: { $ref: '#/components/schemas/UserImportResponseData' },
+        },
+      },
       PaginatedCourses: {
         type: 'object',
         required: ['data', 'meta'],
@@ -10952,6 +11025,67 @@ export const openApiDocument = {
       },
     },
     // ─── Users ────────────────────────────────────────────────────────────────
+    [`${API_PREFIX}/users/import`]: {
+      post: {
+        tags: ['Users'],
+        summary: 'Import users from Excel',
+        description: [
+          'Imports users from an uploaded Excel file.',
+          'Accepts `.xlsx` and `.xls` files via `multipart/form-data` using field name `file`.',
+          'Departments are matched by name and auto-created when missing.',
+          'Import is partial-success: invalid rows are skipped and returned in `errors`.',
+          'Requires admin role.',
+        ].join(' '),
+        operationId: 'importUsers',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: {
+                  file: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Excel file containing user rows to import.',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'User import completed.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/UserImportSuccessResponse' },
+              },
+            },
+          },
+          '400': {
+            description: 'Invalid upload, malformed Excel file, or invalid row data.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/users`]: {
       get: {
         tags: ['Users'],

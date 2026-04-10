@@ -3,6 +3,7 @@ import { UserController } from '@/controllers/user.controller';
 import { authenticate } from '@/middlewares/auth.middleware';
 import { requireRole } from '@/middlewares/rbac.middleware';
 import { validate } from '@/middlewares/validate.middleware';
+import { excelUpload } from '@/middlewares';
 import {
   createUserSchema,
   updateUserSchema,
@@ -13,6 +14,13 @@ import {
 const router: ExpressRouter = Router();
 
 router.use(authenticate);
+
+router.post(
+  '/import',
+  requireRole('admin'),
+  excelUpload.single('file'),
+  UserController.importUsers,
+);
 
 router
   .route('/')
