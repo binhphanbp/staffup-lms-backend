@@ -254,6 +254,7 @@ export const courseDetailQuerySchema = z.object({
     .string()
     .trim()
     .optional()
+    .default('')
     .transform((value) =>
       value
         ? [

@@ -6290,6 +6290,122 @@ export const openApiDocument = {
         },
       },
     },
+    [`${API_PREFIX}/enrollments/courses/{courseId}/self-enroll`]: {
+      post: {
+        tags: ['Enrollments'],
+        summary: 'Self-enroll into a course',
+        description: [
+          'Allows a user to enroll themselves into a published course.',
+          '**Requirements:** Course must have `status = published`.',
+          '**Duplicate prevention:** Returns 409 error if user is already enrolled.',
+          '**Auto-assignment:** The `assignedByUserId` is set to the user themselves.',
+        ].join(' '),
+        operationId: 'selfEnroll',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'courseId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', pattern: '^\\d+$' },
+            description: 'Course ID as numeric string',
+          },
+        ],
+        responses: {
+          '201': {
+            description: 'Successfully enrolled in course',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Successfully enrolled in course' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '456' },
+                        userId: { type: 'string', example: '123' },
+                        courseId: { type: 'string', example: '1' },
+                        status: { type: 'string', example: 'assigned' },
+                        enrolledAt: { type: 'string', format: 'date-time' },
+                        course: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: '1' },
+                            title: { type: 'string', example: 'Introduction to Safety' },
+                            slug: { type: 'string', example: 'introduction-to-safety' },
+                            thumbnailUrl: {
+                              type: 'string',
+                              format: 'uri',
+                              nullable: true,
+                              example: 'https://images.unsplash.com/photo-1234',
+                            },
+                            description: {
+                              type: 'string',
+                              nullable: true,
+                              example: 'Learn basic safety procedures...',
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized - missing or invalid token',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden - course is not published or not available',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'This course is not available for enrollment',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Course not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '409': {
+            description: 'Conflict - user is already enrolled in this course',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    status: { type: 'string', example: 'fail' },
+                    message: {
+                      type: 'string',
+                      example: 'You are already enrolled in this course',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     [`${API_PREFIX}/enrollments/{id}/detail`]: {
       get: {
         tags: ['Enrollments'],
