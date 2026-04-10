@@ -31,4 +31,21 @@ router.get(
   DashboardController.getEmployeeDashboardStats,
 );
 
+// ========================
+// AI Insights
+// ========================
+
+/**
+ * @route   GET /api/v1/dashboard/ai-insights
+ * @desc    Get AI-generated dashboard insights (auto-scoped by role)
+ * @access  Private (Admin, Manager, Trainer)
+ * @query   refresh=true  → force regeneration (bypass 1-hour cache)
+ */
+router.get(
+  '/ai-insights',
+  authenticate,
+  restrictTo('admin', 'manager', 'trainer'),
+  DashboardController.getAiInsights,
+);
+
 export default router;

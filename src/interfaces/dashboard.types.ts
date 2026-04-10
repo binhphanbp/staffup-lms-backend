@@ -62,11 +62,18 @@ export interface ManagerDashboardStats {
     medium: number;
     low: number;
     learners: Array<{
+      enrollmentId: string;
       userId: bigint;
       userName: string;
       riskLevel: string;
       riskScore: number;
       courseTitle: string;
+      /** AI-generated risk factor explanations (Vietnamese) */
+      reasons: unknown | null;
+      /** AI-generated intervention recommendations (Vietnamese) */
+      interventions: unknown | null;
+      /** When the risk score was last calculated */
+      calculatedAt: Date | null;
     }>;
   };
 }

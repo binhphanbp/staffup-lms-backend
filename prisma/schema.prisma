@@ -574,6 +574,9 @@ model AttemptResponse {
   awardedPoints     Decimal            @default(0) @map("awarded_points") @db.Decimal(6, 2)
   gradedByUserId    BigInt?            @map("graded_by_user_id")
   gradedAt          DateTime?          @map("graded_at") @db.Timestamptz(6)
+  aiSuggestedScore  Decimal?           @map("ai_suggested_score") @db.Decimal(6, 2)
+  aiFeedback        Json?              @map("ai_feedback")
+  aiGradedAt        DateTime?          @map("ai_graded_at") @db.Timestamptz(6)
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
