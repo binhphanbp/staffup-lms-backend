@@ -240,3 +240,204 @@ export const searchSimilarChunks = async (
 
   return results;
 };
+
+// ========================
+// Course Lesson Indexing
+// ========================
+
+/**
+ * Index a single course lesson into document_chunks with embeddings.
+ * Stores metadata with courseId, moduleId, lessonTitle, moduleTitle, courseTitle.
+ */
+export const indexCourseLesson = async (lessonId: bigint): Promise<number> => {
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: {
+      module: {
+        include: {
+          course: {
+            select: { id: true, title: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!lesson) {
+    logger.warn(`Lesson ${lessonId} not found, skipping`);
+    return 0;
+  }
+
+  if (!lesson.contentText || lesson.contentText.trim().length === 0) {
+    logger.warn(`Lesson ${lessonId} ("${lesson.title}") has no contentText, skipping`);
+    return 0;
+  }
+
+  // Delete existing chunks for this lesson
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM document_chunks WHERE source_type = 'course_lesson' AND source_id = $1`,
+    lessonId,
+  );
+
+  const chunks = chunkText(lesson.contentText);
+
+  if (chunks.length === 0) {
+    return 0;
+  }
+
+  const metadata = {
+    lessonTitle: lesson.title,
+    moduleTitle: lesson.module.title,
+    moduleId: lesson.module.id.toString(),
+    courseTitle: lesson.module.course.title,
+    courseId: lesson.module.course.id.toString(),
+    lessonType: lesson.lessonType,
+  };
+
+  const chunkDataList: ChunkData[] = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const embedding = await generateEmbedding(chunks[i]);
+
+    chunkDataList.push({
+      sourceType: 'course_lesson',
+      sourceId: lessonId,
+      chunkIndex: i,
+      content: chunks[i],
+      metadata,
+      embedding,
+    });
+
+    // Rate limit: small delay between embedding calls
+    if (i < chunks.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+
+  // Insert chunks with embeddings
+  for (const chunk of chunkDataList) {
+    const embeddingStr = `[${chunk.embedding.join(',')}]`;
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO document_chunks (source_type, source_id, chunk_index, content, metadata, embedding, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::vector, NOW(), NOW())
+       ON CONFLICT (source_type, source_id, chunk_index) 
+       DO UPDATE SET content = $4, metadata = $5::jsonb, embedding = $6::vector, updated_at = NOW()`,
+      chunk.sourceType,
+      chunk.sourceId,
+      chunk.chunkIndex,
+      chunk.content,
+      JSON.stringify(chunk.metadata),
+      embeddingStr,
+    );
+  }
+
+  logger.info(
+    `✅ Indexed lesson "${lesson.title}" (Module: "${lesson.module.title}", Course: "${lesson.module.course.title}") → ${chunkDataList.length} chunks`,
+  );
+  return chunkDataList.length;
+};
+
+/**
+ * Index all lessons in a course that have contentText.
+ */
+export const indexCourseLessons = async (
+  courseId: bigint,
+): Promise<{ indexed: number; totalChunks: number; skipped: number }> => {
+  const lessons = await prisma.lesson.findMany({
+    where: {
+      module: { courseId },
+      contentText: { not: null },
+    },
+    select: { id: true, title: true },
+    orderBy: [{ module: { orderIndex: 'asc' } }, { orderIndex: 'asc' }],
+  });
+
+  logger.info(`📚 Found ${lessons.length} lessons with content in course ${courseId}`);
+
+  let totalChunks = 0;
+  let indexed = 0;
+  let skipped = 0;
+
+  for (const lesson of lessons) {
+    try {
+      const chunks = await indexCourseLesson(lesson.id);
+      if (chunks > 0) {
+        totalChunks += chunks;
+        indexed++;
+      } else {
+        skipped++;
+      }
+    } catch (error) {
+      logger.error(`❌ Failed to index lesson "${lesson.title}":`, error);
+      skipped++;
+    }
+  }
+
+  logger.info(
+    `✅ Course indexing complete: ${indexed} lessons indexed, ${totalChunks} chunks, ${skipped} skipped`,
+  );
+  return { indexed, totalChunks, skipped };
+};
+
+// ========================
+// Scoped Vector Search
+// ========================
+
+/**
+ * Search for similar document chunks filtered by sourceType and optionally by courseId.
+ * Used by Learning Assistant to scope results to a specific course's lessons.
+ */
+export const searchSimilarChunksScoped = async (
+  query: string,
+  sourceType: string,
+  courseId?: bigint,
+  topK: number = TOP_K_RESULTS,
+): Promise<SearchResult[]> => {
+  const queryEmbedding = await generateEmbedding(query);
+  const embeddingStr = `[${queryEmbedding.join(',')}]`;
+
+  if (courseId) {
+    // Filter by sourceType AND courseId in metadata
+    const results = await prisma.$queryRawUnsafe<SearchResult[]>(
+      `SELECT 
+         id, 
+         source_type AS "sourceType", 
+         source_id AS "sourceId", 
+         content, 
+         metadata,
+         1 - (embedding <=> $1::vector) AS similarity
+       FROM document_chunks
+       WHERE source_type = $2
+         AND metadata->>'courseId' = $3
+       ORDER BY embedding <=> $1::vector
+       LIMIT $4`,
+      embeddingStr,
+      sourceType,
+      courseId.toString(),
+      topK,
+    );
+
+    return results;
+  }
+
+  // Filter by sourceType only
+  const results = await prisma.$queryRawUnsafe<SearchResult[]>(
+    `SELECT 
+       id, 
+       source_type AS "sourceType", 
+       source_id AS "sourceId", 
+       content, 
+       metadata,
+       1 - (embedding <=> $1::vector) AS similarity
+     FROM document_chunks
+     WHERE source_type = $2
+     ORDER BY embedding <=> $1::vector
+     LIMIT $3`,
+    embeddingStr,
+    sourceType,
+    topK,
+  );
+
+  return results;
+};
