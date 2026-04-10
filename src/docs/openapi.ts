@@ -82,6 +82,11 @@ export const openApiDocument = {
       description:
         'Question management within a bank. Supports single_choice, multiple_choice, and essay types.',
     },
+    {
+      name: 'Media',
+      description:
+        'Media upload endpoints for Cloudinary-backed files such as videos and thumbnails.',
+    },
   ],
   components: {
     securitySchemes: {
@@ -116,6 +121,226 @@ export const openApiDocument = {
           success: { type: 'boolean', example: true },
           message: { type: 'string', example: 'Staffup LMS API is running' },
           timestamp: { type: 'string', format: 'date-time' },
+        },
+      },
+      MediaUploadResponseData: {
+        type: 'object',
+        required: [
+          'assetId',
+          'publicId',
+          'version',
+          'resourceType',
+          'bytes',
+          'originalFilename',
+          'secureUrl',
+          'playbackUrl',
+        ],
+        properties: {
+          assetId: {
+            type: 'string',
+            example: '3b8f0a7f2fb9d7f22fd0e0c6d1f6ce12',
+          },
+          publicId: {
+            type: 'string',
+            example: 'staffup-lms/courses/module-1/lesson-1',
+          },
+          version: {
+            type: 'integer',
+            example: 1712750400,
+          },
+          width: {
+            type: 'integer',
+            nullable: true,
+            example: 1920,
+          },
+          height: {
+            type: 'integer',
+            nullable: true,
+            example: 1080,
+          },
+          format: {
+            type: 'string',
+            nullable: true,
+            example: 'mp4',
+          },
+          resourceType: {
+            type: 'string',
+            example: 'video',
+          },
+          bytes: {
+            type: 'integer',
+            example: 10485760,
+          },
+          duration: {
+            type: 'number',
+            nullable: true,
+            example: 326.42,
+          },
+          originalFilename: {
+            type: 'string',
+            example: 'lesson-1.mp4',
+          },
+          secureUrl: {
+            type: 'string',
+            format: 'uri',
+            example:
+              'https://res.cloudinary.com/demo/video/upload/v1712750400/staffup-lms/courses/module-1/lesson-1.mp4',
+          },
+          playbackUrl: {
+            type: 'string',
+            format: 'uri',
+            example:
+              'https://res.cloudinary.com/demo/video/upload/v1712750400/staffup-lms/courses/module-1/lesson-1.mp4',
+          },
+          folder: {
+            type: 'string',
+            nullable: true,
+            example: 'staffup-lms/courses/module-1',
+          },
+        },
+      },
+      MediaUploadSuccessResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'File uploaded successfully' },
+          data: {
+            $ref: '#/components/schemas/MediaUploadResponseData',
+          },
+        },
+      },
+      MediaListItem: {
+        type: 'object',
+        required: [
+          'assetId',
+          'publicId',
+          'version',
+          'resourceType',
+          'bytes',
+          'secureUrl',
+          'playbackUrl',
+        ],
+        properties: {
+          assetId: { type: 'string', example: '3b8f0a7f2fb9d7f22fd0e0c6d1f6ce12' },
+          publicId: {
+            type: 'string',
+            example: 'staffup-lms/courses/25/lesson-01-intro',
+          },
+          version: { type: 'integer', example: 1712750400 },
+          width: { type: 'integer', nullable: true, example: 1920 },
+          height: { type: 'integer', nullable: true, example: 1080 },
+          format: { type: 'string', nullable: true, example: 'mp4' },
+          resourceType: { type: 'string', example: 'video' },
+          bytes: { type: 'integer', example: 10485760 },
+          duration: { type: 'number', nullable: true, example: 326.42 },
+          createdAt: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time',
+            example: '2026-04-11T08:00:00Z',
+          },
+          secureUrl: {
+            type: 'string',
+            format: 'uri',
+            example:
+              'https://res.cloudinary.com/demo/video/upload/v1712750400/staffup-lms/courses/25/lesson-01-intro.mp4',
+          },
+          playbackUrl: {
+            type: 'string',
+            format: 'uri',
+            example:
+              'https://res.cloudinary.com/demo/video/upload/v1712750400/staffup-lms/courses/25/lesson-01-intro.mp4',
+          },
+          folder: {
+            type: 'string',
+            nullable: true,
+            example: 'staffup-lms/courses/25',
+          },
+          originalFilename: {
+            type: 'string',
+            nullable: true,
+            example: 'lesson-01-intro.mp4',
+          },
+        },
+      },
+      MediaListResponseData: {
+        type: 'object',
+        required: ['items', 'folder', 'resourceType', 'nextCursor'],
+        properties: {
+          items: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/MediaListItem' },
+          },
+          nextCursor: {
+            type: 'string',
+            nullable: true,
+            example: '6b7d8d9f0a1b2c3d4e',
+          },
+          folder: {
+            type: 'string',
+            example: 'staffup-lms/courses/25',
+          },
+          resourceType: {
+            type: 'string',
+            example: 'video',
+          },
+        },
+      },
+      MediaListSuccessResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Media retrieved successfully' },
+          data: {
+            $ref: '#/components/schemas/MediaListResponseData',
+          },
+        },
+      },
+      MediaFolderItem: {
+        type: 'object',
+        required: ['name', 'path'],
+        properties: {
+          name: {
+            type: 'string',
+            example: 'khóa học vuejs',
+          },
+          path: {
+            type: 'string',
+            example: 'khóa học vuejs',
+          },
+        },
+      },
+      MediaFolderListResponseData: {
+        type: 'object',
+        required: ['items', 'nextCursor', 'path'],
+        properties: {
+          items: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/MediaFolderItem' },
+          },
+          nextCursor: {
+            type: 'string',
+            nullable: true,
+            example: null,
+          },
+          path: {
+            type: 'string',
+            nullable: true,
+            example: 'khóa học vuejs',
+          },
+        },
+      },
+      MediaFolderListSuccessResponse: {
+        type: 'object',
+        required: ['success', 'message', 'data'],
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Media folders retrieved successfully' },
+          data: {
+            $ref: '#/components/schemas/MediaFolderListResponseData',
+          },
         },
       },
       RegisterRequest: {
@@ -11079,6 +11304,256 @@ export const openApiDocument = {
           },
           '403': {
             description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/media/upload`]: {
+      post: {
+        tags: ['Media'],
+        summary: 'Upload media file to Cloudinary',
+        description: [
+          'Uploads a single file to Cloudinary using `multipart/form-data` with field name `file`.',
+          'Supported files include video, image, PDF, ZIP, Word, PowerPoint, and Excel.',
+          'Use the returned `secureUrl` or `playbackUrl` in course `thumbnailUrl`, lesson `videoUrl`, or lesson resource `fileUrl`.',
+          'Requires `course.update` permission.',
+        ].join(' '),
+        operationId: 'uploadMedia',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: {
+                  file: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'File to upload.',
+                  },
+                  folder: {
+                    type: 'string',
+                    example: 'staffup-lms/courses/module-1',
+                    description: 'Optional Cloudinary folder override.',
+                  },
+                  publicId: {
+                    type: 'string',
+                    example: 'lesson-1',
+                    description: 'Optional Cloudinary public ID without file extension.',
+                  },
+                  resourceType: {
+                    type: 'string',
+                    enum: ['auto', 'image', 'video', 'raw'],
+                    example: 'video',
+                    description:
+                      'Optional Cloudinary resource type. When omitted, the backend infers it from the MIME type.',
+                  },
+                  overwrite: {
+                    oneOf: [{ type: 'boolean' }, { type: 'string', enum: ['true', 'false'] }],
+                    example: false,
+                    description: 'Whether to overwrite an existing asset with the same public ID.',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'File uploaded successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/MediaUploadSuccessResponse' },
+              },
+            },
+          },
+          '400': {
+            description:
+              'Invalid upload request, unsupported file type, or invalid multipart fields.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '500': {
+            description: 'Cloudinary configuration or upstream upload failure.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/media`]: {
+      get: {
+        tags: ['Media'],
+        summary: 'List media files from a Cloudinary folder',
+        description: [
+          'Returns uploaded assets from a Cloudinary folder prefix.',
+          'Use this to fetch all videos of a course folder after manual upload or API upload.',
+          'Defaults to `resourceType=video`.',
+        ].join(' '),
+        operationId: 'listMediaByFolder',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'folder',
+            in: 'query',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Cloudinary folder prefix, for example `staffup-lms/courses/25`.',
+          },
+          {
+            name: 'resourceType',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              enum: ['image', 'video', 'raw'],
+              default: 'video',
+            },
+            description: 'Cloudinary resource type filter.',
+          },
+          {
+            name: 'maxResults',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 30,
+            },
+            description: 'Maximum number of assets to return per page.',
+          },
+          {
+            name: 'nextCursor',
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Pagination cursor returned by the previous request.',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Media retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/MediaListSuccessResponse' },
+              },
+            },
+          },
+          '400': {
+            description: 'Invalid query parameters.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '500': {
+            description: 'Cloudinary configuration or upstream API failure.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/media/folders`]: {
+      get: {
+        tags: ['Media'],
+        summary: 'List Cloudinary folders',
+        description: [
+          'Returns folder names from Cloudinary.',
+          'If `path` is omitted, the API returns root folders.',
+          'If `path` is provided, the API returns subfolders inside that folder.',
+        ].join(' '),
+        operationId: 'listMediaFolders',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'path',
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Optional parent folder path, for example `khóa học vuejs`.',
+          },
+          {
+            name: 'maxResults',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 100,
+            },
+            description: 'Maximum number of folders to return.',
+          },
+          {
+            name: 'nextCursor',
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Pagination cursor returned by the previous request.',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Media folders retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/MediaFolderListSuccessResponse' },
+              },
+            },
+          },
+          '400': {
+            description: 'Invalid query parameters.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Forbidden',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '500': {
+            description: 'Cloudinary configuration or upstream API failure.',
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
             },
