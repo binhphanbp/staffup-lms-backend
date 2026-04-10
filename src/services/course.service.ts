@@ -761,7 +761,10 @@ export class CourseService {
       ownerDepartmentId,
     } = query;
 
-    const skip = (page - 1) * limit;
+    // Ensure page and limit are numbers
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const skip = (pageNum - 1) * limitNum;
     const where: any = {};
 
     if (status) {
@@ -791,7 +794,7 @@ export class CourseService {
       this.db.course.findMany({
         where,
         skip,
-        take: limit,
+        take: limitNum,
         orderBy: { [sortBy]: sortOrder },
         include: {
           trainerUser: {
@@ -829,9 +832,9 @@ export class CourseService {
       data: courses.map((course: any) => this.mapCourseListItem(course)),
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
       },
     };
   }
