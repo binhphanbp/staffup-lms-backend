@@ -17,10 +17,15 @@ const app: Express = express();
 // Security headers
 app.use(helmet());
 
-// CORS
+// CORS — `credentials: true` forbids wildcard origin per spec.
+// When CORS_ORIGIN is '*', reflect the request origin (`true`).
+// Otherwise split comma-separated origins into an array.
+const corsOrigin: cors.CorsOptions['origin'] =
+  env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',').map((o) => o.trim());
+
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: corsOrigin,
     credentials: true,
   }),
 );
