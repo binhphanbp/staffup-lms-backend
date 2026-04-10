@@ -87,6 +87,33 @@ export const openApiDocument = {
       description:
         'Media upload endpoints for Cloudinary-backed files such as videos and thumbnails.',
     },
+    {
+      name: 'Departments',
+      description: 'Department management — CRUD, user listing, and manager assignment.',
+    },
+    {
+      name: 'AI Chat',
+      description: 'Company knowledge RAG chatbot — session management, messaging, and streaming.',
+    },
+    {
+      name: 'AI Learning Assistant',
+      description:
+        'Course-scoped learning assistant — students ask questions about course content.',
+    },
+    {
+      name: 'AI Grading',
+      description: 'AI-powered auto-grading for essay questions using Gemini.',
+    },
+    {
+      name: 'AI Admin',
+      description:
+        'Admin tools for indexing company documents and course lessons into the RAG vector store.',
+    },
+    {
+      name: 'Company Documents',
+      description:
+        'Company policy document CRUD — admin manages documents used by the RAG chatbot.',
+    },
   ],
   components: {
     securitySchemes: {
@@ -2365,6 +2392,440 @@ export const openApiDocument = {
           content: { type: 'string', minLength: 1, maxLength: 5000, example: 'London' },
           isCorrect: { type: 'boolean', example: false },
           orderIndex: { type: 'integer', minimum: 1, example: 2 },
+        },
+      },
+
+      // ========================
+      // AI Chat Schemas
+      // ========================
+      ChatSession: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: '1' },
+          userId: { type: 'string', example: '3' },
+          title: { type: 'string', nullable: true, example: 'Hỏi về chính sách công ty' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      ChatMessage: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: '1' },
+          sessionId: { type: 'string', example: '1' },
+          role: { type: 'string', enum: ['user', 'assistant'], example: 'user' },
+          content: { type: 'string', example: 'Chính sách nghỉ phép của công ty như thế nào?' },
+          sources: {
+            type: 'array',
+            nullable: true,
+            items: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                similarity: { type: 'number' },
+              },
+            },
+          },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      SendMessageRequest: {
+        type: 'object',
+        required: ['message'],
+        properties: {
+          message: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 2000,
+            example: 'Chính sách nghỉ phép của công ty như thế nào?',
+          },
+          sessionId: {
+            type: 'string',
+            nullable: true,
+            description: 'Session ID to continue conversation. Null to create new session.',
+            example: '1',
+          },
+        },
+      },
+      CreateSessionRequest: {
+        type: 'object',
+        properties: {
+          title: {
+            type: 'string',
+            maxLength: 200,
+            example: 'Hỏi về quy trình onboarding',
+          },
+        },
+      },
+      CourseAskRequest: {
+        type: 'object',
+        required: ['question'],
+        properties: {
+          question: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 2000,
+            example: 'Bài học này nói về gì?',
+          },
+        },
+      },
+
+      // ========================
+      // Company Document Schemas
+      // ========================
+      CompanyDocument: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: '1' },
+          title: { type: 'string', example: 'Chính sách nghỉ phép 2026' },
+          content: { type: 'string', example: 'Nhân viên được nghỉ phép tối đa 12 ngày/năm...' },
+          category: { type: 'string', nullable: true, example: 'HR Policy' },
+          isActive: { type: 'boolean', example: true },
+          createdById: { type: 'string', example: '1' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateCompanyDocumentRequest: {
+        type: 'object',
+        required: ['title', 'content'],
+        properties: {
+          title: { type: 'string', minLength: 2, maxLength: 300, example: 'Chính sách bảo mật' },
+          content: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 100000,
+            example: 'Nội dung chính sách bảo mật thông tin...',
+          },
+          category: { type: 'string', maxLength: 100, example: 'Security' },
+          isActive: { type: 'boolean', example: true },
+        },
+      },
+      UpdateCompanyDocumentRequest: {
+        type: 'object',
+        minProperties: 1,
+        description: 'At least one field must be provided.',
+        properties: {
+          title: { type: 'string', minLength: 2, maxLength: 300 },
+          content: { type: 'string', minLength: 1, maxLength: 100000 },
+          category: { type: 'string', maxLength: 100, nullable: true },
+          isActive: { type: 'boolean' },
+        },
+      },
+
+      // ========================
+      // Dashboard Schemas
+      // ========================
+      AdminDashboardStats: {
+        type: 'object',
+        properties: {
+          users: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 150 },
+              active: { type: 'integer', example: 120 },
+              inactive: { type: 'integer', example: 30 },
+              byRole: {
+                type: 'object',
+                properties: {
+                  admin: { type: 'integer', example: 2 },
+                  trainer: { type: 'integer', example: 10 },
+                  employee: { type: 'integer', example: 100 },
+                  student: { type: 'integer', example: 38 },
+                },
+              },
+            },
+          },
+          courses: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 25 },
+              published: { type: 'integer', example: 18 },
+              draft: { type: 'integer', example: 5 },
+              archived: { type: 'integer', example: 2 },
+            },
+          },
+          enrollments: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 500 },
+              assigned: { type: 'integer', example: 100 },
+              inProgress: { type: 'integer', example: 200 },
+              completed: { type: 'integer', example: 150 },
+              cancelled: { type: 'integer', example: 30 },
+              expired: { type: 'integer', example: 20 },
+              completionRate: { type: 'number', example: 30.0 },
+            },
+          },
+          riskSummary: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 50 },
+              high: { type: 'integer', example: 5 },
+              medium: { type: 'integer', example: 15 },
+              low: { type: 'integer', example: 30 },
+            },
+          },
+        },
+      },
+      ManagerDashboardStats: {
+        type: 'object',
+        properties: {
+          learners: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 30 },
+              active: { type: 'integer', example: 25 },
+              inactive: { type: 'integer', example: 5 },
+            },
+          },
+          overdue: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 3 },
+              enrollments: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    userId: { type: 'string' },
+                    userName: { type: 'string', example: 'Nguyễn Văn A' },
+                    courseId: { type: 'string' },
+                    courseTitle: { type: 'string', example: 'Bảo mật thông tin' },
+                    dueAt: { type: 'string', format: 'date-time' },
+                    daysOverdue: { type: 'integer', example: 5 },
+                  },
+                },
+              },
+            },
+          },
+          roadmapCompletion: {
+            type: 'object',
+            properties: {
+              totalAssignments: { type: 'integer', example: 20 },
+              completed: { type: 'integer', example: 8 },
+              inProgress: { type: 'integer', example: 10 },
+              assigned: { type: 'integer', example: 2 },
+              completionRate: { type: 'number', example: 40.0 },
+            },
+          },
+          risks: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 10 },
+              high: { type: 'integer', example: 2 },
+              medium: { type: 'integer', example: 3 },
+              low: { type: 'integer', example: 5 },
+              learners: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    enrollmentId: { type: 'string' },
+                    userId: { type: 'string' },
+                    userName: { type: 'string' },
+                    riskLevel: { type: 'string', enum: ['high', 'medium', 'low'] },
+                    riskScore: { type: 'number', example: 78 },
+                    courseTitle: { type: 'string' },
+                    reasons: { nullable: true },
+                    interventions: { nullable: true },
+                    calculatedAt: { type: 'string', format: 'date-time', nullable: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      TrainerDashboardStats: {
+        type: 'object',
+        properties: {
+          courses: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 5 },
+              published: { type: 'integer', example: 3 },
+              draft: { type: 'integer', example: 2 },
+              archived: { type: 'integer', example: 0 },
+            },
+          },
+          pendingGrading: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 4 },
+              quizAttempts: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    attemptId: { type: 'string' },
+                    studentId: { type: 'string' },
+                    studentName: { type: 'string', example: 'Trần Thị B' },
+                    courseId: { type: 'string' },
+                    courseTitle: { type: 'string' },
+                    quizTitle: { type: 'string', example: 'Bài kiểm tra giữa kỳ' },
+                    submittedAt: { type: 'string', format: 'date-time' },
+                    daysWaiting: { type: 'integer', example: 2 },
+                  },
+                },
+              },
+            },
+          },
+          enrollments: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 80 },
+              assigned: { type: 'integer', example: 15 },
+              inProgress: { type: 'integer', example: 40 },
+              completed: { type: 'integer', example: 25 },
+              averageProgress: { type: 'number', example: 55.3 },
+            },
+          },
+          passRate: {
+            type: 'object',
+            properties: {
+              totalAttempts: { type: 'integer', example: 50 },
+              passed: { type: 'integer', example: 35 },
+              failed: { type: 'integer', example: 15 },
+              passPercentage: { type: 'number', example: 70.0 },
+            },
+          },
+        },
+      },
+      EmployeeDashboardStats: {
+        type: 'object',
+        properties: {
+          myCourses: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 5 },
+              assigned: { type: 'integer', example: 1 },
+              inProgress: { type: 'integer', example: 2 },
+              completed: { type: 'integer', example: 2 },
+              courses: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    enrollmentId: { type: 'string' },
+                    courseId: { type: 'string' },
+                    courseTitle: { type: 'string' },
+                    courseThumbnail: { type: 'string', nullable: true },
+                    status: { type: 'string', enum: ['assigned', 'in_progress', 'completed'] },
+                    progress: { type: 'number', example: 75 },
+                    dueAt: { type: 'string', format: 'date-time', nullable: true },
+                    enrolledAt: { type: 'string', format: 'date-time' },
+                    completedAt: { type: 'string', format: 'date-time', nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          myRoadmaps: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer' },
+              assigned: { type: 'integer' },
+              inProgress: { type: 'integer' },
+              completed: { type: 'integer' },
+              roadmaps: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    assignmentId: { type: 'string' },
+                    roadmapId: { type: 'string' },
+                    roadmapTitle: { type: 'string' },
+                    targetPosition: { type: 'string', nullable: true },
+                    status: { type: 'string' },
+                    totalCourses: { type: 'integer' },
+                    completedCourses: { type: 'integer' },
+                    progressPercent: { type: 'number' },
+                    assignedAt: { type: 'string', format: 'date-time' },
+                    completedAt: { type: 'string', format: 'date-time', nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          progressSummary: {
+            type: 'object',
+            properties: {
+              totalTimeSpentMinutes: { type: 'integer', example: 1200 },
+              completedLessons: { type: 'integer', example: 45 },
+              averageProgress: { type: 'number', example: 68 },
+              recentActivity: { type: 'string', format: 'date-time', nullable: true },
+              upcomingDeadlines: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    courseId: { type: 'string' },
+                    courseTitle: { type: 'string' },
+                    dueAt: { type: 'string', format: 'date-time' },
+                    daysRemaining: { type: 'integer', example: 5 },
+                    currentProgress: { type: 'number', example: 40 },
+                  },
+                },
+              },
+            },
+          },
+          certificates: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer', example: 2 },
+              certificates: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    certificateId: { type: 'string' },
+                    certificateCode: { type: 'string', example: 'CERT-2026-001' },
+                    courseId: { type: 'string' },
+                    courseTitle: { type: 'string' },
+                    issuedAt: { type: 'string', format: 'date-time' },
+                    pdfUrl: { type: 'string', nullable: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+
+      // ========================
+      // AI Insights Schemas
+      // ========================
+      AiInsightItem: {
+        type: 'object',
+        required: ['type', 'title', 'description', 'suggestion'],
+        properties: {
+          type: {
+            type: 'string',
+            enum: ['warning', 'success', 'info', 'action'],
+            example: 'warning',
+          },
+          title: { type: 'string', example: 'Tỷ lệ hoàn thành thấp' },
+          description: {
+            type: 'string',
+            example: 'Khóa "Bảo mật thông tin" completion chỉ 23% — thấp hơn TB 45%.',
+          },
+          suggestion: {
+            type: 'string',
+            example: 'Cân nhắc chia nhỏ nội dung hoặc thêm quiz tương tác.',
+          },
+        },
+      },
+      AiInsightsResponse: {
+        type: 'object',
+        properties: {
+          insights: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/AiInsightItem' },
+          },
+          generatedAt: { type: 'string', format: 'date-time' },
+          cached: { type: 'boolean', example: false },
+          scope: { type: 'string', enum: ['admin', 'manager', 'trainer'], example: 'admin' },
         },
       },
     },
@@ -12497,6 +12958,1419 @@ export const openApiDocument = {
           },
           '404': {
             description: 'Department not found',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // Dashboard — Admin, Manager, Trainer, AI Insights
+    // ================================================================
+
+    [`${API_PREFIX}/dashboard`]: {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Get admin dashboard statistics',
+        operationId: 'getAdminDashboard',
+        description:
+          'Retrieve system-wide dashboard statistics for Admin: total users, courses, enrollments, risk summary.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Admin dashboard statistics retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/AdminDashboardStats' },
+                    message: { type: 'string', example: 'Admin dashboard retrieved successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/dashboard/manager`]: {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Get manager dashboard statistics',
+        operationId: 'getManagerDashboard',
+        description:
+          'Retrieve department-scoped dashboard statistics for Manager: learner overview, overdue enrollments, roadmap completion, and risk summary.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Manager dashboard statistics retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/ManagerDashboardStats' },
+                    message: {
+                      type: 'string',
+                      example: 'Manager dashboard retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - manager role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/dashboard/trainer`]: {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Get trainer dashboard statistics',
+        operationId: 'getTrainerDashboard',
+        description:
+          'Retrieve trainer-scoped dashboard statistics: owned courses, pending grading, enrollment overview, and quiz pass rates.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Trainer dashboard statistics retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/TrainerDashboardStats' },
+                    message: {
+                      type: 'string',
+                      example: 'Trainer dashboard retrieved successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - trainer role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/dashboard/ai-insights`]: {
+      get: {
+        tags: ['Dashboard'],
+        summary: 'Get AI-generated dashboard insights',
+        operationId: 'getDashboardAiInsights',
+        description:
+          'Retrieve AI-generated insights based on dashboard statistics. Auto-scoped by user role (admin sees system-wide, manager sees department, trainer sees own courses). Results are cached for 1 hour. Pass `refresh=true` query param to force regeneration.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'query',
+            name: 'refresh',
+            schema: { type: 'boolean', default: false },
+            description: 'Set to true to bypass the 1-hour cache and force AI regeneration.',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'AI insights generated/retrieved successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/AiInsightsResponse' },
+                    message: { type: 'string', example: 'AI insights generated successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin, manager, or trainer role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // AI Chat — Session Management
+    // ================================================================
+
+    [`${API_PREFIX}/ai-chat/sessions`]: {
+      post: {
+        tags: ['AI Chat'],
+        summary: 'Create a new chat session',
+        operationId: 'createChatSession',
+        description: 'Create a new chat session for the authenticated user.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/CreateSessionRequest' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Chat session created.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/ChatSession' },
+                    message: { type: 'string', example: 'Chat session created' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      get: {
+        tags: ['AI Chat'],
+        summary: 'List chat sessions',
+        operationId: 'listChatSessions',
+        description:
+          'Retrieve all chat sessions for the authenticated user, ordered by most recent.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Chat sessions retrieved.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/ChatSession' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/ai-chat/sessions/{sessionId}/messages`]: {
+      get: {
+        tags: ['AI Chat'],
+        summary: 'Get session messages',
+        operationId: 'getChatSessionMessages',
+        description:
+          'Retrieve all messages in a specific chat session. User can only access their own sessions.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'sessionId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Chat session ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Messages retrieved.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/ChatMessage' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Session not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/ai-chat/sessions/{sessionId}`]: {
+      delete: {
+        tags: ['AI Chat'],
+        summary: 'Delete a chat session',
+        operationId: 'deleteChatSession',
+        description: 'Soft-delete a chat session. User can only delete their own sessions.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'sessionId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Chat session ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Session deleted.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Chat session deleted' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Session not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // AI Chat — Messaging (Company Knowledge RAG)
+    // ================================================================
+
+    [`${API_PREFIX}/ai-chat/message`]: {
+      post: {
+        tags: ['AI Chat'],
+        summary: 'Send message (non-streaming)',
+        operationId: 'sendChatMessage',
+        description:
+          'Send a message to the AI chatbot and receive a JSON response. AI uses RAG with company documents. If sessionId is provided, continues that session; otherwise creates a new one.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/SendMessageRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'AI response received.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        sessionId: { type: 'string', example: '1' },
+                        reply: {
+                          type: 'string',
+                          example:
+                            'Theo chính sách công ty, nhân viên được nghỉ phép 12 ngày/năm...',
+                        },
+                        sources: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              title: { type: 'string' },
+                              similarity: { type: 'number' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/ai-chat/message/stream`]: {
+      post: {
+        tags: ['AI Chat'],
+        summary: 'Send message (SSE streaming)',
+        operationId: 'sendChatMessageStream',
+        description:
+          'Send a message and receive the AI response via Server-Sent Events (SSE). The stream emits `data` events with JSON chunks containing token text. Final event includes sources.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/SendMessageRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'SSE stream of AI response tokens.',
+            content: {
+              'text/event-stream': {
+                schema: {
+                  type: 'string',
+                  description:
+                    'Server-Sent Events stream. Events: `data` with JSON `{token}` or `{done, sources}`.',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // AI Chat — Learning Assistant (Course Q&A)
+    // ================================================================
+
+    [`${API_PREFIX}/ai-chat/course/{courseId}/ask`]: {
+      post: {
+        tags: ['AI Learning Assistant'],
+        summary: 'Ask about course content (non-streaming)',
+        operationId: 'askCourse',
+        description:
+          'Ask the AI about course-specific content. Uses RAG with indexed course lessons. Only enrolled users can ask questions.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'courseId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Course ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/CourseAskRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'AI response about course content.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        answer: { type: 'string' },
+                        sources: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              title: { type: 'string' },
+                              similarity: { type: 'number' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Not enrolled in this course.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/ai-chat/course/{courseId}/ask/stream`]: {
+      post: {
+        tags: ['AI Learning Assistant'],
+        summary: 'Ask about course content (SSE streaming)',
+        operationId: 'askCourseStream',
+        description:
+          'Ask the AI about course content with SSE streaming response. Only enrolled users can ask questions.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'courseId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Course ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/CourseAskRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'SSE stream of AI response about course content.',
+            content: {
+              'text/event-stream': {
+                schema: {
+                  type: 'string',
+                  description: 'Server-Sent Events stream with course-specific AI response.',
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Not enrolled in this course.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // AI Chat — Essay Auto-Grading
+    // ================================================================
+
+    [`${API_PREFIX}/ai-chat/grade-essay/{attemptQuestionId}`]: {
+      post: {
+        tags: ['AI Grading'],
+        summary: 'AI grade a single essay question',
+        operationId: 'gradeEssay',
+        description:
+          'Use AI to automatically grade a single essay/short-answer question response. Sets awarded points, feedback, and marks the question as graded.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'attemptQuestionId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'The quiz attempt question ID to grade.',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Essay graded successfully.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        awardedPoints: { type: 'number', example: 8 },
+                        maxPoints: { type: 'number', example: 10 },
+                        feedback: {
+                          type: 'string',
+                          example: 'Câu trả lời tốt, tuy nhiên cần bổ sung thêm ví dụ cụ thể.',
+                        },
+                        gradedBy: { type: 'string', example: 'ai' },
+                      },
+                    },
+                    message: { type: 'string', example: 'Essay graded by AI' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin or trainer role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Attempt question not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/ai-chat/grade-quiz/{quizAttemptId}`]: {
+      post: {
+        tags: ['AI Grading'],
+        summary: 'AI grade all essays in a quiz attempt',
+        operationId: 'gradeQuizEssays',
+        description:
+          'Use AI to automatically grade all essay/short-answer questions in a quiz attempt. Processes in batch and recalculates total attempt score.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'quizAttemptId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'The quiz attempt ID whose essay questions will be graded.',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'All essays in quiz attempt graded.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        gradedCount: { type: 'integer', example: 3 },
+                        totalEssayQuestions: { type: 'integer', example: 3 },
+                        results: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              questionId: { type: 'string' },
+                              awardedPoints: { type: 'number' },
+                              maxPoints: { type: 'number' },
+                              feedback: { type: 'string' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Quiz essays graded by AI' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin or trainer role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Quiz attempt not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // AI Chat — Admin Indexing Tools
+    // ================================================================
+
+    [`${API_PREFIX}/ai-chat/admin/index-all`]: {
+      post: {
+        tags: ['AI Admin'],
+        summary: 'Index all company documents',
+        operationId: 'indexAllCompanyDocuments',
+        description:
+          'Re-index all active company documents for RAG knowledge base. This clears existing chunks and re-generates embeddings. Admin only.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'All documents indexed.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        documentsProcessed: { type: 'integer', example: 12 },
+                        chunksCreated: { type: 'integer', example: 87 },
+                        errors: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                    message: { type: 'string', example: 'All documents indexed successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/ai-chat/admin/index/{documentId}`]: {
+      post: {
+        tags: ['AI Admin'],
+        summary: 'Index a specific company document',
+        operationId: 'indexSingleDocument',
+        description: 'Re-index a specific company document by ID. Admin only.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'documentId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Company document ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Document indexed.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        documentId: { type: 'string' },
+                        chunksCreated: { type: 'integer', example: 5 },
+                      },
+                    },
+                    message: { type: 'string', example: 'Document indexed successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Document not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/ai-chat/admin/index-lesson/{lessonId}`]: {
+      post: {
+        tags: ['AI Admin'],
+        summary: 'Index a course lesson',
+        operationId: 'indexLesson',
+        description:
+          'Index a specific course lesson for the Learning Assistant RAG. Admin or Trainer only.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'lessonId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Lesson ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Lesson indexed.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        lessonId: { type: 'string' },
+                        chunksCreated: { type: 'integer', example: 3 },
+                      },
+                    },
+                    message: { type: 'string', example: 'Lesson indexed successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin or trainer role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Lesson not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/ai-chat/admin/index-course-lessons/{courseId}`]: {
+      post: {
+        tags: ['AI Admin'],
+        summary: 'Index all lessons in a course',
+        operationId: 'indexCourseLessons',
+        description:
+          'Index all lessons in a course for the Learning Assistant. Admin or Trainer only.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'courseId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Course ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'All course lessons indexed.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        courseId: { type: 'string' },
+                        lessonsProcessed: { type: 'integer', example: 8 },
+                        totalChunks: { type: 'integer', example: 24 },
+                        errors: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                    message: { type: 'string', example: 'Course lessons indexed successfully' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin or trainer role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Course not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // Company Documents — CRUD + Categories
+    // ================================================================
+
+    [`${API_PREFIX}/company-documents`]: {
+      get: {
+        tags: ['Company Documents'],
+        summary: 'List company documents',
+        operationId: 'listCompanyDocuments',
+        description: 'Get a paginated list of company documents with filters. Admin only.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'query',
+            name: 'page',
+            schema: { type: 'integer', default: 1 },
+            description: 'Page number.',
+          },
+          {
+            in: 'query',
+            name: 'limit',
+            schema: { type: 'integer', default: 10 },
+            description: 'Items per page.',
+          },
+          {
+            in: 'query',
+            name: 'search',
+            schema: { type: 'string' },
+            description: 'Search by title.',
+          },
+          {
+            in: 'query',
+            name: 'category',
+            schema: { type: 'string' },
+            description: 'Filter by category.',
+          },
+          {
+            in: 'query',
+            name: 'isActive',
+            schema: { type: 'boolean' },
+            description: 'Filter by active status.',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Paginated list of company documents.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/CompanyDocument' },
+                    },
+                    pagination: {
+                      type: 'object',
+                      properties: {
+                        total: { type: 'integer' },
+                        page: { type: 'integer' },
+                        limit: { type: 'integer' },
+                        totalPages: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Company Documents'],
+        summary: 'Create a company document',
+        operationId: 'createCompanyDocument',
+        description:
+          'Create a new company document. The document is automatically indexed for RAG upon creation. Admin only.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateCompanyDocumentRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Company document created and indexed.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/CompanyDocument' },
+                    message: { type: 'string', example: 'Company document created and indexed' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/company-documents/categories`]: {
+      get: {
+        tags: ['Company Documents'],
+        summary: 'Get document categories',
+        operationId: 'getCompanyDocumentCategories',
+        description: 'Get distinct document categories for filter dropdowns. Admin only.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'List of distinct categories.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      example: ['HR Policy', 'Security', 'Onboarding', 'Benefits'],
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/company-documents/{id}`]: {
+      get: {
+        tags: ['Company Documents'],
+        summary: 'Get a company document',
+        operationId: 'getCompanyDocument',
+        description: 'Retrieve a single company document by ID with full content. Admin only.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'id',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Document ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Company document retrieved.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/CompanyDocument' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Document not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      patch: {
+        tags: ['Company Documents'],
+        summary: 'Update a company document',
+        operationId: 'updateCompanyDocument',
+        description:
+          'Update a company document. If content is changed, the document is automatically re-indexed for RAG. Admin only.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'id',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Document ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateCompanyDocumentRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Company document updated.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/CompanyDocument' },
+                    message: { type: 'string', example: 'Company document updated' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Document not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Company Documents'],
+        summary: 'Delete a company document',
+        operationId: 'deleteCompanyDocument',
+        description:
+          'Soft-delete a company document and clean up associated RAG chunks. Admin only.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'id',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Document ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Company document deleted.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Company document deleted' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Document not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // Risk Assessment — Calculate (single + batch)
+    // ================================================================
+
+    [`${API_PREFIX}/risk-assessments/calculate/{enrollmentId}`]: {
+      post: {
+        tags: ['Risk Assessment'],
+        summary: 'Calculate risk for a single enrollment',
+        operationId: 'calculateSingleRisk',
+        description:
+          'Trigger AI risk score calculation for a single enrollment. Uses learner engagement data, progress, and quiz performance to assess dropout risk. Admin or Manager only.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'enrollmentId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Enrollment ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Risk assessment calculated.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        enrollmentId: { type: 'string' },
+                        riskLevel: {
+                          type: 'string',
+                          enum: ['high', 'medium', 'low'],
+                          example: 'medium',
+                        },
+                        riskScore: { type: 'number', example: 65 },
+                        reasons: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          example: ['Low engagement', 'Missed deadlines'],
+                        },
+                        interventions: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          example: ['Gửi nhắc nhở', 'Lên lịch 1-on-1'],
+                        },
+                        calculatedAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: { type: 'string', example: 'Risk assessment calculated' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin or manager role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Enrollment not found.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/risk-assessments/calculate-batch`]: {
+      post: {
+        tags: ['Risk Assessment'],
+        summary: 'Trigger batch risk calculation',
+        operationId: 'calculateBatchRisk',
+        description:
+          'Trigger batch AI risk calculation for all active enrollments. Processes enrollments in parallel batches. Admin only. This is a long-running operation.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Batch risk calculation completed.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        totalProcessed: { type: 'integer', example: 150 },
+                        succeeded: { type: 'integer', example: 148 },
+                        failed: { type: 'integer', example: 2 },
+                        summary: {
+                          type: 'object',
+                          properties: {
+                            high: { type: 'integer', example: 12 },
+                            medium: { type: 'integer', example: 45 },
+                            low: { type: 'integer', example: 91 },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Batch risk calculation completed' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Missing or invalid token.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Permission denied - admin role required.',
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
             },
