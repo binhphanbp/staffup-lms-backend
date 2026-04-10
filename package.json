@@ -12,6 +12,7 @@
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.ts\" \"**/*.{json,md,yml,yaml}\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
+    "test:unit:auth-rbac": "tsc -p tsconfig.unit.json && tsc-alias -p tsconfig.unit.json && node tests/unit/run-auth-rbac-tests.cjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

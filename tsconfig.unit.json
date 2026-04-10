@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./.test-dist",
+    "rootDir": ".",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": [
+    "src/services/auth.service.ts",
+    "src/services/role.service.ts",
+    "src/middlewares/auth.middleware.ts",
+    "src/middlewares/rbac.middleware.ts",
+    "src/config/auth-cookie.config.ts",
+    "src/config/database.ts",
+    "src/config/env.config.ts",
+    "src/config/jwt.config.ts",
+    "src/utils/**/*.ts",
+    "src/interfaces/index.ts",
+    "src/schemas/auth.schema.ts",
+    "src/schemas/role.schema.ts",
+    "src/schemas/shared.schema.ts",
+    "tests/types/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "dist", ".test-dist"]
+}
