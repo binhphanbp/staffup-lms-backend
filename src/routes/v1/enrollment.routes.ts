@@ -6,6 +6,7 @@ import {
   getEnrollmentDetailSchema,
   enrollCourseParamsSchema,
   enrollUsersSchema,
+  selfEnrollSchema,
   listEnrollmentsSchema,
   updateEnrollmentStatusParamsSchema,
   updateEnrollmentStatusSchema,
@@ -22,7 +23,14 @@ router.use(authenticate);
 // List enrollments — admin/trainer sees all (filtered), learner sees own
 router.get('/', validate(listEnrollmentsSchema, 'query'), EnrollmentController.listEnrollments);
 
-// Enroll users into a course
+// Self-enroll into a course (for learners)
+router.post(
+  '/courses/:courseId/self-enroll',
+  validate(selfEnrollSchema, 'params'),
+  EnrollmentController.selfEnroll,
+);
+
+// Enroll users into a course (admin/trainer only)
 router.post(
   '/courses/:courseId/enroll',
   validate(enrollCourseParamsSchema, 'params'),
