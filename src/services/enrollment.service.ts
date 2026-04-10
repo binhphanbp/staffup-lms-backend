@@ -255,6 +255,67 @@ export class EnrollmentService {
     };
   }
 
+  static async selfEnroll(courseId: string, userId: string) {
+    const db = prisma as any;
+
+    // Check if course exists and is published
+    const course = await db.course.findUnique({
+      where: { id: BigInt(courseId) },
+      select: { id: true, title: true, status: true },
+    });
+    if (!course) throw new AppError('Course not found', 404);
+    if (course.status !== 'published') {
+      throw new AppError('This course is not available for enrollment', 403);
+    }
+
+    // Check if user already enrolled
+    const existing = await db.enrollment.findFirst({
+      where: {
+        courseId: BigInt(courseId),
+        userId: BigInt(userId),
+      },
+    });
+    if (existing) {
+      throw new AppError('You are already enrolled in this course', 409);
+    }
+
+    // Create enrollment
+    const enrollment = await db.enrollment.create({
+      data: {
+        courseId: BigInt(courseId),
+        userId: BigInt(userId),
+        status: 'assigned',
+        assignedByUserId: BigInt(userId), // Self-enrolled
+      },
+      include: {
+        course: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            thumbnailUrl: true,
+            description: true,
+          },
+        },
+      },
+    });
+
+    return {
+      id: enrollment.id.toString(),
+      userId: enrollment.userId.toString(),
+      courseId: enrollment.courseId.toString(),
+      status: enrollment.status,
+      enrolledAt: enrollment.enrolledAt.toISOString(),
+      course: {
+        id: enrollment.course.id.toString(),
+        title: enrollment.course.title,
+        slug: enrollment.course.slug,
+        thumbnailUrl: enrollment.course.thumbnailUrl,
+        description: enrollment.course.description,
+      },
+    };
+  }
+
   static async enrollUsers(
     courseId: string,
     data: { userIds: string[]; dueAt?: string | null; assignmentNote?: string | null },
@@ -341,7 +402,7 @@ export class EnrollmentService {
   ) {
     const db = prisma as any;
     const { page = 1, limit = 20, userId, courseId, status, departmentId, overdue, search } = query;
-    const skip = (page - 1) * limit;
+    const skip = (Number(page) - 1) * Number(limit);
 
     const isAdmin = roleCodes.includes('admin');
     const isTrainer = roleCodes.includes('trainer');
@@ -384,7 +445,7 @@ export class EnrollmentService {
       db.enrollment.findMany({
         where,
         skip,
-        take: limit,
+        take: Number(limit),
         orderBy: { enrolledAt: 'desc' },
         include: {
           user: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
@@ -439,7 +500,12 @@ export class EnrollmentService {
           ? { id: e.assignedByUser.id.toString(), fullName: e.assignedByUser.fullName }
           : null,
       })),
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
+      },
     };
   }
 
