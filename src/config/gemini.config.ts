@@ -9,7 +9,7 @@ export const genAI = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 
 // Model names
 export const EMBEDDING_MODEL = 'gemini-embedding-001';
-export const CHAT_MODEL = 'gemini-2.0-flash';
+export const CHAT_MODEL = env.GEMINI_MODEL;
 
 // Embedding dimensions (text-embedding-004 default)
 export const EMBEDDING_DIMENSIONS = 768;
