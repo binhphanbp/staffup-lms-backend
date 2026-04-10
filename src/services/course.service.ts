@@ -1836,7 +1836,7 @@ export class CourseService {
     query: CourseDetailQuery = { expand: DEFAULT_DETAIL_EXPANDS },
   ): Promise<CourseDetailResponse> {
     const expandItems =
-      (query.expand as CourseExpand[]).length > 0
+      query.expand && (query.expand as CourseExpand[]).length > 0
         ? (query.expand as CourseExpand[])
         : DEFAULT_DETAIL_EXPANDS;
     const course = await this.getCourseOrThrow(id, expandItems);

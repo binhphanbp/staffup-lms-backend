@@ -12,6 +12,14 @@ export class EnrollmentController {
     sendSuccess(res, enrollment, 'Enrollment detail retrieved successfully');
   });
 
+  static selfEnroll = catchAsync(async (req: AuthRequest, res: Response) => {
+    const result = await EnrollmentService.selfEnroll(
+      req.params.courseId as string,
+      req.user!.userId,
+    );
+    sendCreated(res, result, 'Successfully enrolled in course');
+  });
+
   static enrollUsers = catchAsync(async (req: AuthRequest, res: Response) => {
     const result = await EnrollmentService.enrollUsers(
       req.params.courseId as string,
@@ -20,6 +28,13 @@ export class EnrollmentController {
       req.user!.roleCodes,
     );
     sendCreated(res, result, 'Users enrolled successfully');
+  });
+  static selfEnroll = catchAsync(async (req: AuthRequest, res: Response) => {
+    const result = await EnrollmentService.selfEnroll(
+      req.params.courseId as string,
+      req.user!.userId,
+    );
+    sendCreated(res, result, 'Successfully enrolled in course');
   });
 
   static listEnrollments = catchAsync(async (req: AuthRequest, res: Response) => {

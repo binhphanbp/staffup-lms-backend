@@ -29,6 +29,13 @@ export const enrollUsersSchema = z.object({
   assignmentNote: optionalNullableDescriptionSchema.optional(),
 });
 
+export const selfEnrollSchema = z.object({
+  courseId: numericIdStringSchema('Course ID'),
+});
+export const selfEnrollSchema = z.object({
+  courseId: numericIdStringSchema('Course ID'),
+});
+
 export const listEnrollmentsSchema = z.object({
   page: paginationPageQuerySchema,
   limit: paginationLimitQuerySchema,
