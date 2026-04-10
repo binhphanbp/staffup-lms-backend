@@ -70,8 +70,9 @@ export const chunkText = (text: string): string[] => {
       chunks.push(chunk);
     }
 
+    // Advance start with overlap, but if we've reached the end, break
+    if (end >= cleanText.length) break;
     start = end - CHUNK_OVERLAP;
-    if (start >= cleanText.length) break;
   }
 
   return chunks;
@@ -85,21 +86,31 @@ export const chunkText = (text: string): string[] => {
  * Generate embedding vector for a text using Gemini text-embedding-004.
  */
 export const generateEmbedding = async (text: string): Promise<number[]> => {
-  const response = await genAI.models.embedContent({
-    model: EMBEDDING_MODEL,
-    contents: text,
-    config: {
-      outputDimensionality: EMBEDDING_DIMENSIONS,
-    },
-  });
+  try {
+    const response = await genAI.models.embedContent({
+      model: EMBEDDING_MODEL,
+      contents: text,
+      config: {
+        outputDimensionality: EMBEDDING_DIMENSIONS,
+      },
+    });
 
-  const values = response.embeddings?.[0]?.values;
+    const values = response.embeddings?.[0]?.values;
 
-  if (!values) {
-    throw new Error('Failed to generate embedding: no values returned');
+    if (!values || values.length === 0) {
+      throw new Error('Failed to generate embedding: no values returned from API');
+    }
+
+    return values;
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string };
+    if (err.status === 400) {
+      throw new Error(`Gemini API Error (400): ${err.message}. Check your GEMINI_API_KEY.`, {
+        cause: error,
+      });
+    }
+    throw error;
   }
-
-  return values;
 };
 
 // ========================

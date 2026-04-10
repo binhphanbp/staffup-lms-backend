@@ -73,9 +73,9 @@ CREATE TABLE "chat_messages" (
 CREATE UNIQUE INDEX "document_chunks_source_type_source_id_chunk_index_key" 
 ON "document_chunks"("source_type", "source_id", "chunk_index");
 
--- Vector similarity search index (IVFFlat for performance)
+-- Vector similarity search index (HNSW — works on empty tables, no tuning needed)
 CREATE INDEX "document_chunks_embedding_idx" 
-ON "document_chunks" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+ON "document_chunks" USING hnsw (embedding vector_cosine_ops);
 
 -- Chat session indexes
 CREATE INDEX "chat_sessions_user_id_idx" ON "chat_sessions"("user_id");
