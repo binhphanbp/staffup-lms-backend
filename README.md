@@ -118,6 +118,10 @@ docker compose exec api pnpm prisma:studio    # Open database GUI
 | `REFRESH_TOKEN_EXPIRES_IN_DAYS` | Refresh session duration     | `30`                    |
 | `REFRESH_TOKEN_COOKIE_NAME`     | Refresh cookie name          | `staffup_refresh_token` |
 | `CORS_ORIGIN`                   | Allowed CORS origin          | `*`                     |
+| `CLOUDINARY_CLOUD_NAME`         | Cloudinary cloud name        | —                       |
+| `CLOUDINARY_API_KEY`            | Cloudinary API key           | —                       |
+| `CLOUDINARY_API_SECRET`         | Cloudinary API secret        | —                       |
+| `CLOUDINARY_UPLOAD_FOLDER`      | Default Cloudinary folder    | `staffup-lms`           |
 | `SEED_ADMIN_DEPARTMENT_NAME`    | Seed admin department name   | `General`               |
 | `SEED_ADMIN_FULL_NAME`          | Seed admin full name         | `System Administrator`  |
 | `SEED_ADMIN_POSITION_TITLE`     | Seed admin title             | `Administrator`         |

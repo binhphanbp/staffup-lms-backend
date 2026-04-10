@@ -16,6 +16,7 @@ import riskAssessmentRoutes from '@/routes/v1/risk-assessment.routes';
 import questionBankRoutes from '@/routes/v1/question-bank.routes';
 import userRoutes from '@/routes/v1/user.routes';
 import aiChatRoutes from '@/routes/v1/ai-chat.routes';
+import mediaRoutes from '@/routes/v1/media.routes';
 import { openApiDocument } from '@/docs/openapi';
 import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
@@ -65,4 +66,5 @@ router.use('/risk-assessments', riskAssessmentRoutes);
 router.use('/question-banks', questionBankRoutes);
 router.use('/users', userRoutes);
 router.use('/ai-chat', aiChatRoutes);
+router.use('/media', mediaRoutes);
 export default router;
