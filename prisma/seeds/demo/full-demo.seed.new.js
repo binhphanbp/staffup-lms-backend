@@ -979,7 +979,7 @@ async function seedQuizzesAndAttempts(courses, questionBanks, users) {
               attemptQuestionId: aqRecord.id,
               responseText: q.questionType === 'essay' ? 'Cau tra loi cua hoc vien cho cau hoi tu luan nay...' : null,
               isCorrect: q.questionType !== 'essay' ? isCorrect : null,
-              awardedPoints: attemptStatus === 'graded' ? awarded : 0,
+              awardedPoints: attemptStatus === 'graded' ? awarded : null,
               gradedAt: attemptStatus === 'graded' ? attempt.gradedAt : null,
             },
           });

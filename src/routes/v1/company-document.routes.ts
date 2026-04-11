@@ -8,11 +8,22 @@ import {
   updateCompanyDocumentSchema,
 } from '@/schemas/company-document.schema';
 
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
+
 const router: ExpressRouter = Router();
 
 // All routes require authentication + admin role
 router.use(authenticate);
 router.use(restrictTo('admin'));
+
+/**
+ * @route   POST /api/v1/company-documents/extract-text
+ * @desc    Upload file PDF/DOCX/TXT and extract text
+ * @access  Private (Admin only)
+ */
+router.post('/extract-text', upload.single('file'), CompanyDocumentController.extractTextFromFile);
 
 /**
  * @route   GET /api/v1/company-documents/categories
