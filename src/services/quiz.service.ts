@@ -132,6 +132,18 @@ export class QuizService {
               isCorrect: isInProgress ? null : aq.response.isCorrect,
               awardedPoints: isInProgress ? null : Number(aq.response.awardedPoints),
               gradedAt: aq.response.gradedAt ? aq.response.gradedAt.toISOString() : null,
+              // AI Grading fields (only show when not in progress)
+              aiSuggestedScore: isInProgress
+                ? null
+                : aq.response.aiSuggestedScore !== null
+                  ? Number(aq.response.aiSuggestedScore)
+                  : null,
+              aiFeedback: isInProgress ? null : aq.response.aiFeedback || null,
+              aiGradedAt: isInProgress
+                ? null
+                : aq.response.aiGradedAt
+                  ? aq.response.aiGradedAt.toISOString()
+                  : null,
             }
           : null,
       };
