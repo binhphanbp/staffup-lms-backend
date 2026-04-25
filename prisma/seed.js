@@ -5,6 +5,8 @@ const { seedCourseFixturesBundle } = require('./seeds/core/course-fixtures.seed'
 const { seedAdminDepartment } = require('./seeds/core/departments.seed');
 const { seedRbac } = require('./seeds/core/rbac.seed');
 const { runDemoSeed } = require('./seeds/demo/full-demo.seed');
+const { seedRealisticRoadmaps } = require('./seeds/demo/roadmap-realistic.seed');
+const { seedCoursesFromCloudinary } = require('./seeds/demo/courses-from-cloudinary.seed');
 const { createSeedContext, disposeSeedContext } = require('./seeds/shared/client');
 
 function isDemoSeedEnabled() {
@@ -20,6 +22,14 @@ async function runCoreSeed(context) {
   const { config } = await seedAdmin(context, department);
   const courseFixtures = await seedCourseFixturesBundle(context, department);
 
+  // Seed courses from Cloudinary
+  console.log('\n🎬 Seeding courses from Cloudinary videos...');
+  const cloudinaryCourses = await seedCoursesFromCloudinary(context);
+
+  // Seed roadmaps (AFTER courses are created)
+  console.log('\n📍 Seeding realistic roadmaps...');
+  const roadmaps = await seedRealisticRoadmaps(context);
+
   console.log('\nCore seed completed successfully.');
   console.log(`
 Summary:
@@ -31,6 +41,8 @@ Summary:
 - Categories: ${courseFixtures.categories.length}
 - Tags: ${courseFixtures.tags.length}
 - Courses: ${courseFixtures.courses.length}
+- Cloudinary Courses: ${cloudinaryCourses?.length || 0}
+- Roadmaps: ${roadmaps?.length || 0}
 
 Seed scope:
 - System roles and permissions
@@ -39,6 +51,8 @@ Seed scope:
 - Trainer fixtures
 - Category and tag fixtures
 - Sample courses for CRUD/filter testing
+- Real courses with Cloudinary videos
+- Realistic roadmaps with assignments for all users
 
 Sample trainer credentials:
 - trainer1@staffup.local / ${courseFixtures.trainerPassword}
