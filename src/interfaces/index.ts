@@ -22,6 +22,7 @@ export interface JwtPayload {
 }
 
 export interface AuthenticatedUser extends JwtPayload {
+  departmentId?: string;
   isActive: boolean;
   permissionCodes: string[];
 }

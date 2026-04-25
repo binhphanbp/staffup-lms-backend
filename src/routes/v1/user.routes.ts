@@ -35,6 +35,7 @@ router
   .route('/:id')
   .all(validate(userIdParamSchema, 'params'))
   .get(requireRole('admin', 'manager'), UserController.getUser)
-  .patch(requireRole('admin'), validate(updateUserSchema), UserController.updateUser);
+  .patch(requireRole('admin'), validate(updateUserSchema), UserController.updateUser)
+  .delete(requireRole('admin'), UserController.deleteUser);
 
 export default router;
