@@ -1,5 +1,5 @@
 import argon2 from 'argon2';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { prisma, type TransactionClient } from '@/config/database';
 import { AppError } from '@/utils';
@@ -151,8 +151,12 @@ export class UserService {
   // ─── List users ────────────────────────────────────────────────────────────
 
   static async listUsers(query: ListUsersQuery) {
-    const { page = 1, limit = 20, search, departmentId, roleCode, isActive } = query;
-    const skip = (page - 1) * limit;
+    const page = Number(query.page ?? 1);
+    const limit = Number(query.limit ?? 20);
+    const { search, departmentId, roleCode, isActive } = query;
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 20;
+    const skip = (safePage - 1) * safeLimit;
 
     const where: Prisma.UserWhereInput = {};
 
@@ -171,7 +175,7 @@ export class UserService {
       prisma.user.findMany({
         where,
         skip,
-        take: limit,
+        take: safeLimit,
         orderBy: { createdAt: 'desc' },
         select: USER_SELECT,
       }),
@@ -180,7 +184,7 @@ export class UserService {
 
     return {
       data: users.map(serializeUser),
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: { total, page: safePage, limit: safeLimit, totalPages: Math.ceil(total / safeLimit) },
     };
   }
 
@@ -260,6 +264,96 @@ export class UserService {
     });
 
     return serializeUser(updated);
+  }
+
+  static async deleteUser(userId: string) {
+    const targetUserId = BigInt(userId);
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        email: true,
+        userRoles: {
+          select: {
+            role: {
+              select: {
+                code: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            enrollments: true,
+            roadmapAssignments: true,
+            assignedRoadmaps: true,
+            trainerCourses: true,
+            questionBanks: true,
+            assignedEnrollments: true,
+            gradedQuizAttempts: true,
+            gradedAttemptResponses: true,
+            authSessions: true,
+            userRoles: true,
+            chatSessions: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    const roleCodes = user.userRoles.map((assignment) => assignment.role.code);
+    if (roleCodes.includes('admin')) {
+      throw new AppError('Cannot delete an admin account', 400);
+    }
+
+    const blockingRelations: Array<[string, number]> = [
+      ['enrollments', user._count.enrollments],
+      ['roadmap assignments', user._count.roadmapAssignments],
+      ['assigned roadmaps', user._count.assignedRoadmaps],
+      ['trainer courses', user._count.trainerCourses],
+      ['question banks', user._count.questionBanks],
+      ['assigned enrollments', user._count.assignedEnrollments],
+      ['graded quiz attempts', user._count.gradedQuizAttempts],
+      ['graded attempt responses', user._count.gradedAttemptResponses],
+      ['chat sessions', user._count.chatSessions],
+    ].filter(([, count]) => count > 0);
+
+    if (blockingRelations.length > 0) {
+      throw new AppError(
+        `Cannot delete user because related data exists: ${blockingRelations.map(([label]) => label).join(', ')}`,
+        400,
+      );
+    }
+
+    try {
+      await prisma.$transaction(async (tx: TransactionClient) => {
+        await tx.authSession.deleteMany({
+          where: { userId: targetUserId },
+        });
+
+        await tx.userRole.deleteMany({
+          where: { userId: targetUserId },
+        });
+
+        await tx.user.delete({
+          where: { id: targetUserId },
+        });
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+        throw new AppError('Cannot delete user because related records still exist', 400);
+      }
+
+      throw error;
+    }
+
+    return {
+      id: user.id.toString(),
+      email: user.email,
+    };
   }
 
   static async importUsersFromExcel(fileBuffer: Buffer, importedByUserId: string) {

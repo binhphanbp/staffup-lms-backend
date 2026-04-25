@@ -171,33 +171,14 @@ export class MediaService {
     const cloudinary = getCloudinaryClient();
     const folder = this.normalizeFolder(query.folder);
     const resourceType = query.resourceType ?? 'video';
-
-    let result: any;
-
-    try {
-      result = await cloudinary.api.resources_by_asset_folder(folder, {
-        max_results: query.maxResults,
-        next_cursor: query.nextCursor,
-        direction: 'desc',
-      });
-    } catch (error: any) {
-      const errorMessage = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
-      const shouldFallbackToPrefix =
-        errorMessage.includes('fixed folder mode') || errorMessage.includes('by_asset_folder');
-
-      if (!shouldFallbackToPrefix) {
-        throw error;
-      }
-
-      result = await cloudinary.api.resources({
-        type: 'upload',
-        prefix: folder ? `${folder}/` : undefined,
-        resource_type: resourceType,
-        max_results: query.maxResults,
-        next_cursor: query.nextCursor,
-        direction: 'desc',
-      });
-    }
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      prefix: folder ? `${folder}/` : undefined,
+      resource_type: resourceType,
+      max_results: query.maxResults,
+      next_cursor: query.nextCursor,
+      direction: 'desc',
+    });
 
     const items = Array.isArray(result.resources)
       ? result.resources
@@ -231,16 +212,14 @@ export class MediaService {
   static async listFolders(query: MediaFolderListQuery): Promise<MediaFolderListResult> {
     const cloudinary = getCloudinaryClient();
     const path = query.path?.trim() ? (this.normalizeFolder(query.path) ?? null) : null;
+    const options = {
+      max_results: query.maxResults,
+      next_cursor: query.nextCursor,
+    } as any;
 
     const result = path
-      ? await cloudinary.api.sub_folders(path, {
-          max_results: query.maxResults,
-          next_cursor: query.nextCursor,
-        })
-      : await cloudinary.api.root_folders({
-          max_results: query.maxResults,
-          next_cursor: query.nextCursor,
-        });
+      ? await cloudinary.api.sub_folders(path, options)
+      : await cloudinary.api.root_folders(options);
 
     const folders = Array.isArray(result.folders) ? result.folders : [];
 

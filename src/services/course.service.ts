@@ -28,6 +28,7 @@ interface CourseListItem {
   title: string;
   slug: string;
   description: string | null;
+  mediaFolder: string | null;
   thumbnailUrl: string | null;
   status: CourseStatus;
   estimatedDurationMinutes: number | null;
@@ -265,6 +266,7 @@ export class CourseService {
       title: course.title,
       slug: course.slug,
       description: course.description,
+      mediaFolder: course.mediaFolder,
       thumbnailUrl: course.thumbnailUrl,
       status: course.status,
       estimatedDurationMinutes: course.estimatedDurationMinutes,
@@ -704,6 +706,7 @@ export class CourseService {
         title: data.title,
         slug,
         description: data.description ?? null,
+        mediaFolder: data.mediaFolder ?? null,
         thumbnailUrl: data.thumbnailUrl ?? null,
         categoryId: data.categoryId ? BigInt(data.categoryId) : null,
         ownerDepartmentId: data.ownerDepartmentId ? BigInt(data.ownerDepartmentId) : null,
@@ -912,6 +915,7 @@ export class CourseService {
         title: data.title,
         slug: nextSlug,
         description: data.description,
+        mediaFolder: data.mediaFolder,
         thumbnailUrl: data.thumbnailUrl,
         categoryId: data.categoryId ? BigInt(data.categoryId) : undefined,
         ownerDepartmentId: data.ownerDepartmentId ? BigInt(data.ownerDepartmentId) : undefined,
@@ -1871,6 +1875,7 @@ export class CourseService {
       title: course.title,
       slug: course.slug,
       description: course.description,
+      mediaFolder: course.mediaFolder,
       thumbnailUrl: course.thumbnailUrl,
       status: course.status,
       estimatedDurationMinutes: course.estimatedDurationMinutes,

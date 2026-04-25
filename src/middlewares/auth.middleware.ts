@@ -36,6 +36,7 @@ export const authenticate = async (
       select: {
         id: true,
         email: true,
+        departmentId: true,
         isActive: true,
         userRoles: {
           select: {
@@ -77,6 +78,7 @@ export const authenticate = async (
     req.user = {
       userId: user.id.toString(),
       email: user.email,
+      departmentId: user.departmentId.toString(),
       roleCodes: user.userRoles.map((userRole: RoleCodeRecord) => userRole.role.code),
       permissionCodes,
       isActive: user.isActive,
