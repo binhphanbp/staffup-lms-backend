@@ -255,6 +255,7 @@ model Module {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   lessons    Lesson[]
+  quizzes    Quiz[]
   course     Course   @relation(fields: [courseId], references: [id])
 
   @@unique([courseId, orderIndex])
@@ -397,6 +398,7 @@ model QuestionOption {
 model Quiz {
   id               BigInt              @id @default(autoincrement())
   courseId         BigInt              @map("course_id")
+  moduleId         BigInt?             @map("module_id")
   lessonId         BigInt?             @unique @map("lesson_id")
   title            String              @db.VarChar(200)
   description      String?
@@ -412,6 +414,7 @@ model Quiz {
   attempts         QuizAttempt[]
   quizQuestions    QuizQuestion[]
   course           Course              @relation(fields: [courseId], references: [id])
+  module           Module?             @relation(fields: [moduleId], references: [id])
   lesson           Lesson?             @relation(fields: [lessonId], references: [id])
 
   @@map("quizzes")
