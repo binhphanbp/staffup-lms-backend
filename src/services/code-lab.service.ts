@@ -239,12 +239,12 @@ ${testCasesBlock}
       .filter((s) => s.length > 0)
       .slice(0, 5);
 
-    // Score (clamped) and overallStatus — ALWAYS re-derive from sanitized
-    // testResults rather than trust Gemini's self-reported status, otherwise
-    // an inconsistent AI response (e.g. status=passed but every testResult
-    // has passed=false because it returned "yes"/1 instead of true) would leak
-    // through and contradict what the UI shows the learner.
-    const score = clampScore(root.score);
+    // overallStatus and score — ALWAYS re-derive from sanitized testResults
+    // rather than trust Gemini's self-reported values, otherwise an
+    // inconsistent AI response (e.g. status=passed but every testResult has
+    // passed=false because it returned "yes"/1 instead of true; or score=90
+    // with status=failed) would leak through and contradict what the UI
+    // shows the learner.
     const overallStatus: OverallStatus =
       testResults.length === 0
         ? 'error'
@@ -253,6 +253,40 @@ ${testCasesBlock}
           : testResults.some((t) => t.passed)
             ? 'partial'
             : 'failed';
+
+    // Score is clamped, then bounded to ranges consistent with overallStatus
+    // so it can never contradict the per-test result. The system prompt
+    // already defines score as "100 nếu pass tất cả + code sạch; 0 nếu syntax
+    // error" — these caps/floors enforce that contract on the consumer side.
+    const rawScore = clampScore(root.score);
+    const passedCount = testResults.filter((t) => t.passed).length;
+    const totalCount = testResults.length;
+    const passRatio = totalCount > 0 ? passedCount / totalCount : 0;
+    let score: number;
+    switch (overallStatus) {
+      case 'error':
+        score = 0;
+        break;
+      case 'failed':
+        // No tests passed — cap below "fair effort" threshold.
+        score = Math.min(rawScore, 25);
+        break;
+      case 'partial': {
+        // Bound score around the actual pass ratio (±15 points for code
+        // quality / partial credit) so it tracks reality.
+        const ratioScore = Math.round(passRatio * 100);
+        score = Math.max(
+          Math.max(15, ratioScore - 15),
+          Math.min(rawScore, Math.min(85, ratioScore + 15)),
+        );
+        break;
+      }
+      case 'passed':
+        // All tests passed — floor at 60 (passing grade) so AI can't
+        // self-sabotage with a low number while the per-test view says ✓.
+        score = Math.max(rawScore, 60);
+        break;
+    }
 
     const summary = truncate(
       typeof root.summary === 'string' && root.summary.trim().length > 0
