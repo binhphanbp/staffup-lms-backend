@@ -452,14 +452,38 @@ export class CourseService {
 
       include.modules = {
         orderBy: { orderIndex: 'asc' },
-        include: expands.has('lessons')
-          ? {
-              lessons: {
-                orderBy: { orderIndex: 'asc' },
-                include: lessonInclude,
+        include: {
+          ...(expands.has('lessons')
+            ? {
+                lessons: {
+                  orderBy: { orderIndex: 'asc' },
+                  include: lessonInclude,
+                },
+              }
+            : {}),
+          // Include quizzes directly linked to modules
+          quizzes: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              passScorePercent: true,
+              timeLimitMinutes: true,
+              maxAttempts: true,
+              shuffleQuestions: true,
+              shuffleOptions: true,
+              selectionMode: true,
+              questionsToPull: true,
+              createdAt: true,
+              updatedAt: true,
+              _count: {
+                select: {
+                  quizQuestions: true,
+                },
               },
-            }
-          : undefined,
+            },
+          },
+        },
       };
     }
 
@@ -846,7 +870,19 @@ export class CourseService {
    * Get a single course by ID
    */
   static async findById(id: string, query: CourseDetailQuery = { expand: [] }) {
-    const expand = query.expand as CourseExpand[];
+    // Parse expand parameter - handle string from query params
+    let expand: CourseExpand[] = [];
+    if (query.expand) {
+      if (Array.isArray(query.expand)) {
+        expand = query.expand as CourseExpand[];
+      } else if (typeof query.expand === 'string') {
+        // Split comma-separated string
+        expand = query.expand
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean) as CourseExpand[];
+      }
+    }
     const course = await this.getCourseOrThrow(id, expand);
 
     return this.mapCourseDetail(course, expand);
@@ -1840,7 +1876,7 @@ export class CourseService {
     query: CourseDetailQuery = { expand: DEFAULT_DETAIL_EXPANDS },
   ): Promise<CourseDetailResponse> {
     const expandItems =
-      query.expand && (query.expand as CourseExpand[]).length > 0
+      query.expand && Array.isArray(query.expand) && query.expand.length > 0
         ? (query.expand as CourseExpand[])
         : DEFAULT_DETAIL_EXPANDS;
     const course = await this.getCourseOrThrow(id, expandItems);
@@ -1916,6 +1952,23 @@ export class CourseService {
         id: module.id.toString(),
         title: module.title,
         orderIndex: module.orderIndex,
+        quizzes: Array.isArray(module.quizzes)
+          ? module.quizzes.map((quiz: any) => ({
+              id: quiz.id.toString(),
+              title: quiz.title,
+              description: quiz.description,
+              totalQuestions: quiz._count.quizQuestions,
+              passScorePercent: Number(quiz.passScorePercent),
+              timeLimitMinutes: quiz.timeLimitMinutes,
+              maxAttempts: quiz.maxAttempts,
+              shuffleQuestions: quiz.shuffleQuestions,
+              shuffleOptions: quiz.shuffleOptions,
+              selectionMode: quiz.selectionMode,
+              questionsToPull: quiz.questionsToPull,
+              createdAt: quiz.createdAt,
+              updatedAt: quiz.updatedAt,
+            }))
+          : [],
         lessons: expands.has('lessons')
           ? module.lessons.map((lesson: any) => {
               const mappedLesson: NonNullable<

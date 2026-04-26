@@ -317,7 +317,7 @@ export class QuizService {
 
           // Create question snapshot
           const questionSnapshot = {
-            questionText: question.questionText,
+            questionText: question.content,
             questionType: question.questionType,
             explanation: question.explanation,
           };
@@ -328,7 +328,7 @@ export class QuizService {
           )
             ? options.map((opt: any) => ({
                 optionId: opt.id.toString(),
-                optionText: opt.optionText,
+                optionText: opt.content,
                 orderIndex: opt.orderIndex,
               }))
             : null;

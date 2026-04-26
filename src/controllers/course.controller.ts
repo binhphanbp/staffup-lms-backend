@@ -29,10 +29,7 @@ export class CourseController {
    * GET /api/v1/courses/:id
    */
   static findById = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    const course = await CourseService.findById(
-      req.params.id as string,
-      req.query as unknown as CourseDetailQuery,
-    );
+    const course = await CourseService.findById(req.params.id as string, req.query);
     sendSuccess(res, course, 'Course retrieved successfully');
   });
 

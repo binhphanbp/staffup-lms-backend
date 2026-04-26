@@ -253,6 +253,49 @@ const ASSIGNMENT_SCENARIOS = [
     status: 'assigned',
     dueInDays: 120,
   },
+  // Student assignments
+  {
+    scenario: 'student1_onboarding',
+    roadmapTitle: 'Onboarding - Nhân Viên Kỹ Thuật Mới',
+    userEmails: ['student1@staffup.local'],
+    status: 'in_progress',
+    dueInDays: 60,
+  },
+  {
+    scenario: 'student1_backend',
+    roadmapTitle: 'Lộ trình Backend Developer - Từ Cơ Bản đến Nâng Cao',
+    userEmails: ['student1@staffup.local'],
+    status: 'assigned',
+    dueInDays: 180,
+  },
+  {
+    scenario: 'student2_onboarding',
+    roadmapTitle: 'Onboarding - Nhân Viên Kỹ Thuật Mới',
+    userEmails: ['student2@staffup.local'],
+    status: 'in_progress',
+    dueInDays: 60,
+  },
+  {
+    scenario: 'student2_frontend',
+    roadmapTitle: 'Lộ trình Frontend Developer - Modern Web',
+    userEmails: ['student2@staffup.local'],
+    status: 'assigned',
+    dueInDays: 150,
+  },
+  {
+    scenario: 'student3_onboarding',
+    roadmapTitle: 'Onboarding - Nhân Viên Kỹ Thuật Mới',
+    userEmails: ['student3@staffup.local'],
+    status: 'in_progress',
+    dueInDays: 60,
+  },
+  {
+    scenario: 'student3_backend',
+    roadmapTitle: 'Lộ trình Backend Developer - Từ Cơ Bản đến Nâng Cao',
+    userEmails: ['student3@staffup.local'],
+    status: 'assigned',
+    dueInDays: 180,
+  },
 ];
 
 async function seedRealisticRoadmaps(context) {
