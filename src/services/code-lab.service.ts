@@ -282,9 +282,11 @@ ${testCasesBlock}
         break;
       }
       case 'passed':
-        // All tests passed — floor at 60 (passing grade) so AI can't
-        // self-sabotage with a low number while the per-test view says ✓.
-        score = Math.max(rawScore, 60);
+        // All tests passed — floor at 85 (above the partial-score ceiling) so
+        // a fully-passing submission can never receive a lower score than a
+        // partially-passing one. The partial branch caps at 85 (ratioScore + 15
+        // clamped at 85), so passed must start at 85 to preserve monotonicity.
+        score = Math.max(rawScore, 85);
         break;
     }
 
