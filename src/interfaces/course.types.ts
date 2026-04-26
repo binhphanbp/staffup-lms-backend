@@ -6,6 +6,7 @@ export interface CourseDetailResponse {
   slug: string;
   description: string | null;
   thumbnailUrl: string | null;
+  mediaFolder: string | null;
   status: string;
   estimatedDurationMinutes: number | null;
   publishedAt: string | null;

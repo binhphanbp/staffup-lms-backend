@@ -23,6 +23,7 @@ export const createCourseSchema = z.object({
     .trim()
     .optional(),
   thumbnailUrl: z.string().url('Thumbnail must be a valid URL').trim().optional(),
+  mediaFolder: z.string().trim().max(255, 'Media folder must be at most 255 characters').optional(),
   categoryId: z.string().regex(/^\d+$/, 'Invalid category ID').optional(),
   ownerDepartmentId: z.string().regex(/^\d+$/, 'Invalid department ID').optional(),
   trainerUserId: z.string().regex(/^\d+$/, 'Invalid trainer ID').optional(),
@@ -43,6 +44,7 @@ export const updateCourseSchema = z.object({
     .trim()
     .optional(),
   thumbnailUrl: z.string().url('Thumbnail must be a valid URL').trim().optional(),
+  mediaFolder: z.string().trim().max(255, 'Media folder must be at most 255 characters').optional(),
   categoryId: z.string().regex(/^\d+$/, 'Invalid category ID').optional(),
   ownerDepartmentId: z.string().regex(/^\d+$/, 'Invalid department ID').optional(),
   trainerUserId: z.string().regex(/^\d+$/, 'Invalid trainer ID').optional(),

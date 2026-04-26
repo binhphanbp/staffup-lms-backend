@@ -1,6 +1,7 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { QuestionBankController } from '@/controllers/question-bank.controller';
 import { QuestionController } from '@/controllers/question.controller';
+import { QuestionGeneratorController } from '@/controllers/question-generator.controller';
 import { authenticate, validate, restrictTo } from '@/middlewares';
 import {
   createQuestionBankSchema,
@@ -17,6 +18,10 @@ import {
   questionParamsSchema,
 } from '@/schemas/question.schema';
 import { createOptionSchema, updateOptionSchema } from '@/schemas/question-option.schema';
+import {
+  generateQuestionsSchema,
+  saveAiQuestionsSchema,
+} from '@/schemas/question-generator.schema';
 
 const router: ExpressRouter = Router();
 
@@ -28,6 +33,21 @@ router
   .route('/')
   .get(validate(listQuestionBanksSchema, 'query'), QuestionBankController.findAll)
   .post(validate(createQuestionBankSchema), QuestionBankController.create);
+
+// ─── AI Question Generator (must come BEFORE /:id) ───────────────────────────
+router.post(
+  '/:bankId/generate-ai',
+  validate(questionInBankParamsSchema, 'params'),
+  validate(generateQuestionsSchema),
+  QuestionGeneratorController.generate,
+);
+
+router.post(
+  '/:bankId/save-ai-questions',
+  validate(questionInBankParamsSchema, 'params'),
+  validate(saveAiQuestionsSchema),
+  QuestionGeneratorController.save,
+);
 
 // ─── Nested: Questions under a bank ──────────────────────────────────────────
 // IMPORTANT: these must come BEFORE /:id to avoid param conflict

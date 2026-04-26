@@ -1,6 +1,6 @@
 import type { Response, Request } from 'express';
 import { UserService } from '@/services/user.service';
-import { AppError, catchAsync, sendSuccess, sendCreated } from '@/utils';
+import { AppError, catchAsync, sendSuccess, sendCreated, sendNoContent } from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 import type { ListUsersQuery } from '@/schemas/user.schema';
 
@@ -23,6 +23,11 @@ export class UserController {
   static updateUser = catchAsync(async (req: AuthRequest, res: Response) => {
     const result = await UserService.updateUser(String(req.params.id), req.body);
     sendSuccess(res, result, 'User updated successfully');
+  });
+
+  static deleteUser = catchAsync(async (req: AuthRequest, res: Response) => {
+    await UserService.deleteUser(String(req.params.id));
+    sendNoContent(res);
   });
 
   static importUsers = catchAsync(async (req: AuthRequest & Request, res: Response) => {
