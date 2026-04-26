@@ -19,6 +19,7 @@ import aiChatRoutes from '@/routes/v1/ai-chat.routes';
 import mediaRoutes from '@/routes/v1/media.routes';
 import companyDocumentRoutes from '@/routes/v1/company-document.routes';
 import recommendationRoutes from '@/routes/v1/recommendation.routes';
+import codeLabRoutes from '@/routes/v1/code-lab.routes';
 import { openApiDocument } from '@/docs/openapi';
 import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
@@ -71,4 +72,5 @@ router.use('/ai-chat', aiChatRoutes);
 router.use('/media', mediaRoutes);
 router.use('/company-documents', companyDocumentRoutes);
 router.use('/recommendations', recommendationRoutes);
+router.use('/code-lab', codeLabRoutes);
 export default router;
