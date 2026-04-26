@@ -34,7 +34,7 @@ export const evaluateCodeSchema = z.object({
   // Optional context for tracking — service does NOT persist anything yet,
   // but accepting it lets us upgrade to attempt logging later without API churn.
   lessonId: z.string().regex(/^\d+$/).optional(),
-  language_response: z.enum(['vi', 'en']).default('vi').optional(),
+  language_response: z.enum(['vi', 'en']).optional().default('vi'),
 });
 
 export type EvaluateCodeInput = z.infer<typeof evaluateCodeSchema>;
