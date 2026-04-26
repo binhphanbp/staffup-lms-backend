@@ -52,17 +52,11 @@ const stripCodeFences = (raw: string): string => {
   return text.trim();
 };
 
-const VALID_STATUS = new Set<OverallStatus>(['passed', 'failed', 'partial', 'error']);
 const VALID_DIAG_TYPE = new Set<DiagnosticType>(['error', 'warning', 'suggestion']);
 const VALID_SEVERITY = new Set<Severity>(['high', 'medium', 'low']);
 
 const truncate = (s: string, max: number): string =>
   s.length > max ? `${s.slice(0, max - 1)}…` : s;
-
-const sanitizeStatus = (raw: unknown, fallback: OverallStatus): OverallStatus =>
-  typeof raw === 'string' && VALID_STATUS.has(raw as OverallStatus)
-    ? (raw as OverallStatus)
-    : fallback;
 
 const sanitizeDiagType = (raw: unknown): DiagnosticType =>
   typeof raw === 'string' && VALID_DIAG_TYPE.has(raw as DiagnosticType)
@@ -245,9 +239,13 @@ ${testCasesBlock}
       .filter((s) => s.length > 0)
       .slice(0, 5);
 
-    // Score (clamped) and overallStatus (re-derived from test results for safety)
+    // Score (clamped) and overallStatus — ALWAYS re-derive from sanitized
+    // testResults rather than trust Gemini's self-reported status, otherwise
+    // an inconsistent AI response (e.g. status=passed but every testResult
+    // has passed=false because it returned "yes"/1 instead of true) would leak
+    // through and contradict what the UI shows the learner.
     const score = clampScore(root.score);
-    const fallbackStatus: OverallStatus =
+    const overallStatus: OverallStatus =
       testResults.length === 0
         ? 'error'
         : testResults.every((t) => t.passed)
@@ -255,7 +253,6 @@ ${testCasesBlock}
           : testResults.some((t) => t.passed)
             ? 'partial'
             : 'failed';
-    const overallStatus = sanitizeStatus(root.overallStatus, fallbackStatus);
 
     const summary = truncate(
       typeof root.summary === 'string' && root.summary.trim().length > 0
