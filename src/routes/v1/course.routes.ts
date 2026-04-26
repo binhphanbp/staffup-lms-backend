@@ -1,5 +1,6 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { CourseController } from '@/controllers/course.controller';
+import { CourseGeneratorController } from '@/controllers/course-generator.controller';
 import { authenticate, requirePermission, validate } from '@/middlewares';
 import {
   createCourseSchema,
@@ -22,11 +23,38 @@ import {
   courseDetailQuerySchema,
   courseQuerySchema,
 } from '@/schemas/course.schema';
+import {
+  generateCourseOutlineSchema,
+  generateLessonContentSchema,
+  saveCourseFromOutlineSchema,
+} from '@/schemas/course-generator.schema';
 
 const router: ExpressRouter = Router();
 
 // All course routes require authentication
 router.use(authenticate);
+
+// ─── AI Course Authoring (must come BEFORE /:id routes) ─────────────────────
+router.post(
+  '/ai/generate-outline',
+  requirePermission('course.create'),
+  validate(generateCourseOutlineSchema),
+  CourseGeneratorController.generateOutline,
+);
+
+router.post(
+  '/ai/generate-lesson-content',
+  requirePermission('course.create'),
+  validate(generateLessonContentSchema),
+  CourseGeneratorController.generateLessonContent,
+);
+
+router.post(
+  '/ai/save-from-outline',
+  requirePermission('course.create'),
+  validate(saveCourseFromOutlineSchema),
+  CourseGeneratorController.save,
+);
 
 router
   .route('/')
