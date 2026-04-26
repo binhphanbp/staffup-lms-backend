@@ -182,13 +182,19 @@ ${testCasesBlock}
       .filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null)
       .map((r, idx) => {
         const tcIdxRaw = r.testCaseIndex;
+        const upperBound = providedTestCount > 0 ? providedTestCount - 1 : Number.MAX_SAFE_INTEGER;
         const testCaseIndex =
           typeof tcIdxRaw === 'number' && Number.isFinite(tcIdxRaw)
-            ? Math.max(0, Math.round(tcIdxRaw))
-            : idx;
-        // If test cases were provided, prefer to anchor input/expectedOutput
-        // to the original to prevent hallucinated mutations.
-        const anchored = providedTestCount > 0 ? input.testCases![testCaseIndex] : undefined;
+            ? Math.max(0, Math.min(upperBound, Math.round(tcIdxRaw)))
+            : Math.min(idx, upperBound);
+        // If test cases were provided, anchor input/expectedOutput back to the
+        // original to prevent hallucinated mutations. Out-of-range indices fall
+        // through with no anchor (rather than reading undefined and returning
+        // AI-fabricated values).
+        const anchored =
+          providedTestCount > 0 && testCaseIndex < providedTestCount
+            ? input.testCases![testCaseIndex]
+            : undefined;
         return {
           testCaseIndex,
           input: anchored?.input ?? truncate(typeof r.input === 'string' ? r.input : '', 2000),
