@@ -33,7 +33,9 @@ export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') =
             }
           : req[target];
 
+      console.log(`[VALIDATE] target: ${target}, before:`, JSON.stringify(dataToValidate));
       const parsed = schema.parse(dataToValidate);
+      console.log(`[VALIDATE] target: ${target}, after:`, JSON.stringify(parsed));
 
       if (target === 'all') {
         const parsedAll = parsed as {
@@ -68,13 +70,25 @@ export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') =
       } else if (target === 'body') {
         req.body = parsed;
       } else {
+        // For query and params, we need to update each property individually
+        // because req.query and req.params may have special getters/setters
         const currentTarget = req[target] as Record<string, unknown>;
+        const parsedObj = parsed as Record<string, unknown>;
 
+        // Clear all existing keys
         for (const key of Object.keys(currentTarget)) {
           delete currentTarget[key];
         }
 
-        Object.assign(currentTarget, parsed);
+        // Set new values using Object.defineProperty to ensure they stick
+        for (const [key, value] of Object.entries(parsedObj)) {
+          Object.defineProperty(currentTarget, key, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          });
+        }
       }
 
       next();
