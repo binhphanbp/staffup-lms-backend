@@ -309,7 +309,7 @@ export class UserService {
       throw new AppError('Cannot delete an admin account', 400);
     }
 
-    const blockingRelations: Array<[string, number]> = [
+    const blockingRelations = [
       ['enrollments', user._count.enrollments],
       ['roadmap assignments', user._count.roadmapAssignments],
       ['assigned roadmaps', user._count.assignedRoadmaps],
@@ -319,7 +319,7 @@ export class UserService {
       ['graded quiz attempts', user._count.gradedQuizAttempts],
       ['graded attempt responses', user._count.gradedAttemptResponses],
       ['chat sessions', user._count.chatSessions],
-    ].filter(([, count]) => count > 0);
+    ].filter(([, count]) => (count as number) > 0) as Array<[string, number]>;
 
     if (blockingRelations.length > 0) {
       throw new AppError(

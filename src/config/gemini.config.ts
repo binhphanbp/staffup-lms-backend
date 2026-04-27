@@ -1,3 +1,4 @@
+// @ts-expect-error - ESM module imported in CommonJS context
 import { GoogleGenAI } from '@google/genai';
 import { env } from '@/config/env.config';
 
