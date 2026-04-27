@@ -6,6 +6,7 @@ const { seedAdminDepartment } = require('./seeds/core/departments.seed');
 const { seedRbac } = require('./seeds/core/rbac.seed');
 const { seedStudents } = require('./seeds/core/students.seed');
 const { seedStudentEnrollments } = require('./seeds/core/student-enrollments.seed');
+const { seedRoleplayScenarios } = require('./seeds/core/roleplay-scenarios.seed');
 const { runDemoSeed } = require('./seeds/demo/full-demo.seed');
 const { seedRealisticRoadmaps } = require('./seeds/demo/roadmap-realistic.seed');
 const { seedCoursesFromCloudinary } = require('./seeds/demo/courses-from-cloudinary.seed');
@@ -42,6 +43,10 @@ async function runCoreSeed(context) {
   console.log('\n🎯 Seeding questions and quizzes...');
   const quizData = await seedQuestionQuiz(context);
 
+  // Seed voice roleplay scenarios
+  console.log('\n🎭 Seeding voice roleplay scenarios...');
+  const roleplayData = await seedRoleplayScenarios(context);
+
   console.log('\nCore seed completed successfully.');
   console.log(`
 Summary:
@@ -60,6 +65,7 @@ Summary:
 - Question Banks: ${quizData?.questionBanks || 0}
 - Questions: ${quizData?.questions || 0}
 - Quizzes: ${quizData?.quizzes || 0}
+- Roleplay Scenarios: ${roleplayData?.total || 0} (${roleplayData?.created || 0} created, ${roleplayData?.updated || 0} updated)
 
 Seed scope:
 - System roles and permissions
