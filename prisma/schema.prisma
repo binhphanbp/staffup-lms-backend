@@ -288,9 +288,29 @@ model Lesson {
   resources       LessonResource[]
   module          Module           @relation(fields: [moduleId], references: [id])
   quiz            Quiz?
+  videoSummary    VideoLessonSummary?
 
   @@unique([moduleId, orderIndex])
   @@map("lessons")
+}
+
+model VideoLessonSummary {
+  id              BigInt   @id @default(autoincrement())
+  lessonId        BigInt   @unique @map("lesson_id")
+  transcript      String?  @db.Text
+  chapters        Json?
+  flashcards      Json?
+  keyPoints       Json?    @map("key_points")
+  source          String   @default("ai") @db.VarChar(20)
+  model           String?  @db.VarChar(100)
+  generatedById   BigInt?  @map("generated_by_user_id")
+  generatedAt     DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lesson          Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+  @@map("video_lesson_summaries")
 }
 
 model LessonResource {
