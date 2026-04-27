@@ -1860,6 +1860,20 @@ async function seedCoursesFromCloudinary(context) {
       return [];
     }
 
+    // Idempotency guard: skip if all Cloudinary courses already exist
+    // so prisma:seed can be re-run without P2002 unique-constraint errors.
+    const slugs = COURSES_DATA.map((c) => c.slug);
+    const existingCourses = await prisma.course.findMany({
+      where: { slug: { in: slugs } },
+      select: { id: true, slug: true },
+    });
+    if (existingCourses.length > 0) {
+      console.log(
+        `⏭ ${existingCourses.length}/${slugs.length} Cloudinary courses already seeded — skipping create step.`,
+      );
+      return existingCourses;
+    }
+
     const createdCourses = [];
     let courseIndex = 0;
 

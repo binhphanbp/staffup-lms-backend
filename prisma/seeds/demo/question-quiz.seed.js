@@ -204,6 +204,14 @@ async function seedQuestionQuiz(context) {
   let totalQuizzes = 0;
   let totalModules = 0;
 
+  // Idempotency guard: skip if any question banks already exist
+  // (prevents P2002 on re-running prisma:seed)
+  const existingBanks = await prisma.questionBank.count();
+  if (existingBanks > 0) {
+    console.log(`⏭ ${existingBanks} question banks already seeded — skipping question/quiz seed.`);
+    return { questionBanks: existingBanks, questions: 0, quizzes: 0, modules: 0 };
+  }
+
   for (const course of courses) {
     console.log(`\n📚 Processing: ${course.title}`);
     console.log(`   Category: ${course.category?.slug || 'unknown'}`);
