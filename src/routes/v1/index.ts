@@ -25,6 +25,7 @@ import aiConfigRoutes from '@/routes/v1/ai-config.routes';
 import gamificationRoutes from '@/routes/v1/gamification.routes';
 import roleplayRoutes from '@/routes/v1/roleplay.routes';
 import onboardingRoutes from '@/routes/v1/onboarding.routes';
+import videoSummaryRoutes from '@/routes/v1/video-summary.routes';
 import { openApiDocument } from '@/docs/openapi';
 import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
@@ -83,4 +84,5 @@ router.use('/admin/ai-config', aiConfigRoutes);
 router.use('/gamification', gamificationRoutes);
 router.use('/roleplay', roleplayRoutes);
 router.use('/onboarding', onboardingRoutes);
+router.use('/lesson-summaries', videoSummaryRoutes);
 export default router;
