@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import * as gamificationService from '@/services/gamification.service';
 import type { QuizAttemptDetailResponse } from '@/interfaces/quiz.types';
 import { AppError } from '@/utils';
 
@@ -517,6 +518,13 @@ export class QuizService {
             userId: true,
           },
         },
+        quiz: {
+          select: {
+            id: true,
+            title: true,
+            passScorePercent: true,
+          },
+        },
         attemptQuestions: {
           include: {
             question: {
@@ -621,13 +629,34 @@ export class QuizService {
         });
       }
 
-      // Update attempt with objective score
+      // Detect whether this attempt has any non-objective questions awaiting manual grading
+      const totalMaxPoints = attempt.attemptQuestions.reduce(
+        (sum: number, aq: any) => sum + aq.maxPoints,
+        0,
+      );
+      const hasManualGrading = attempt.attemptQuestions.some((aq: any) =>
+        ['essay', 'short_answer'].includes(aq.question.questionType),
+      );
+
+      const updateData: Record<string, unknown> = {
+        objectiveScore: totalObjectiveScore,
+        status: 'graded',
+      };
+
+      // For objective-only quizzes, finalize totals + isPassed now
+      let computedIsPassed: boolean | null = null;
+      if (!hasManualGrading) {
+        const scorePercent = totalMaxPoints > 0 ? (totalObjectiveScore / totalMaxPoints) * 100 : 0;
+        computedIsPassed = scorePercent >= Number(attempt.quiz.passScorePercent);
+        updateData.totalScore = totalObjectiveScore;
+        updateData.manualScore = 0;
+        updateData.isPassed = computedIsPassed;
+        updateData.gradedAt = new Date();
+      }
+
       const updatedAttempt = await tx.quizAttempt.update({
         where: { id: BigInt(attemptId) },
-        data: {
-          objectiveScore: totalObjectiveScore,
-          status: 'graded', // Mark as graded (may need manual grading for essays)
-        },
+        data: updateData,
       });
 
       return {
@@ -635,8 +664,20 @@ export class QuizService {
         objectiveScore: Number(updatedAttempt.objectiveScore),
         gradedQuestionsCount: gradedCount,
         status: updatedAttempt.status,
+        isPassed: computedIsPassed,
+        quizTitle: attempt.quiz.title as string,
       };
     });
+
+    // Fire-and-forget XP award if auto-graded passed
+    if (result.isPassed) {
+      await gamificationService.awardXp(
+        attempt.enrollment.userId.toString(),
+        'quiz_passed',
+        attempt.quiz.id.toString(),
+        `Vượt qua quiz: ${result.quizTitle}`,
+      );
+    }
 
     return result;
   }
@@ -786,7 +827,154 @@ export class QuizService {
       ? attempts.filter((a: any) => a.enrollment.userId.toString() === userId)
       : attempts;
 
-    return filteredAttempts.map((attempt: any) => ({
+    return filteredAttempts.map((attempt: any) => QuizService.serializeAttempt(attempt));
+  }
+
+  /**
+   * Admin/trainer-scoped listing of quiz attempts with server-side filter + pagination.
+   * Does NOT filter by the calling user's userId — intended for grading dashboards.
+   */
+  static async getAllAttemptsAdmin(params: {
+    status?: string;
+    aiStatus?: 'all' | 'pending' | 'ai_graded' | 'finalized';
+    courseId?: string;
+    quizId?: string;
+    search?: string;
+    page: number;
+    limit: number;
+    sortBy: 'submittedAt' | 'startedAt' | 'gradedAt' | 'totalScore';
+    sortOrder: 'asc' | 'desc';
+  }) {
+    const db = prisma as any;
+    const { status, aiStatus, courseId, quizId, search, page, limit, sortBy, sortOrder } = params;
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (quizId) where.quizId = BigInt(quizId);
+    if (courseId) where.enrollment = { courseId: BigInt(courseId) };
+
+    // AI status is derived from (status, aiGradedAt via attempt_responses). We approximate:
+    //   pending    → attempts whose status is 'submitted' AND no response has aiGradedAt set
+    //   ai_graded  → attempts whose status is 'submitted' AND at least one response has aiGradedAt set
+    //   finalized  → attempts whose status is 'graded'
+    if (aiStatus && aiStatus !== 'all') {
+      if (aiStatus === 'finalized') {
+        where.status = 'graded';
+      } else if (aiStatus === 'ai_graded') {
+        where.status = 'submitted';
+        where.attemptQuestions = {
+          some: { response: { aiGradedAt: { not: null } } },
+        };
+      } else if (aiStatus === 'pending') {
+        where.status = 'submitted';
+        where.attemptQuestions = {
+          none: { response: { aiGradedAt: { not: null } } },
+        };
+      }
+    }
+
+    if (search && search.trim().length > 0) {
+      const s = search.trim();
+      where.enrollment = {
+        ...(where.enrollment ?? {}),
+        user: {
+          OR: [
+            { fullName: { contains: s, mode: 'insensitive' } },
+            { email: { contains: s, mode: 'insensitive' } },
+          ],
+        },
+      };
+    }
+
+    const orderBy: any = (() => {
+      const direction = sortOrder;
+      switch (sortBy) {
+        case 'startedAt':
+          return { startedAt: direction };
+        case 'gradedAt':
+          return { gradedAt: direction };
+        case 'totalScore':
+          return { totalScore: direction };
+        case 'submittedAt':
+        default:
+          return { submittedAt: direction };
+      }
+    })();
+
+    const [total, attempts] = await Promise.all([
+      db.quizAttempt.count({ where }),
+      db.quizAttempt.findMany({
+        where,
+        include: {
+          quiz: {
+            select: {
+              id: true,
+              title: true,
+              passScorePercent: true,
+              timeLimitMinutes: true,
+            },
+          },
+          enrollment: {
+            select: {
+              id: true,
+              userId: true,
+              user: { select: { id: true, fullName: true, email: true } },
+              course: { select: { id: true, title: true } },
+            },
+          },
+          attemptQuestions: {
+            select: {
+              id: true,
+              question: { select: { questionType: true } },
+              response: {
+                select: { id: true, aiGradedAt: true, awardedPoints: true },
+              },
+            },
+          },
+        },
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    const items = attempts.map((attempt: any) => {
+      const base = QuizService.serializeAttempt(attempt);
+      const essayQuestions = (attempt.attemptQuestions ?? []).filter(
+        (q: any) => q.question?.questionType === 'essay',
+      );
+      const totalEssay = essayQuestions.length;
+      const aiGradedEssay = essayQuestions.filter((q: any) => !!q.response?.aiGradedAt).length;
+      const manuallyGradedEssay = essayQuestions.filter(
+        (q: any) => q.response?.awardedPoints !== null && q.response?.awardedPoints !== undefined,
+      ).length;
+      const hasAi = aiGradedEssay > 0;
+      const derivedAiStatus: 'pending' | 'ai_graded' | 'finalized' =
+        attempt.status === 'graded' ? 'finalized' : hasAi ? 'ai_graded' : 'pending';
+
+      return {
+        ...base,
+        essayQuestionCount: totalEssay,
+        aiGradedEssayCount: aiGradedEssay,
+        manuallyGradedEssayCount: manuallyGradedEssay,
+        derivedAiStatus,
+      };
+    });
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
+  /** Shared serializer for a single quiz attempt (history or admin view). */
+  private static serializeAttempt(attempt: any) {
+    return {
       id: attempt.id.toString(),
       attemptNo: attempt.attemptNo,
       status: attempt.status,
@@ -816,7 +1004,7 @@ export class QuizService {
           title: attempt.enrollment.course.title,
         },
       },
-    }));
+    };
   }
 
   /**
@@ -1104,6 +1292,19 @@ export class QuizService {
         gradedByUserId: BigInt(userId),
       },
     });
+
+    if (isPassed && attempt.enrollment?.userId) {
+      const quizForXp = await db.quiz.findUnique({
+        where: { id: attempt.quizId },
+        select: { id: true, title: true },
+      });
+      await gamificationService.awardXp(
+        attempt.enrollment.userId.toString(),
+        'quiz_passed',
+        quizForXp?.id?.toString() ?? null,
+        `Vượt qua quiz: ${quizForXp?.title ?? ''}`,
+      );
+    }
 
     return {
       attemptId: updatedAttempt.id.toString(),

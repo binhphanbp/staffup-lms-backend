@@ -1,6 +1,7 @@
 import { prisma } from '@/config/database';
 import type { Prisma } from '@prisma/client';
-import { genAI, CHAT_MODEL, GRADING_SYSTEM_PROMPT } from '@/config/gemini.config';
+import { genAI } from '@/config/gemini.config';
+import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils';
 
@@ -44,6 +45,8 @@ interface BatchGradingResult {
  * then returns structured feedback with suggested score.
  */
 export const gradeEssay = async (attemptQuestionId: bigint): Promise<GradingResult> => {
+  await ensureModuleEnabled('autoGrader', 'Chấm điểm Tự luận Tự động');
+  const cfg = await getEffectiveConfig();
   // Fetch the attempt question with all related data
   const attemptQuestion = await prisma.quizAttemptQuestion.findUnique({
     where: { id: attemptQuestionId },
@@ -107,7 +110,7 @@ Hãy đánh giá và trả về JSON theo format đã quy định.`;
   let aiResponse: string;
   try {
     const result = await genAI.models.generateContent({
-      model: CHAT_MODEL,
+      model: cfg.chatModel,
       contents: [
         {
           role: 'user' as const,
@@ -115,7 +118,7 @@ Hãy đánh giá và trả về JSON theo format đã quy định.`;
         },
       ],
       config: {
-        systemInstruction: GRADING_SYSTEM_PROMPT,
+        systemInstruction: cfg.prompts.gradingSystemPrompt,
         temperature: 0.2, // Low temperature for consistent grading
         maxOutputTokens: 2048,
       },

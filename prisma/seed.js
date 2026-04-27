@@ -6,6 +6,12 @@ const { seedAdminDepartment } = require('./seeds/core/departments.seed');
 const { seedRbac } = require('./seeds/core/rbac.seed');
 const { seedStudents } = require('./seeds/core/students.seed');
 const { seedStudentEnrollments } = require('./seeds/core/student-enrollments.seed');
+const { seedRoleplayScenarios } = require('./seeds/core/roleplay-scenarios.seed');
+const { seedOnboardingTemplates } = require('./seeds/core/onboarding-templates.seed');
+const { seedCodeLabProblems } = require('./seeds/core/code-lab-problems.seed');
+const { seedSkills } = require('./seeds/core/skills.seed');
+const { seedPositionSkills } = require('./seeds/core/position-skills.seed');
+const { seedUserSkills } = require('./seeds/core/user-skills.seed');
 const { runDemoSeed } = require('./seeds/demo/full-demo.seed');
 const { seedRealisticRoadmaps } = require('./seeds/demo/roadmap-realistic.seed');
 const { seedCoursesFromCloudinary } = require('./seeds/demo/courses-from-cloudinary.seed');
@@ -42,6 +48,23 @@ async function runCoreSeed(context) {
   console.log('\n🎯 Seeding questions and quizzes...');
   const quizData = await seedQuestionQuiz(context);
 
+  // Seed voice roleplay scenarios
+  console.log('\n🎭 Seeding voice roleplay scenarios...');
+  const roleplayData = await seedRoleplayScenarios(context);
+
+  // Seed onboarding templates
+  console.log('\n🚀 Seeding onboarding templates...');
+  const onboardingData = await seedOnboardingTemplates(context);
+
+  // Seed code lab problems
+  console.log('\n💻 Seeding code lab problems...');
+  const codeLabData = await seedCodeLabProblems(context);
+
+  // Seed skill catalog + position-skill matrix + user-skill assessments
+  const skillsData = await seedSkills(context);
+  const positionSkillsData = await seedPositionSkills(context);
+  const userSkillsData = await seedUserSkills(context);
+
   console.log('\nCore seed completed successfully.');
   console.log(`
 Summary:
@@ -60,6 +83,12 @@ Summary:
 - Question Banks: ${quizData?.questionBanks || 0}
 - Questions: ${quizData?.questions || 0}
 - Quizzes: ${quizData?.quizzes || 0}
+- Roleplay Scenarios: ${roleplayData?.total || 0} (${roleplayData?.created || 0} created, ${roleplayData?.updated || 0} updated)
+- Onboarding Templates: ${onboardingData?.total || 0} (${onboardingData?.created || 0} created, ${onboardingData?.updated || 0} updated)
+- Code Lab Problems: ${codeLabData?.total || 0} (${codeLabData?.created || 0} created, ${codeLabData?.updated || 0} updated)
+- Skills: ${skillsData?.total || 0} (${skillsData?.created || 0} created, ${skillsData?.updated || 0} updated)
+- Position-Skill matrix: ${positionSkillsData?.total || 0} rows across ${positionSkillsData?.positions || 0} positions
+- User-Skill assessments: ${userSkillsData?.total || 0} rows across ${userSkillsData?.users || 0} users
 
 Seed scope:
 - System roles and permissions

@@ -114,6 +114,11 @@ export const openApiDocument = {
       description:
         'Company policy document CRUD — admin manages documents used by the RAG chatbot.',
     },
+    {
+      name: 'AI Lesson Summary',
+      description:
+        'AI-generated transcript, chapters, key points, and flashcards for video lessons.',
+    },
   ],
   components: {
     securitySchemes: {
@@ -125,6 +130,61 @@ export const openApiDocument = {
       },
     },
     schemas: {
+      VideoLessonSummary: {
+        type: 'object',
+        required: [
+          'id',
+          'lessonId',
+          'transcript',
+          'chapters',
+          'keyPoints',
+          'flashcards',
+          'source',
+          'generatedAt',
+          'updatedAt',
+        ],
+        properties: {
+          id: { type: 'string', example: '12' },
+          lessonId: { type: 'string', example: '1' },
+          transcript: {
+            type: 'string',
+            description: 'Transcript / ghi chú có cấu trúc do AI sinh (200-1500 từ).',
+          },
+          chapters: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['startSec', 'endSec', 'title', 'summary'],
+              properties: {
+                startSec: { type: 'integer', example: 0 },
+                endSec: { type: 'integer', example: 90 },
+                title: { type: 'string', example: 'Giới thiệu' },
+                summary: { type: 'string', example: 'Tổng quan bài học và mục tiêu.' },
+              },
+            },
+          },
+          keyPoints: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '3-7 điểm cốt lõi học viên cần nhớ.',
+          },
+          flashcards: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['front', 'back'],
+              properties: {
+                front: { type: 'string', example: 'Python là gì?' },
+                back: { type: 'string', example: 'Ngôn ngữ lập trình thông dịch, đa mục đích.' },
+              },
+            },
+          },
+          source: { type: 'string', example: 'ai' },
+          model: { type: 'string', nullable: true, example: 'gemini-2.0-flash' },
+          generatedAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
       ErrorResponse: {
         type: 'object',
         required: ['success', 'status', 'message'],
@@ -14487,6 +14547,191 @@ export const openApiDocument = {
           },
           '403': {
             description: 'Permission denied - admin role required.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+
+    // ================================================================
+    // AI Video Lesson Summary
+    // ================================================================
+    [`${API_PREFIX}/lesson-summaries/{lessonId}`]: {
+      get: {
+        tags: ['AI Lesson Summary'],
+        summary: 'Lấy tóm tắt AI của bài học video',
+        operationId: 'getVideoLessonSummary',
+        description:
+          'Trả về tóm tắt AI (transcript, chapters, keyPoints, flashcards) của bài học video. Trả về null trong data nếu bài học chưa có tóm tắt.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'lessonId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'ID của lesson (video)',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Tóm tắt bài học (hoặc null nếu chưa có).',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      oneOf: [
+                        { $ref: '#/components/schemas/VideoLessonSummary' },
+                        { type: 'null' },
+                      ],
+                    },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Chưa đăng nhập hoặc token không hợp lệ.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Không đủ quyền xem (chưa được ghi danh khoá học).',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '404': {
+            description: 'Bài học không tồn tại.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['AI Lesson Summary'],
+        summary: 'Xoá tóm tắt AI của bài học',
+        operationId: 'deleteVideoLessonSummary',
+        description: 'Chỉ admin hoặc trainer phụ trách khoá học được xoá tóm tắt.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'lessonId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'ID của lesson',
+          },
+        ],
+        responses: {
+          '204': { description: 'Đã xoá.' },
+          '401': {
+            description: 'Chưa đăng nhập.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Không đủ quyền.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+        },
+      },
+    },
+    [`${API_PREFIX}/lesson-summaries/{lessonId}/generate`]: {
+      post: {
+        tags: ['AI Lesson Summary'],
+        summary: 'Sinh tóm tắt AI cho bài học video',
+        operationId: 'generateVideoLessonSummary',
+        description:
+          'Trainer/admin trigger để Gemini sinh transcript + chapters + keyPoints + flashcards cho bài học video. Nếu đã có bản tóm tắt và `regenerate=false`, trả bản cũ.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'lessonId',
+            required: true,
+            schema: { type: 'string' },
+            description: 'ID của lesson (video)',
+          },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  transcriptHint: {
+                    type: 'string',
+                    maxLength: 20000,
+                    description: 'Trainer có thể paste transcript/ghi chú để AI bám sát. Optional.',
+                  },
+                  language: {
+                    type: 'string',
+                    enum: ['vi', 'en'],
+                    default: 'vi',
+                  },
+                  flashcardCount: { type: 'integer', minimum: 3, maximum: 20, default: 8 },
+                  chapterCount: { type: 'integer', minimum: 2, maximum: 15, default: 5 },
+                  focusKeyPoints: { type: 'boolean', default: true },
+                  regenerate: {
+                    type: 'boolean',
+                    default: false,
+                    description:
+                      'Khi false và đã có tóm tắt, API trả bản cũ mà không gọi AI (tránh trùng quota).',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Tóm tắt đã được sinh và lưu.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/VideoLessonSummary' },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Bài học không phải dạng video hoặc input không hợp lệ.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '403': {
+            description: 'Chỉ admin/trainer phụ trách khoá học được sinh tóm tắt.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '422': {
+            description: 'AI không sinh được tóm tắt hợp lệ.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
+            },
+          },
+          '500': {
+            description: 'Lỗi gọi AI provider.',
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } },
             },

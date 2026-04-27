@@ -1,6 +1,7 @@
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils';
 import { recalculateEnrollmentCache } from '@/services/progress.service';
+import * as gamificationService from '@/services/gamification.service';
 import type { EnrollmentDetailResponse } from '@/interfaces/enrollment.types';
 import {
   ALLOWED_TRANSITIONS,
@@ -742,6 +743,16 @@ export class EnrollmentService {
     // Recalculate enrollment caches
     await recalculateEnrollmentCache(enrollmentId);
 
+    // Award XP if this transition flipped the lesson into 'completed'
+    if (updateData.status === 'completed' && progress.status !== 'completed' && enrollment.userId) {
+      await gamificationService.awardXp(
+        enrollment.userId.toString(),
+        'lesson_completed',
+        lessonId,
+        'Hoàn thành bài học',
+      );
+    }
+
     return {
       enrollmentId,
       lessonId,
@@ -785,6 +796,15 @@ export class EnrollmentService {
 
     const now = new Date();
 
+    // Detect transition (was already completed?) before upsert
+    const existingProgress = await db.lessonProgress.findUnique({
+      where: {
+        enrollmentId_lessonId: { enrollmentId: BigInt(enrollmentId), lessonId: BigInt(lessonId) },
+      },
+      select: { status: true },
+    });
+    const wasAlreadyCompleted = existingProgress?.status === 'completed';
+
     // Upsert — create if not exists, mark completed
     const progress = await db.lessonProgress.upsert({
       where: {
@@ -807,6 +827,16 @@ export class EnrollmentService {
 
     // Recalculate caches
     await recalculateEnrollmentCache(enrollmentId);
+
+    // Award XP only on the first transition into 'completed'
+    if (!wasAlreadyCompleted) {
+      await gamificationService.awardXp(
+        enrollment.userId.toString(),
+        'lesson_completed',
+        lessonId,
+        'Hoàn thành bài học',
+      );
+    }
 
     // Fetch updated enrollment for response
     const updatedEnrollment = await db.enrollment.findUnique({

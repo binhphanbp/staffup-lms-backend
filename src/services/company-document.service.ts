@@ -13,7 +13,7 @@ export class CompanyDocumentService {
    * Get paginated list of company documents with search and filters.
    */
   static async getDocuments(query: CompanyDocumentListQuery) {
-    const { search, category, isActive, page, limit } = query;
+    const { search, category, isActive, page = 1, limit = 20 } = query;
 
     const where: Record<string, unknown> = {};
 

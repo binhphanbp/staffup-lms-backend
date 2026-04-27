@@ -49,13 +49,40 @@ export const submitQuizAttemptSchema = z.object({
 
 export type SubmitQuizAttemptInput = z.infer<typeof submitQuizAttemptSchema>;
 
-// Get attempt history
+// Get attempt history (student scope — filters by authenticated user)
 export const getAttemptHistorySchema = z.object({
   enrollmentId: numericIdStringSchema('Enrollment ID').optional(),
   quizId: numericIdStringSchema('Quiz ID').optional(),
 });
 
 export type GetAttemptHistoryInput = z.infer<typeof getAttemptHistorySchema>;
+
+// Get all attempts (admin/trainer scope — server-side filtering + pagination)
+const attemptStatusSchema = z.enum([
+  'in_progress',
+  'submitted',
+  'graded',
+  'expired',
+  'auto_submitted',
+]);
+
+const attemptAiStatusSchema = z.enum(['all', 'pending', 'ai_graded', 'finalized']);
+
+const attemptSortBySchema = z.enum(['submittedAt', 'startedAt', 'gradedAt', 'totalScore']);
+
+export const getAllAttemptsSchema = z.object({
+  status: attemptStatusSchema.optional(),
+  aiStatus: attemptAiStatusSchema.optional(),
+  courseId: numericIdStringSchema('Course ID').optional(),
+  quizId: numericIdStringSchema('Quiz ID').optional(),
+  search: z.string().trim().max(200).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(20),
+  sortBy: attemptSortBySchema.default('submittedAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type GetAllAttemptsInput = z.infer<typeof getAllAttemptsSchema>;
 
 // Manual grade response
 export const manualGradeResponseSchema = z.object({

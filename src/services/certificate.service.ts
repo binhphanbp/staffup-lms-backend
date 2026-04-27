@@ -1,5 +1,6 @@
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils';
+import * as gamificationService from '@/services/gamification.service';
 
 export class CertificateService {
   /**
@@ -432,7 +433,8 @@ export class CertificateService {
     });
 
     // 7. Update enrollment status to completed if not already
-    if (enrollment.status !== 'completed') {
+    const wasAlreadyCompleted = enrollment.status === 'completed';
+    if (!wasAlreadyCompleted) {
       await db.enrollment.update({
         where: { id: BigInt(enrollmentId) },
         data: {
@@ -441,6 +443,23 @@ export class CertificateService {
         },
       });
     }
+
+    // 8. Award gamification XP
+    const studentUserId = enrollment.user.id.toString();
+    if (!wasAlreadyCompleted) {
+      await gamificationService.awardXp(
+        studentUserId,
+        'course_completed',
+        enrollment.course.id.toString(),
+        `Hoàn thành khóa học: ${enrollment.course.title}`,
+      );
+    }
+    await gamificationService.awardXp(
+      studentUserId,
+      'certificate_earned',
+      certificate.id.toString(),
+      `Nhận chứng chỉ: ${enrollment.course.title}`,
+    );
 
     return {
       certificateId: certificate.id.toString(),

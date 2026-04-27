@@ -204,6 +204,14 @@ async function seedQuestionQuiz(context) {
   let totalQuizzes = 0;
   let totalModules = 0;
 
+  // Idempotency guard: skip if any question banks already exist
+  // (prevents P2002 on re-running prisma:seed)
+  const existingBanks = await prisma.questionBank.count();
+  if (existingBanks > 0) {
+    console.log(`⏭ ${existingBanks} question banks already seeded — skipping question/quiz seed.`);
+    return { questionBanks: existingBanks, questions: 0, quizzes: 0, modules: 0 };
+  }
+
   for (const course of courses) {
     console.log(`\n📚 Processing: ${course.title}`);
     console.log(`   Category: ${course.category?.slug || 'unknown'}`);
@@ -260,6 +268,9 @@ async function seedQuestionQuiz(context) {
             content: template.content,
             explanation: template.explanation,
             defaultPoints: template.type === 'essay' ? 5 : 1,
+            // Spread difficulty 1..5 across questions so adaptive quiz has
+            // a usable range; essay questions stay neutral at 3.
+            difficulty: template.type === 'essay' ? 3 : ((i % 5) + 1),
             isActive: true,
           },
         });

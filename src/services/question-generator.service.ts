@@ -1,5 +1,6 @@
 import { prisma } from '@/config/database';
-import { genAI, CHAT_MODEL, QUESTION_GENERATION_SYSTEM_PROMPT } from '@/config/gemini.config';
+import { genAI } from '@/config/gemini.config';
+import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils';
 import type {
@@ -191,6 +192,8 @@ export class QuestionGeneratorService {
     userId: string,
     roleCodes: string[],
   ): Promise<GenerateResult> {
+    await ensureModuleEnabled('questionGenerator', 'Trợ lý Tạo Câu hỏi');
+    const cfg = await getEffectiveConfig();
     await assertBankAccess(bankId, userId, roleCodes);
 
     const userPrompt = buildUserPrompt(input);
@@ -198,10 +201,10 @@ export class QuestionGeneratorService {
     let aiResponse: string;
     try {
       const result = await genAI.models.generateContent({
-        model: CHAT_MODEL,
+        model: cfg.chatModel,
         contents: [{ role: 'user' as const, parts: [{ text: userPrompt }] }],
         config: {
-          systemInstruction: QUESTION_GENERATION_SYSTEM_PROMPT,
+          systemInstruction: cfg.prompts.questionGenerationSystemPrompt,
           temperature: 0.7,
           maxOutputTokens: 4096,
           responseMimeType: 'application/json',
@@ -237,7 +240,7 @@ export class QuestionGeneratorService {
 
     return {
       questions,
-      model: CHAT_MODEL,
+      model: cfg.chatModel,
       generatedAt: new Date().toISOString(),
     };
   }

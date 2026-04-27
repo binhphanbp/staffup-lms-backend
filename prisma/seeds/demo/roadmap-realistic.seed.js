@@ -320,6 +320,17 @@ async function seedRealisticRoadmaps(context) {
 
     const createdRoadmaps = [];
 
+    // Idempotency guard: skip if any of these roadmap titles already exists
+    const titles = ROADMAPS_DATA.map((r) => r.title);
+    const existing = await prisma.roadmap.findMany({
+      where: { title: { in: titles } },
+      select: { id: true, title: true },
+    });
+    if (existing.length > 0) {
+      console.log(`⏭ ${existing.length}/${titles.length} roadmaps already seeded — skipping.`);
+      return existing;
+    }
+
     // Create roadmaps
     for (const roadmapData of ROADMAPS_DATA) {
       console.log(`📝 Creating roadmap: ${roadmapData.title}`);

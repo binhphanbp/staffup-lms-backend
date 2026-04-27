@@ -1,5 +1,6 @@
 import { prisma } from '@/config/database';
-import { genAI, CHAT_MODEL, LEARNING_SYSTEM_PROMPT } from '@/config/gemini.config';
+import { genAI } from '@/config/gemini.config';
+import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { searchSimilarChunksScoped, type SearchResult } from '@/services/embedding.service';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils';
@@ -100,6 +101,8 @@ export const askAboutCourse = async (
   courseId: bigint,
   question: string,
 ): Promise<CourseAskResponse> => {
+  await ensureModuleEnabled('chatbot', 'Trợ lý Học tập trong Learning Room');
+  const cfg = await getEffectiveConfig();
   // Verify enrollment
   await verifyEnrollment(userId, courseId);
 
@@ -126,7 +129,7 @@ export const askAboutCourse = async (
 
   // Call Gemini
   const response = await genAI.models.generateContent({
-    model: CHAT_MODEL,
+    model: cfg.chatModel,
     contents: [
       {
         role: 'user' as const,
@@ -134,7 +137,7 @@ export const askAboutCourse = async (
       },
     ],
     config: {
-      systemInstruction: LEARNING_SYSTEM_PROMPT,
+      systemInstruction: cfg.prompts.learningSystemPrompt,
       temperature: 0.4,
       maxOutputTokens: 2048,
     },
@@ -161,6 +164,17 @@ export async function* askAboutCourseStream(
   courseId: bigint,
   question: string,
 ): AsyncGenerator<{ type: 'text' | 'sources' | 'done' | 'error'; data: string }> {
+  // Module guard
+  try {
+    await ensureModuleEnabled('chatbot', 'Trợ lý Học tập trong Learning Room');
+  } catch (error) {
+    yield {
+      type: 'error',
+      data: error instanceof AppError ? error.message : 'Tính năng AI đang tạm tắt.',
+    };
+    return;
+  }
+  const cfg = await getEffectiveConfig();
   // Verify enrollment
   try {
     await verifyEnrollment(userId, courseId);
@@ -201,7 +215,7 @@ export async function* askAboutCourseStream(
   // Stream from Gemini
   try {
     const response = await genAI.models.generateContentStream({
-      model: CHAT_MODEL,
+      model: cfg.chatModel,
       contents: [
         {
           role: 'user' as const,
@@ -209,7 +223,7 @@ export async function* askAboutCourseStream(
         },
       ],
       config: {
-        systemInstruction: LEARNING_SYSTEM_PROMPT,
+        systemInstruction: cfg.prompts.learningSystemPrompt,
         temperature: 0.4,
         maxOutputTokens: 2048,
       },

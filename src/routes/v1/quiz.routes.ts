@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import {
   autoGradeObjectiveQuestions,
   finalizeGrading,
+  getAllAttemptsAdmin,
   getAttemptHistory,
   getQuizAttemptDetail,
   manualGradeResponse,
@@ -10,10 +11,12 @@ import {
   submitQuizAttempt,
 } from '@/controllers/quiz.controller';
 import { authenticate } from '@/middlewares/auth.middleware';
+import { restrictTo } from '@/middlewares/rbac.middleware';
 import { validate } from '@/middlewares/validate.middleware';
 import {
   autoGradeObjectiveSchema,
   finalizeGradingSchema,
+  getAllAttemptsSchema,
   getAttemptHistorySchema,
   getQuizAttemptDetailSchema,
   manualGradeResponseBodySchema,
@@ -41,6 +44,18 @@ router.post('/start', validate(startQuizAttemptSchema), startQuizAttempt);
  * @access  Private
  */
 router.get('/history', validate(getAttemptHistorySchema, 'query'), getAttemptHistory);
+
+/**
+ * @route   GET /api/v1/quiz-attempts/admin
+ * @desc    List all quiz attempts with server-side filters + pagination (grading dashboard)
+ * @access  Private (admin/trainer only)
+ */
+router.get(
+  '/admin',
+  restrictTo('admin', 'trainer'),
+  validate(getAllAttemptsSchema, 'query'),
+  getAllAttemptsAdmin,
+);
 
 /**
  * @route   GET /api/v1/quiz-attempts/:id/detail
