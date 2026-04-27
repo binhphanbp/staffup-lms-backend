@@ -7,50 +7,55 @@ datasource db {
 }
 
 model Department {
-  id            BigInt    @id @default(autoincrement())
-  name          String    @unique @db.VarChar(150)
-  managerUserId BigInt?   @map("manager_user_id")
-  isActive      Boolean   @default(true) @map("is_active")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  ownedCourses  Course[]  @relation("DepartmentOwnedCourses")
-  manager       User?     @relation("DepartmentManager", fields: [managerUserId], references: [id])
-  roadmaps      Roadmap[]
-  users         User[]    @relation("DepartmentUsers")
+  id                  BigInt               @id @default(autoincrement())
+  name                String               @unique @db.VarChar(150)
+  managerUserId       BigInt?              @map("manager_user_id")
+  isActive            Boolean              @default(true) @map("is_active")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  ownedCourses        Course[]             @relation("DepartmentOwnedCourses")
+  manager             User?                @relation("DepartmentManager", fields: [managerUserId], references: [id])
+  roadmaps            Roadmap[]
+  users               User[]               @relation("DepartmentUsers")
+  onboardingTemplates OnboardingTemplate[]
 
   @@map("departments")
 }
 
 model User {
-  id                     BigInt              @id @default(autoincrement())
-  departmentId           BigInt              @map("department_id")
-  fullName               String              @map("full_name") @db.VarChar(150)
-  positionTitle          String?             @map("position_title") @db.VarChar(150)
-  email                  String              @unique @db.Citext
-  passwordHash           String              @map("password_hash") @db.VarChar(255)
-  avatarUrl              String?             @map("avatar_url") @db.VarChar(500)
-  isActive               Boolean             @default(true) @map("is_active")
-  createdAt              DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  gradedAttemptResponses AttemptResponse[]   @relation("AttemptResponseGradedBy")
-  authSessions           AuthSession[]
-  chatSessions           ChatSession[]
-  trainerCourses         Course[]            @relation("CourseTrainer")
-  managedDepartments     Department[]        @relation("DepartmentManager")
-  assignedEnrollments    Enrollment[]        @relation("EnrollmentAssignedBy")
-  enrollments            Enrollment[]        @relation("EnrollmentUser")
-  questionBanks          QuestionBank[]
-  gradedQuizAttempts     QuizAttempt[]       @relation("QuizAttemptGradedBy")
-  assignedRoadmaps       RoadmapAssignment[] @relation("RoadmapAssignmentAssignedBy")
-  roadmapAssignments     RoadmapAssignment[] @relation("RoadmapAssignmentUser")
-  createdRoadmaps        Roadmap[]           @relation("RoadmapCreatedBy")
-  assignedUserRoles      UserRole[]          @relation("UserRoleAssignedBy")
-  userRoles              UserRole[]
-  department             Department          @relation("DepartmentUsers", fields: [departmentId], references: [id])
-  gamification           UserGamification?
-  xpTransactions         XpTransaction[]
-  earnedBadges           UserBadge[]
-  roleplaySessions       RoleplaySession[]
+  id                         BigInt               @id @default(autoincrement())
+  departmentId               BigInt               @map("department_id")
+  fullName                   String               @map("full_name") @db.VarChar(150)
+  positionTitle              String?              @map("position_title") @db.VarChar(150)
+  email                      String               @unique @db.Citext
+  passwordHash               String               @map("password_hash") @db.VarChar(255)
+  avatarUrl                  String?              @map("avatar_url") @db.VarChar(500)
+  isActive                   Boolean              @default(true) @map("is_active")
+  createdAt                  DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  gradedAttemptResponses     AttemptResponse[]    @relation("AttemptResponseGradedBy")
+  authSessions               AuthSession[]
+  chatSessions               ChatSession[]
+  trainerCourses             Course[]             @relation("CourseTrainer")
+  managedDepartments         Department[]         @relation("DepartmentManager")
+  assignedEnrollments        Enrollment[]         @relation("EnrollmentAssignedBy")
+  enrollments                Enrollment[]         @relation("EnrollmentUser")
+  questionBanks              QuestionBank[]
+  gradedQuizAttempts         QuizAttempt[]        @relation("QuizAttemptGradedBy")
+  assignedRoadmaps           RoadmapAssignment[]  @relation("RoadmapAssignmentAssignedBy")
+  roadmapAssignments         RoadmapAssignment[]  @relation("RoadmapAssignmentUser")
+  createdRoadmaps            Roadmap[]            @relation("RoadmapCreatedBy")
+  assignedUserRoles          UserRole[]           @relation("UserRoleAssignedBy")
+  userRoles                  UserRole[]
+  department                 Department           @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  gamification               UserGamification?
+  xpTransactions             XpTransaction[]
+  earnedBadges               UserBadge[]
+  roleplaySessions           RoleplaySession[]
+  createdOnboardingTemplates OnboardingTemplate[] @relation("OnboardingTemplateCreator")
+  onboardingPlansAsAssignee  OnboardingPlan[]     @relation("OnboardingPlanAssignee")
+  onboardingPlansAsManager   OnboardingPlan[]     @relation("OnboardingPlanManager")
+  completedOnboardingTasks   OnboardingTask[]     @relation("OnboardingTaskCompletedBy")
 
   @@index([departmentId])
   @@map("users")
@@ -213,28 +218,29 @@ model RoadmapAssignment {
 }
 
 model Course {
-  id                       BigInt          @id @default(autoincrement())
-  ownerDepartmentId        BigInt?         @map("owner_department_id")
-  trainerUserId            BigInt          @map("trainer_user_id")
-  categoryId               BigInt?         @map("category_id")
-  title                    String          @db.VarChar(200)
-  slug                     String          @unique @db.VarChar(220)
+  id                       BigInt           @id @default(autoincrement())
+  ownerDepartmentId        BigInt?          @map("owner_department_id")
+  trainerUserId            BigInt           @map("trainer_user_id")
+  categoryId               BigInt?          @map("category_id")
+  title                    String           @db.VarChar(200)
+  slug                     String           @unique @db.VarChar(220)
   description              String?
-  thumbnailUrl             String?         @map("thumbnail_url") @db.VarChar(500)
-  status                   course_status   @default(draft)
-  estimatedDurationMinutes Int?            @map("estimated_duration_minutes")
-  publishedAt              DateTime?       @map("published_at") @db.Timestamptz(6)
-  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  mediaFolder              String?         @map("media_folder") @db.VarChar(255)
+  thumbnailUrl             String?          @map("thumbnail_url") @db.VarChar(500)
+  status                   course_status    @default(draft)
+  estimatedDurationMinutes Int?             @map("estimated_duration_minutes")
+  publishedAt              DateTime?        @map("published_at") @db.Timestamptz(6)
+  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  mediaFolder              String?          @map("media_folder") @db.VarChar(255)
   courseTags               CourseTag[]
-  category                 Category?       @relation(fields: [categoryId], references: [id])
-  ownerDepartment          Department?     @relation("DepartmentOwnedCourses", fields: [ownerDepartmentId], references: [id])
-  trainerUser              User            @relation("CourseTrainer", fields: [trainerUserId], references: [id])
+  category                 Category?        @relation(fields: [categoryId], references: [id])
+  ownerDepartment          Department?      @relation("DepartmentOwnedCourses", fields: [ownerDepartmentId], references: [id])
+  trainerUser              User             @relation("CourseTrainer", fields: [trainerUserId], references: [id])
   enrollments              Enrollment[]
   modules                  Module[]
   quizzes                  Quiz[]
   roadmapCourses           RoadmapCourse[]
+  onboardingTasks          OnboardingTask[]
 
   @@map("courses")
 }
@@ -816,4 +822,89 @@ enum risk_level {
   low
   medium
   high
+}
+
+model OnboardingTemplate {
+  id             BigInt            @id @default(autoincrement())
+  slug           String            @unique @db.VarChar(120)
+  name           String            @db.VarChar(200)
+  description    String            @default("") @db.VarChar(1000)
+  targetPosition String?           @map("target_position") @db.VarChar(150)
+  departmentId   BigInt?           @map("department_id")
+  totalDays      Int               @default(90) @map("total_days")
+  isActive       Boolean           @default(true) @map("is_active")
+  isSystem       Boolean           @default(false) @map("is_system")
+  createdById    BigInt?           @map("created_by_id")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  department     Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdBy      User?             @relation("OnboardingTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  stages         OnboardingStage[]
+  plans          OnboardingPlan[]
+
+  @@index([isActive])
+  @@index([departmentId])
+  @@map("onboarding_templates")
+}
+
+model OnboardingPlan {
+  id           BigInt              @id @default(autoincrement())
+  templateId   BigInt?             @map("template_id")
+  templateName String              @map("template_name") @db.VarChar(200)
+  assigneeId   BigInt              @map("assignee_id")
+  managerId    BigInt              @map("manager_id")
+  startDate    DateTime            @map("start_date") @db.Date
+  status       String              @default("active") @db.VarChar(20)
+  notes        String?             @db.VarChar(1000)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  template     OnboardingTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  assignee     User                @relation("OnboardingPlanAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  manager      User                @relation("OnboardingPlanManager", fields: [managerId], references: [id], onDelete: Cascade)
+  stages       OnboardingStage[]
+
+  @@index([assigneeId, status])
+  @@index([managerId])
+  @@map("onboarding_plans")
+}
+
+model OnboardingStage {
+  id              BigInt              @id @default(autoincrement())
+  templateId      BigInt?             @map("template_id")
+  planId          BigInt?             @map("plan_id")
+  name            String              @db.VarChar(120)
+  description     String?             @db.VarChar(500)
+  orderIndex      Int                 @map("order_index")
+  startOffsetDays Int                 @default(0) @map("start_offset_days")
+  endOffsetDays   Int                 @default(30) @map("end_offset_days")
+  template        OnboardingTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  plan            OnboardingPlan?     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tasks           OnboardingTask[]
+
+  @@index([templateId, orderIndex])
+  @@index([planId, orderIndex])
+  @@map("onboarding_stages")
+}
+
+model OnboardingTask {
+  id             BigInt          @id @default(autoincrement())
+  stageId        BigInt          @map("stage_id")
+  title          String          @db.VarChar(250)
+  description    String?         @db.VarChar(1000)
+  category       String          @default("learning") @db.VarChar(30)
+  priority       String          @default("medium") @db.VarChar(20)
+  estimatedHours Int             @default(2) @map("estimated_hours")
+  orderIndex     Int             @map("order_index")
+  courseId       BigInt?         @map("course_id")
+  resourceUrl    String?         @map("resource_url") @db.VarChar(500)
+  status         String          @default("pending") @db.VarChar(20)
+  completedAt    DateTime?       @map("completed_at") @db.Timestamptz(6)
+  completedById  BigInt?         @map("completed_by_id")
+  managerNote    String?         @map("manager_note") @db.VarChar(500)
+  stage          OnboardingStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  course         Course?         @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  completedBy    User?           @relation("OnboardingTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([stageId, orderIndex])
+  @@map("onboarding_tasks")
 }
