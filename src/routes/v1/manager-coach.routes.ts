@@ -11,7 +11,7 @@ import { managerCoachChatSchema, weeklyBriefingSchema } from '@/schemas/manager-
 
 const router: Router = Router();
 
-router.use(authenticate, restrictTo('manager'));
+router.use(authenticate, restrictTo('manager', 'admin'));
 
 router.get('/team-overview', getTeamOverview);
 router.post('/chat', validate(managerCoachChatSchema), chat);
