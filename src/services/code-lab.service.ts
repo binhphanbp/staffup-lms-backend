@@ -1,7 +1,28 @@
+import type { Prisma } from '@prisma/client';
+import { prisma } from '@/config/database';
 import { genAI, CHAT_MODEL, CODE_LAB_REVIEW_SYSTEM_PROMPT } from '@/config/gemini.config';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils';
-import type { EvaluateCodeInput, CodeLabLanguage } from '@/schemas/code-lab.schema';
+import type {
+  EvaluateCodeInput,
+  CodeLabLanguage,
+  ListProblemsQuery,
+  ListSubmissionsQuery,
+  SubmitProblemInput,
+} from '@/schemas/code-lab.schema';
+
+// ====================================================================
+// Actor & permission helpers
+// ====================================================================
+
+interface ActorContext {
+  userId: bigint;
+  roleCodes: string[];
+}
+
+const isAdmin = (actor: ActorContext): boolean => actor.roleCodes.includes('admin');
+const isTrainerOrAdmin = (actor: ActorContext): boolean =>
+  actor.roleCodes.includes('admin') || actor.roleCodes.includes('trainer');
 
 // ====================================================================
 // Types
@@ -308,5 +329,285 @@ ${testCasesBlock}
       model: CHAT_MODEL,
       generatedAt: new Date().toISOString(),
     };
+  }
+
+  // ================================================================
+  // Multi-problem registry & submission persistence
+  // ================================================================
+
+  static async listProblems(query: ListProblemsQuery) {
+    const where: Prisma.CodeLabProblemWhereInput = { isPublished: true };
+    if (query.language) where.language = query.language;
+    if (query.difficulty) where.difficulty = query.difficulty;
+    if (query.q && query.q.trim().length > 0) {
+      where.OR = [
+        { title: { contains: query.q.trim(), mode: 'insensitive' } },
+        { category: { contains: query.q.trim(), mode: 'insensitive' } },
+      ];
+    }
+
+    const problems = await prisma.codeLabProblem.findMany({
+      where,
+      orderBy: [{ difficulty: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        difficulty: true,
+        category: true,
+        language: true,
+        tags: true,
+        createdAt: true,
+      },
+    });
+
+    return problems.map((p) => ({
+      id: p.id.toString(),
+      slug: p.slug,
+      title: p.title,
+      difficulty: p.difficulty,
+      category: p.category,
+      language: p.language as CodeLabLanguage,
+      tags: p.tags,
+      createdAt: p.createdAt.toISOString(),
+    }));
+  }
+
+  static async getProblemBySlug(slug: string) {
+    const problem = await prisma.codeLabProblem.findUnique({
+      where: { slug },
+    });
+    if (!problem || !problem.isPublished) {
+      throw new AppError('Bài lab không tồn tại hoặc đã ẩn.', 404);
+    }
+    return this.serializeProblem(problem);
+  }
+
+  static async submitToProblem(actor: ActorContext, slug: string, input: SubmitProblemInput) {
+    const problem = await prisma.codeLabProblem.findUnique({ where: { slug } });
+    if (!problem || !problem.isPublished) {
+      throw new AppError('Bài lab không tồn tại hoặc đã ẩn.', 404);
+    }
+
+    const testCases = this.parseTestCases(problem.testCases);
+
+    const evaluation = await this.evaluate({
+      language: input.language,
+      code: input.code,
+      problemStatement: problem.problemStatement,
+      testCases,
+      language_response: input.language_response,
+    });
+
+    const submission = await prisma.codeSubmission.create({
+      data: {
+        problemId: problem.id,
+        userId: actor.userId,
+        language: input.language,
+        code: input.code,
+        status: evaluation.overallStatus,
+        score: evaluation.score,
+        summary: evaluation.summary,
+        evaluation: evaluation as unknown as Prisma.InputJsonValue,
+        model: evaluation.model,
+      },
+      select: {
+        id: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      submissionId: submission.id.toString(),
+      submittedAt: submission.createdAt.toISOString(),
+      problemSlug: problem.slug,
+      evaluation,
+    };
+  }
+
+  static async listMySubmissions(
+    actor: ActorContext,
+    slug: string | null,
+    query: ListSubmissionsQuery,
+  ) {
+    const where: Prisma.CodeSubmissionWhereInput = { userId: actor.userId };
+    if (slug) {
+      const problem = await prisma.codeLabProblem.findUnique({
+        where: { slug },
+        select: { id: true },
+      });
+      if (!problem) {
+        throw new AppError('Bài lab không tồn tại.', 404);
+      }
+      where.problemId = problem.id;
+    }
+    if (query.status) where.status = query.status;
+
+    const rows = await prisma.codeSubmission.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: query.limit,
+      include: {
+        problem: { select: { slug: true, title: true, difficulty: true, category: true } },
+      },
+    });
+
+    return rows.map((r) => this.serializeSubmission(r));
+  }
+
+  static async listProblemSubmissions(
+    actor: ActorContext,
+    slug: string,
+    query: ListSubmissionsQuery,
+  ) {
+    if (!isTrainerOrAdmin(actor)) {
+      throw new AppError('Chỉ admin hoặc trainer mới được xem submission của học viên.', 403);
+    }
+
+    const problem = await prisma.codeLabProblem.findUnique({
+      where: { slug },
+      select: { id: true, slug: true, title: true },
+    });
+    if (!problem) {
+      throw new AppError('Bài lab không tồn tại.', 404);
+    }
+
+    const where: Prisma.CodeSubmissionWhereInput = { problemId: problem.id };
+    if (query.status) where.status = query.status;
+
+    const rows = await prisma.codeSubmission.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: query.limit,
+      include: {
+        problem: { select: { slug: true, title: true, difficulty: true, category: true } },
+        user: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+      },
+    });
+
+    return rows.map((r) => this.serializeSubmission(r));
+  }
+
+  static async getSubmission(actor: ActorContext, submissionId: bigint) {
+    const submission = await prisma.codeSubmission.findUnique({
+      where: { id: submissionId },
+      include: {
+        problem: { select: { slug: true, title: true, difficulty: true, category: true } },
+        user: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+      },
+    });
+    if (!submission) {
+      throw new AppError('Submission không tồn tại.', 404);
+    }
+
+    if (!isAdmin(actor) && submission.userId.toString() !== actor.userId.toString()) {
+      // trainers can also see their students' submissions for any published problem
+      if (!actor.roleCodes.includes('trainer')) {
+        throw new AppError('Bạn không có quyền xem submission này.', 403);
+      }
+    }
+
+    return this.serializeSubmission(submission);
+  }
+
+  // ----------------------------------------------------------------
+  // Serializers
+  // ----------------------------------------------------------------
+
+  private static serializeProblem(p: {
+    id: bigint;
+    slug: string;
+    title: string;
+    difficulty: string;
+    category: string;
+    language: string;
+    problemStatement: string;
+    starterCode: string;
+    testCases: Prisma.JsonValue;
+    tags: string[];
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: p.id.toString(),
+      slug: p.slug,
+      title: p.title,
+      difficulty: p.difficulty,
+      category: p.category,
+      language: p.language as CodeLabLanguage,
+      problemStatement: p.problemStatement,
+      starterCode: p.starterCode,
+      testCases: this.parseTestCases(p.testCases),
+      tags: p.tags,
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
+    };
+  }
+
+  private static serializeSubmission(s: {
+    id: bigint;
+    problemId: bigint;
+    userId: bigint;
+    language: string;
+    code: string;
+    status: string;
+    score: number;
+    summary: string | null;
+    evaluation: Prisma.JsonValue | null;
+    model: string | null;
+    createdAt: Date;
+    problem: { slug: string; title: string; difficulty: string; category: string };
+    user?: {
+      id: bigint;
+      fullName: string;
+      email: string;
+      avatarUrl: string | null;
+    };
+  }) {
+    return {
+      id: s.id.toString(),
+      problemId: s.problemId.toString(),
+      problemSlug: s.problem.slug,
+      problemTitle: s.problem.title,
+      problemDifficulty: s.problem.difficulty,
+      problemCategory: s.problem.category,
+      userId: s.userId.toString(),
+      user: s.user
+        ? {
+            id: s.user.id.toString(),
+            fullName: s.user.fullName,
+            email: s.user.email,
+            avatarUrl: s.user.avatarUrl,
+          }
+        : undefined,
+      language: s.language as CodeLabLanguage,
+      code: s.code,
+      status: s.status,
+      score: s.score,
+      summary: s.summary,
+      evaluation: s.evaluation,
+      model: s.model,
+      createdAt: s.createdAt.toISOString(),
+    };
+  }
+
+  private static parseTestCases(raw: Prisma.JsonValue): {
+    input: string;
+    expectedOutput: string;
+    description?: string;
+  }[] {
+    if (!Array.isArray(raw)) return [];
+    const out: { input: string; expectedOutput: string; description?: string }[] = [];
+    for (const tc of raw) {
+      if (typeof tc !== 'object' || tc === null || Array.isArray(tc)) continue;
+      const obj = tc as Record<string, unknown>;
+      out.push({
+        input: typeof obj.input === 'string' ? obj.input : '',
+        expectedOutput: typeof obj.expectedOutput === 'string' ? obj.expectedOutput : '',
+        description: typeof obj.description === 'string' ? obj.description : undefined,
+      });
+      if (out.length >= 10) break;
+    }
+    return out;
   }
 }

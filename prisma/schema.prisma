@@ -56,6 +56,7 @@ model User {
   onboardingPlansAsAssignee  OnboardingPlan[]     @relation("OnboardingPlanAssignee")
   onboardingPlansAsManager   OnboardingPlan[]     @relation("OnboardingPlanManager")
   completedOnboardingTasks   OnboardingTask[]     @relation("OnboardingTaskCompletedBy")
+  codeSubmissions            CodeSubmission[]
 
   @@index([departmentId])
   @@map("users")
@@ -273,20 +274,20 @@ model Module {
 }
 
 model Lesson {
-  id              BigInt           @id @default(autoincrement())
-  moduleId        BigInt           @map("module_id")
-  title           String           @db.VarChar(200)
-  lessonType      lesson_kind      @map("lesson_type")
-  contentText     String?          @map("content_text")
-  videoUrl        String?          @map("video_url") @db.VarChar(500)
-  durationSeconds Int              @default(0) @map("duration_seconds")
-  orderIndex      Int              @map("order_index")
-  isPreview       Boolean          @default(false) @map("is_preview")
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              BigInt              @id @default(autoincrement())
+  moduleId        BigInt              @map("module_id")
+  title           String              @db.VarChar(200)
+  lessonType      lesson_kind         @map("lesson_type")
+  contentText     String?             @map("content_text")
+  videoUrl        String?             @map("video_url") @db.VarChar(500)
+  durationSeconds Int                 @default(0) @map("duration_seconds")
+  orderIndex      Int                 @map("order_index")
+  isPreview       Boolean             @default(false) @map("is_preview")
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
   progress        LessonProgress[]
   resources       LessonResource[]
-  module          Module           @relation(fields: [moduleId], references: [id])
+  module          Module              @relation(fields: [moduleId], references: [id])
   quiz            Quiz?
   videoSummary    VideoLessonSummary?
 
@@ -295,19 +296,19 @@ model Lesson {
 }
 
 model VideoLessonSummary {
-  id              BigInt   @id @default(autoincrement())
-  lessonId        BigInt   @unique @map("lesson_id")
-  transcript      String?  @db.Text
-  chapters        Json?
-  flashcards      Json?
-  keyPoints       Json?    @map("key_points")
-  source          String   @default("ai") @db.VarChar(20)
-  model           String?  @db.VarChar(100)
-  generatedById   BigInt?  @map("generated_by_user_id")
-  generatedAt     DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  lesson          Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  id            BigInt   @id @default(autoincrement())
+  lessonId      BigInt   @unique @map("lesson_id")
+  transcript    String?  @db.Text
+  chapters      Json?
+  flashcards    Json?
+  keyPoints     Json?    @map("key_points")
+  source        String   @default("ai") @db.VarChar(20)
+  model         String?  @db.VarChar(100)
+  generatedById BigInt?  @map("generated_by_user_id")
+  generatedAt   DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lesson        Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@index([lessonId])
   @@map("video_lesson_summaries")
@@ -927,4 +928,46 @@ model OnboardingTask {
 
   @@index([stageId, orderIndex])
   @@map("onboarding_tasks")
+}
+
+model CodeLabProblem {
+  id               BigInt           @id @default(autoincrement())
+  slug             String           @unique @db.VarChar(120)
+  title            String           @db.VarChar(200)
+  difficulty       String           @default("medium") @db.VarChar(20)
+  category         String           @db.VarChar(80)
+  language         String           @db.VarChar(20)
+  problemStatement String           @map("problem_statement") @db.Text
+  starterCode      String           @map("starter_code") @db.Text
+  testCases        Json             @map("test_cases")
+  tags             String[]         @default([])
+  isPublished      Boolean          @default(true) @map("is_published")
+  createdById      BigInt?          @map("created_by_user_id")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  submissions      CodeSubmission[]
+
+  @@index([language])
+  @@index([difficulty])
+  @@map("code_lab_problems")
+}
+
+model CodeSubmission {
+  id         BigInt         @id @default(autoincrement())
+  problemId  BigInt         @map("problem_id")
+  userId     BigInt         @map("user_id")
+  language   String         @db.VarChar(20)
+  code       String         @db.Text
+  status     String         @default("error") @db.VarChar(20)
+  score      Int            @default(0)
+  summary    String?        @db.Text
+  evaluation Json?
+  model      String?        @db.VarChar(100)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  problem    CodeLabProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([problemId, createdAt(sort: Desc)])
+  @@map("code_submissions")
 }
