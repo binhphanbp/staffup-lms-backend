@@ -606,6 +606,23 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+model AiConfig {
+  id                   Int      @id @default(1)
+  provider             String   @default("gemini") @db.VarChar(50)
+  chatModel            String   @default("gemini-2.5-flash") @map("chat_model") @db.VarChar(100)
+  embeddingModel       String   @default("gemini-embedding-001") @map("embedding_model") @db.VarChar(100)
+  prompts              Json     @default("{}")
+  modules              Json     @default("{}")
+  topKResults          Int      @default(5) @map("top_k_results")
+  maxMessagesPerMinute Int      @default(10) @map("max_messages_per_minute")
+  temperature          Float    @default(0.4)
+  updatedBy            BigInt?  @map("updated_by")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("ai_config")
+}
+
 enum roadmap_assignment_status {
   assigned
   in_progress

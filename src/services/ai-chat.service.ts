@@ -1,5 +1,6 @@
 import { prisma } from '@/config/database';
-import { genAI, CHAT_MODEL, SYSTEM_PROMPT, MAX_MESSAGES_PER_MINUTE } from '@/config/gemini.config';
+import { genAI } from '@/config/gemini.config';
+import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { searchSimilarChunks, type SearchResult } from '@/services/embedding.service';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils';
@@ -26,7 +27,9 @@ interface ChatResponse {
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
-const checkRateLimit = (userId: string): void => {
+const checkRateLimit = async (userId: string): Promise<void> => {
+  const cfg = await getEffectiveConfig();
+  const limit = cfg.maxMessagesPerMinute;
   const now = Date.now();
   const entry = rateLimitMap.get(userId);
 
@@ -35,11 +38,8 @@ const checkRateLimit = (userId: string): void => {
     return;
   }
 
-  if (entry.count >= MAX_MESSAGES_PER_MINUTE) {
-    throw new AppError(
-      `Bạn đã gửi quá ${MAX_MESSAGES_PER_MINUTE} tin nhắn/phút. Vui lòng chờ một chút.`,
-      429,
-    );
+  if (entry.count >= limit) {
+    throw new AppError(`Bạn đã gửi quá ${limit} tin nhắn/phút. Vui lòng chờ một chút.`, 429);
   }
 
   entry.count++;
@@ -199,7 +199,9 @@ export const chat = async (
   sessionId: bigint | null,
   message: string,
 ): Promise<ChatResponse & { sessionId: string }> => {
-  checkRateLimit(userId.toString());
+  await ensureModuleEnabled('chatbot', 'Chatbot Trợ lý Học tập');
+  await checkRateLimit(userId.toString());
+  const cfg = await getEffectiveConfig();
 
   // Create session if not provided
   let activeSessionId: bigint;
@@ -250,7 +252,7 @@ export const chat = async (
 
   // Step 4: Call Gemini
   const response = await genAI.models.generateContent({
-    model: CHAT_MODEL,
+    model: cfg.chatModel,
     contents: [
       ...history.slice(0, -1).map((msg) => ({
         role: msg.role === 'user' ? ('user' as const) : ('model' as const),
@@ -262,7 +264,7 @@ export const chat = async (
       },
     ],
     config: {
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: cfg.prompts.systemPrompt,
       temperature: 0.3,
       maxOutputTokens: 2048,
     },
@@ -302,7 +304,9 @@ export async function* chatStream(
   sessionId: bigint | null,
   message: string,
 ): AsyncGenerator<{ type: 'text' | 'sources' | 'session' | 'done' | 'error'; data: string }> {
-  checkRateLimit(userId.toString());
+  await ensureModuleEnabled('chatbot', 'Chatbot Trợ lý Học tập');
+  await checkRateLimit(userId.toString());
+  const cfg = await getEffectiveConfig();
 
   // Create or verify session
   let activeSessionId: bigint;
@@ -363,7 +367,7 @@ export async function* chatStream(
 
   try {
     const response = await genAI.models.generateContentStream({
-      model: CHAT_MODEL,
+      model: cfg.chatModel,
       contents: [
         ...history.slice(0, -1).map((msg) => ({
           role: msg.role === 'user' ? ('user' as const) : ('model' as const),
@@ -375,7 +379,7 @@ export async function* chatStream(
         },
       ],
       config: {
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: cfg.prompts.systemPrompt,
         temperature: 0.3,
         maxOutputTokens: 2048,
       },
