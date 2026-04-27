@@ -23,6 +23,7 @@ import codeLabRoutes from '@/routes/v1/code-lab.routes';
 import managerCoachRoutes from '@/routes/v1/manager-coach.routes';
 import aiConfigRoutes from '@/routes/v1/ai-config.routes';
 import gamificationRoutes from '@/routes/v1/gamification.routes';
+import roleplayRoutes from '@/routes/v1/roleplay.routes';
 import { openApiDocument } from '@/docs/openapi';
 import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
@@ -79,4 +80,5 @@ router.use('/code-lab', codeLabRoutes);
 router.use('/manager/coach', managerCoachRoutes);
 router.use('/admin/ai-config', aiConfigRoutes);
 router.use('/gamification', gamificationRoutes);
+router.use('/roleplay', roleplayRoutes);
 export default router;
