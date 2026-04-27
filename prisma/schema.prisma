@@ -61,6 +61,8 @@ model User {
   userSkills                 UserSkill[]
   skillAssessments           SkillAssessment[]     @relation("SkillAssessmentUser")
   performedSkillAssessments  SkillAssessment[]     @relation("SkillAssessmentAssessor")
+  discussionThreads          DiscussionThread[]    @relation("DiscussionThreadAuthor")
+  discussionReplies          DiscussionReply[]     @relation("DiscussionReplyAuthor")
 
   @@index([departmentId])
   @@map("users")
@@ -247,6 +249,7 @@ model Course {
   roadmapCourses           RoadmapCourse[]
   onboardingTasks          OnboardingTask[]
   skillRecommendations     SkillCourseRecommendation[]
+  discussionThreads        DiscussionThread[]
 
   @@map("courses")
 }
@@ -295,6 +298,7 @@ model Lesson {
   module          Module              @relation(fields: [moduleId], references: [id])
   quiz            Quiz?
   videoSummary    VideoLessonSummary?
+  discussionThreads DiscussionThread[]
 
   @@unique([moduleId, orderIndex])
   @@map("lessons")
@@ -332,6 +336,55 @@ model LessonResource {
 
   @@unique([lessonId, orderIndex])
   @@map("lesson_resources")
+}
+
+model DiscussionThread {
+  id          BigInt    @id @default(autoincrement())
+  courseId    BigInt    @map("course_id")
+  lessonId    BigInt?   @map("lesson_id")
+  authorId    BigInt    @map("author_id")
+  title       String    @db.VarChar(200)
+  body        String    @db.Text
+  isPinned    Boolean   @default(false) @map("is_pinned")
+  isLocked    Boolean   @default(false) @map("is_locked")
+  isResolved  Boolean   @default(false) @map("is_resolved")
+  viewCount   Int       @default(0) @map("view_count")
+  replyCount  Int       @default(0) @map("reply_count")
+  lastReplyAt DateTime? @map("last_reply_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  course  Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson  Lesson?           @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  author  User              @relation("DiscussionThreadAuthor", fields: [authorId], references: [id])
+  replies DiscussionReply[]
+
+  @@index([courseId, lastReplyAt])
+  @@index([courseId, isPinned, lastReplyAt])
+  @@index([authorId])
+  @@map("discussion_threads")
+}
+
+model DiscussionReply {
+  id            BigInt    @id @default(autoincrement())
+  threadId      BigInt    @map("thread_id")
+  authorId      BigInt    @map("author_id")
+  parentReplyId BigInt?   @map("parent_reply_id")
+  body          String    @db.Text
+  isAccepted    Boolean   @default(false) @map("is_accepted")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  thread       DiscussionThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author       User              @relation("DiscussionReplyAuthor", fields: [authorId], references: [id])
+  parentReply  DiscussionReply?  @relation("ReplyToReply", fields: [parentReplyId], references: [id], onDelete: Cascade)
+  childReplies DiscussionReply[] @relation("ReplyToReply")
+
+  @@index([threadId, createdAt])
+  @@index([parentReplyId])
+  @@map("discussion_replies")
 }
 
 model Enrollment {
