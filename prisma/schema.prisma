@@ -58,6 +58,9 @@ model User {
   completedOnboardingTasks   OnboardingTask[]      @relation("OnboardingTaskCompletedBy")
   codeSubmissions            CodeSubmission[]
   adaptiveQuizSessions       AdaptiveQuizSession[]
+  userSkills                 UserSkill[]
+  skillAssessments           SkillAssessment[]     @relation("SkillAssessmentUser")
+  performedSkillAssessments  SkillAssessment[]     @relation("SkillAssessmentAssessor")
 
   @@index([departmentId])
   @@map("users")
@@ -243,6 +246,7 @@ model Course {
   quizzes                  Quiz[]
   roadmapCourses           RoadmapCourse[]
   onboardingTasks          OnboardingTask[]
+  skillRecommendations     SkillCourseRecommendation[]
 
   @@map("courses")
 }
@@ -1026,4 +1030,101 @@ model AdaptiveQuizItem {
   @@unique([sessionId, orderIndex])
   @@index([sessionId, orderIndex])
   @@map("adaptive_quiz_items")
+}
+
+// ============================================================
+// Skill Gap Analysis (P2.2)
+// ============================================================
+
+model Skill {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @unique @db.VarChar(120)
+  slug        String   @unique @db.VarChar(140)
+  description String?  @db.Text
+  category    String?  @db.VarChar(60)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  positionSkills    PositionSkill[]
+  userSkills        UserSkill[]
+  assessments       SkillAssessment[]
+  recommendedCourses SkillCourseRecommendation[]
+
+  @@index([category, isActive])
+  @@map("skills")
+}
+
+model PositionSkill {
+  id            BigInt   @id @default(autoincrement())
+  positionTitle String   @map("position_title") @db.VarChar(150)
+  skillId       BigInt   @map("skill_id")
+  targetLevel   Int      @map("target_level") @db.SmallInt // 1..5
+  weight        Float    @default(1.0)
+  isCore        Boolean  @default(false) @map("is_core")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([positionTitle, skillId])
+  @@index([positionTitle])
+  @@index([skillId])
+  @@map("position_skills")
+}
+
+model UserSkill {
+  id             BigInt   @id @default(autoincrement())
+  userId         BigInt   @map("user_id")
+  skillId        BigInt   @map("skill_id")
+  currentLevel   Int      @map("current_level") @db.SmallInt // 1..5
+  source         String   @default("self") @db.VarChar(20) // self|manager|auto
+  notes          String?  @db.Text
+  lastAssessedAt DateTime @default(now()) @map("last_assessed_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+  @@map("user_skills")
+}
+
+model SkillAssessment {
+  id           BigInt   @id @default(autoincrement())
+  userId       BigInt   @map("user_id")
+  skillId      BigInt   @map("skill_id")
+  level        Int      @db.SmallInt
+  source       String   @db.VarChar(20)
+  assessedById BigInt?  @map("assessed_by_id")
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user      User  @relation("SkillAssessmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  assessor  User? @relation("SkillAssessmentAssessor", fields: [assessedById], references: [id])
+  skill     Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([skillId])
+  @@map("skill_assessments")
+}
+
+model SkillCourseRecommendation {
+  id          BigInt   @id @default(autoincrement())
+  skillId     BigInt   @map("skill_id")
+  courseId    BigInt   @map("course_id")
+  minLevel    Int      @default(1) @map("min_level") @db.SmallInt
+  maxLevel    Int      @default(5) @map("max_level") @db.SmallInt
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, courseId])
+  @@index([skillId])
+  @@map("skill_course_recommendations")
 }
