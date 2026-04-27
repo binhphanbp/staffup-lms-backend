@@ -260,6 +260,9 @@ async function seedQuestionQuiz(context) {
             content: template.content,
             explanation: template.explanation,
             defaultPoints: template.type === 'essay' ? 5 : 1,
+            // Spread difficulty 1..5 across questions so adaptive quiz has
+            // a usable range; essay questions stay neutral at 3.
+            difficulty: template.type === 'essay' ? 3 : ((i % 5) + 1),
             isActive: true,
           },
         });

@@ -23,40 +23,41 @@ model Department {
 }
 
 model User {
-  id                         BigInt               @id @default(autoincrement())
-  departmentId               BigInt               @map("department_id")
-  fullName                   String               @map("full_name") @db.VarChar(150)
-  positionTitle              String?              @map("position_title") @db.VarChar(150)
-  email                      String               @unique @db.Citext
-  passwordHash               String               @map("password_hash") @db.VarChar(255)
-  avatarUrl                  String?              @map("avatar_url") @db.VarChar(500)
-  isActive                   Boolean              @default(true) @map("is_active")
-  createdAt                  DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                  DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
-  gradedAttemptResponses     AttemptResponse[]    @relation("AttemptResponseGradedBy")
+  id                         BigInt                @id @default(autoincrement())
+  departmentId               BigInt                @map("department_id")
+  fullName                   String                @map("full_name") @db.VarChar(150)
+  positionTitle              String?               @map("position_title") @db.VarChar(150)
+  email                      String                @unique @db.Citext
+  passwordHash               String                @map("password_hash") @db.VarChar(255)
+  avatarUrl                  String?               @map("avatar_url") @db.VarChar(500)
+  isActive                   Boolean               @default(true) @map("is_active")
+  createdAt                  DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  gradedAttemptResponses     AttemptResponse[]     @relation("AttemptResponseGradedBy")
   authSessions               AuthSession[]
   chatSessions               ChatSession[]
-  trainerCourses             Course[]             @relation("CourseTrainer")
-  managedDepartments         Department[]         @relation("DepartmentManager")
-  assignedEnrollments        Enrollment[]         @relation("EnrollmentAssignedBy")
-  enrollments                Enrollment[]         @relation("EnrollmentUser")
+  trainerCourses             Course[]              @relation("CourseTrainer")
+  managedDepartments         Department[]          @relation("DepartmentManager")
+  assignedEnrollments        Enrollment[]          @relation("EnrollmentAssignedBy")
+  enrollments                Enrollment[]          @relation("EnrollmentUser")
   questionBanks              QuestionBank[]
-  gradedQuizAttempts         QuizAttempt[]        @relation("QuizAttemptGradedBy")
-  assignedRoadmaps           RoadmapAssignment[]  @relation("RoadmapAssignmentAssignedBy")
-  roadmapAssignments         RoadmapAssignment[]  @relation("RoadmapAssignmentUser")
-  createdRoadmaps            Roadmap[]            @relation("RoadmapCreatedBy")
-  assignedUserRoles          UserRole[]           @relation("UserRoleAssignedBy")
+  gradedQuizAttempts         QuizAttempt[]         @relation("QuizAttemptGradedBy")
+  assignedRoadmaps           RoadmapAssignment[]   @relation("RoadmapAssignmentAssignedBy")
+  roadmapAssignments         RoadmapAssignment[]   @relation("RoadmapAssignmentUser")
+  createdRoadmaps            Roadmap[]             @relation("RoadmapCreatedBy")
+  assignedUserRoles          UserRole[]            @relation("UserRoleAssignedBy")
   userRoles                  UserRole[]
-  department                 Department           @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  department                 Department            @relation("DepartmentUsers", fields: [departmentId], references: [id])
   gamification               UserGamification?
   xpTransactions             XpTransaction[]
   earnedBadges               UserBadge[]
   roleplaySessions           RoleplaySession[]
-  createdOnboardingTemplates OnboardingTemplate[] @relation("OnboardingTemplateCreator")
-  onboardingPlansAsAssignee  OnboardingPlan[]     @relation("OnboardingPlanAssignee")
-  onboardingPlansAsManager   OnboardingPlan[]     @relation("OnboardingPlanManager")
-  completedOnboardingTasks   OnboardingTask[]     @relation("OnboardingTaskCompletedBy")
+  createdOnboardingTemplates OnboardingTemplate[]  @relation("OnboardingTemplateCreator")
+  onboardingPlansAsAssignee  OnboardingPlan[]      @relation("OnboardingPlanAssignee")
+  onboardingPlansAsManager   OnboardingPlan[]      @relation("OnboardingPlanManager")
+  completedOnboardingTasks   OnboardingTask[]      @relation("OnboardingTaskCompletedBy")
   codeSubmissions            CodeSubmission[]
+  adaptiveQuizSessions       AdaptiveQuizSession[]
 
   @@index([departmentId])
   @@map("users")
@@ -378,17 +379,18 @@ model LessonProgress {
 }
 
 model QuestionBank {
-  id             BigInt     @id @default(autoincrement())
-  categoryId     BigInt?    @map("category_id")
-  ownerTrainerId BigInt     @map("owner_trainer_id")
-  title          String     @db.VarChar(200)
-  description    String?
-  isActive       Boolean    @default(true) @map("is_active")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  category       Category?  @relation(fields: [categoryId], references: [id])
-  ownerTrainer   User       @relation(fields: [ownerTrainerId], references: [id])
-  questions      Question[]
+  id                   BigInt                @id @default(autoincrement())
+  categoryId           BigInt?               @map("category_id")
+  ownerTrainerId       BigInt                @map("owner_trainer_id")
+  title                String                @db.VarChar(200)
+  description          String?
+  isActive             Boolean               @default(true) @map("is_active")
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  category             Category?             @relation(fields: [categoryId], references: [id])
+  ownerTrainer         User                  @relation(fields: [ownerTrainerId], references: [id])
+  questions            Question[]
+  adaptiveQuizSessions AdaptiveQuizSession[]
 
   @@map("question_banks")
 }
@@ -400,6 +402,7 @@ model Question {
   content          String
   explanation      String?
   defaultPoints    Int                   @default(1) @map("default_points")
+  difficulty       Int                   @default(3) @db.SmallInt
   isActive         Boolean               @default(true) @map("is_active")
   createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -407,7 +410,9 @@ model Question {
   questionBank     QuestionBank          @relation(fields: [questionBankId], references: [id])
   attemptQuestions QuizAttemptQuestion[]
   quizQuestions    QuizQuestion[]
+  adaptiveItems    AdaptiveQuizItem[]
 
+  @@index([questionBankId, difficulty, isActive])
   @@map("questions")
 }
 
@@ -970,4 +975,55 @@ model CodeSubmission {
   @@index([userId, createdAt(sort: Desc)])
   @@index([problemId, createdAt(sort: Desc)])
   @@map("code_submissions")
+}
+
+// ============================================================
+// Adaptive Quiz (P2.1)
+// ============================================================
+
+model AdaptiveQuizSession {
+  id                BigInt    @id @default(autoincrement())
+  userId            BigInt    @map("user_id")
+  questionBankId    BigInt    @map("question_bank_id")
+  status            String    @default("in_progress") @db.VarChar(20)
+  maxQuestions      Int       @default(10) @map("max_questions") @db.SmallInt
+  currentDifficulty Int       @default(3) @map("current_difficulty") @db.SmallInt
+  abilityScore      Float     @default(0.0) @map("ability_score")
+  correctCount      Int       @default(0) @map("correct_count")
+  answeredCount     Int       @default(0) @map("answered_count")
+  band              String?   @db.VarChar(40)
+  startedAt         DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt       DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionBank QuestionBank       @relation(fields: [questionBankId], references: [id], onDelete: Cascade)
+  items        AdaptiveQuizItem[]
+
+  @@index([userId, startedAt(sort: Desc)])
+  @@index([questionBankId, status])
+  @@map("adaptive_quiz_sessions")
+}
+
+model AdaptiveQuizItem {
+  id              BigInt   @id @default(autoincrement())
+  sessionId       BigInt   @map("session_id")
+  questionId      BigInt   @map("question_id")
+  orderIndex      Int      @map("order_index") @db.SmallInt
+  difficulty      Int      @db.SmallInt
+  isCorrect       Boolean  @default(false) @map("is_correct")
+  selectedOptions Json?    @map("selected_options")
+  abilityBefore   Float    @map("ability_before")
+  abilityAfter    Float    @map("ability_after")
+  timeSpentMs     Int?     @map("time_spent_ms")
+  answeredAt      DateTime? @map("answered_at") @db.Timestamptz(6)
+
+  session  AdaptiveQuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question Question            @relation(fields: [questionId], references: [id])
+
+  @@unique([sessionId, questionId])
+  @@unique([sessionId, orderIndex])
+  @@index([sessionId, orderIndex])
+  @@map("adaptive_quiz_items")
 }
