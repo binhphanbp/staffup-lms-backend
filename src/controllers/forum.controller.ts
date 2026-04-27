@@ -7,7 +7,7 @@ import type { ListThreadsQuery } from '@/schemas/forum.schema';
 export const listThreads = catchAsync(async (req: AuthRequest, res: Response) => {
   const result = await ForumService.listThreads(
     req.params.courseId as string,
-    req.query as unknown as ListThreadsQuery,
+    (res.locals.validatedQuery || req.query) as ListThreadsQuery,
     req.user!.userId,
     req.user!.roleCodes,
   );

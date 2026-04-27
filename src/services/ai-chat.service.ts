@@ -278,7 +278,7 @@ export const chat = async (
       sessionId: activeSessionId,
       role: 'assistant',
       content: aiContent,
-      sources: sources.length > 0 ? (sources as unknown as Record<string, unknown>[]) : undefined,
+      sources: sources.length > 0 ? (sources as any) : undefined,
     },
   });
 
@@ -405,7 +405,7 @@ export async function* chatStream(
       sessionId: activeSessionId,
       role: 'assistant',
       content: fullContent,
-      sources: sources.length > 0 ? (sources as unknown as Record<string, unknown>[]) : undefined,
+      sources: sources.length > 0 ? (sources as any) : undefined,
     },
   });
 

@@ -869,20 +869,12 @@ export class CourseService {
   /**
    * Get a single course by ID
    */
-  static async findById(id: string, query: CourseDetailQuery = { expand: [] }) {
-    // Parse expand parameter - handle string from query params
-    let expand: CourseExpand[] = [];
-    if (query.expand) {
-      if (Array.isArray(query.expand)) {
-        expand = query.expand as CourseExpand[];
-      } else if (typeof query.expand === 'string') {
-        // Split comma-separated string
-        expand = query.expand
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean) as CourseExpand[];
-      }
-    }
+  static async findById(id: string, query: any = { expand: [] }) {
+    // Parse expand parameter - already transformed by schema
+    const expand: CourseExpand[] = Array.isArray(query.expand) 
+      ? (query.expand as CourseExpand[])
+      : [];
+    
     const course = await this.getCourseOrThrow(id, expand);
 
     return this.mapCourseDetail(course, expand);
