@@ -69,6 +69,7 @@ router.put(
   ctrl.setMySkillLevel,
 );
 router.get('/my-gap', ctrl.getMyGap);
+router.get('/my-assessments', ctrl.listMyAssessmentHistory);
 
 // ---------- Manager assessment ----------
 router.post(
