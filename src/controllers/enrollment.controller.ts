@@ -29,13 +29,6 @@ export class EnrollmentController {
     );
     sendCreated(res, result, 'Users enrolled successfully');
   });
-  static selfEnroll = catchAsync(async (req: AuthRequest, res: Response) => {
-    const result = await EnrollmentService.selfEnroll(
-      req.params.courseId as string,
-      req.user!.userId,
-    );
-    sendCreated(res, result, 'Successfully enrolled in course');
-  });
 
   static listEnrollments = catchAsync(async (req: AuthRequest, res: Response) => {
     const result = await EnrollmentService.listEnrollments(
