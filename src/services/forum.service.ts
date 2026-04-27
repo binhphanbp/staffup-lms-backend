@@ -1,3 +1,4 @@
+import { enrollment_status } from '@prisma/client';
 import { prisma, withTransaction, type TransactionClient } from '@/config/database';
 import type {
   CreateReplyInput,
@@ -20,7 +21,11 @@ interface ForumAccess {
   role: ForumRole;
 }
 
-const activeEnrollmentStatuses = ['assigned', 'in_progress', 'completed'];
+const activeEnrollmentStatuses = [
+  enrollment_status.assigned,
+  enrollment_status.in_progress,
+  enrollment_status.completed,
+];
 
 const userSelect = {
   id: true,
@@ -71,6 +76,26 @@ interface ReplyRecord {
   updatedAt: Date;
   author: ForumUser;
   childReplies?: ReplyRecord[];
+}
+
+interface UserResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  avatarUrl: string | null;
+}
+
+interface DiscussionReplyResponse {
+  id: string;
+  threadId: string;
+  authorId: string;
+  parentReplyId: string | null;
+  body: string;
+  isAccepted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  author: UserResponse;
+  childReplies: DiscussionReplyResponse[];
 }
 
 interface ThreadDetailRecord extends ThreadSummaryRecord {
@@ -211,7 +236,7 @@ export class ForumService {
     return reply;
   }
 
-  private static mapUser(user: ForumUser) {
+  private static mapUser(user: ForumUser): UserResponse {
     return {
       id: user.id.toString(),
       fullName: user.fullName,
@@ -253,7 +278,7 @@ export class ForumService {
     };
   }
 
-  private static mapReply(reply: ReplyRecord) {
+  private static mapReply(reply: ReplyRecord): DiscussionReplyResponse {
     return {
       id: reply.id.toString(),
       threadId: reply.threadId.toString(),
@@ -524,7 +549,12 @@ export class ForumService {
         },
         include: {
           author: { select: userSelect },
-          childReplies: true,
+          childReplies: {
+            where: { deletedAt: null },
+            include: {
+              author: { select: userSelect },
+            },
+          },
         },
       });
 
