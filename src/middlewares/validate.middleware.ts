@@ -33,9 +33,7 @@ export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') =
             }
           : req[target];
 
-      console.log(`[VALIDATE] target: ${target}, before:`, JSON.stringify(dataToValidate));
       const parsed = schema.parse(dataToValidate);
-      console.log(`[VALIDATE] target: ${target}, after:`, JSON.stringify(parsed));
 
       if (target === 'all') {
         const parsedAll = parsed as {

@@ -70,6 +70,25 @@ export const getAttemptHistory = catchAsync(async (req: AuthRequest, res: Respon
   sendSuccess(res, history, 'Attempt history retrieved successfully');
 });
 
+export const getAllAttemptsAdmin = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { status, aiStatus, courseId, quizId, search, page, limit, sortBy, sortOrder } =
+    req.query as Record<string, string | undefined>;
+
+  const result = await QuizService.getAllAttemptsAdmin({
+    status,
+    aiStatus: aiStatus as 'all' | 'pending' | 'ai_graded' | 'finalized' | undefined,
+    courseId,
+    quizId,
+    search,
+    page: Number(page ?? 1),
+    limit: Number(limit ?? 20),
+    sortBy: (sortBy as 'submittedAt' | 'startedAt' | 'gradedAt' | 'totalScore') ?? 'submittedAt',
+    sortOrder: (sortOrder as 'asc' | 'desc') ?? 'desc',
+  });
+
+  sendSuccess(res, result, 'Quiz attempts retrieved successfully');
+});
+
 export const manualGradeResponse = catchAsync(async (req: AuthRequest, res: Response) => {
   const responseId = Array.isArray(req.params.responseId)
     ? req.params.responseId[0]
