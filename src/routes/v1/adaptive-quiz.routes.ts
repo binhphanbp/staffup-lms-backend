@@ -5,6 +5,7 @@ import {
   bulkSetDifficulty,
   endSession,
   getAdminBank,
+  getLeaderboard,
   getSession,
   listAdminBanks,
   listEligibleBanks,
@@ -50,6 +51,9 @@ router.post(
   validate(autoTuneSchema, 'body'),
   autoTuneBank,
 );
+
+// ---------- Leaderboard ----------
+router.get('/leaderboard', getLeaderboard);
 
 // ---------- Student endpoints ----------
 router.get('/banks', listEligibleBanks);

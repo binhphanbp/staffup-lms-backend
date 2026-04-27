@@ -720,3 +720,126 @@ export const autoTuneBank = async (
   );
   return { updated: bank.questions.length, strategy };
 };
+
+// ============================================================
+// Leaderboard
+// ============================================================
+
+export interface AdaptiveLeaderboardEntry {
+  rank: number;
+  userId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  positionTitle: string | null;
+  department: { id: string; name: string } | null;
+  bestAbility: number;
+  bestBand: string | null;
+  completedSessions: number;
+  totalAnswered: number;
+  totalCorrect: number;
+  accuracyPct: number;
+  lastCompletedAt: string | null;
+}
+
+export const getLeaderboard = async (params: {
+  scope?: 'global' | 'department';
+  departmentId?: bigint | null;
+  limit?: number;
+}): Promise<AdaptiveLeaderboardEntry[]> => {
+  const limit = Math.min(Math.max(params.limit ?? 25, 1), 100);
+
+  const userWhere: Record<string, unknown> = { isActive: true };
+  if (params.scope === 'department' && params.departmentId) {
+    userWhere.departmentId = params.departmentId;
+  }
+
+  const sessions = await prisma.adaptiveQuizSession.findMany({
+    where: {
+      status: 'completed',
+      answeredCount: { gt: 0 },
+      user: userWhere,
+    },
+    select: {
+      userId: true,
+      abilityScore: true,
+      band: true,
+      correctCount: true,
+      answeredCount: true,
+      completedAt: true,
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          avatarUrl: true,
+          positionTitle: true,
+          department: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  type Agg = {
+    user: (typeof sessions)[number]['user'];
+    bestAbility: number;
+    bestBand: string | null;
+    completed: number;
+    correct: number;
+    answered: number;
+    lastAt: Date | null;
+  };
+  const map = new Map<string, Agg>();
+  for (const s of sessions) {
+    const key = s.userId.toString();
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        user: s.user,
+        bestAbility: s.abilityScore,
+        bestBand: s.band,
+        completed: 1,
+        correct: s.correctCount,
+        answered: s.answeredCount,
+        lastAt: s.completedAt,
+      });
+    } else {
+      existing.completed += 1;
+      existing.correct += s.correctCount;
+      existing.answered += s.answeredCount;
+      if (s.abilityScore > existing.bestAbility) {
+        existing.bestAbility = s.abilityScore;
+        existing.bestBand = s.band;
+      }
+      if (s.completedAt && (!existing.lastAt || s.completedAt > existing.lastAt)) {
+        existing.lastAt = s.completedAt;
+      }
+    }
+  }
+
+  const ranked = Array.from(map.values())
+    .sort((a, b) => {
+      if (b.bestAbility !== a.bestAbility) return b.bestAbility - a.bestAbility;
+      if (b.completed !== a.completed) return b.completed - a.completed;
+      const aAcc = a.answered > 0 ? a.correct / a.answered : 0;
+      const bAcc = b.answered > 0 ? b.correct / b.answered : 0;
+      return bAcc - aAcc;
+    })
+    .slice(0, limit);
+
+  return ranked.map((r, i) => ({
+    rank: i + 1,
+    userId: r.user.id.toString(),
+    fullName: r.user.fullName,
+    avatarUrl: r.user.avatarUrl,
+    positionTitle: r.user.positionTitle,
+    department: r.user.department
+      ? { id: r.user.department.id.toString(), name: r.user.department.name }
+      : null,
+    bestAbility: Number(r.bestAbility.toFixed(2)),
+    bestBand: r.bestBand,
+    completedSessions: r.completed,
+    totalAnswered: r.answered,
+    totalCorrect: r.correct,
+    accuracyPct: r.answered > 0 ? Math.round((r.correct / r.answered) * 100) : 0,
+    lastCompletedAt: r.lastAt?.toISOString() ?? null,
+  }));
+};

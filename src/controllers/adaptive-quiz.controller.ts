@@ -87,3 +87,15 @@ export const autoTuneBank = catchAsync(async (req: AuthRequest, res: Response) =
   const result = await svc.autoTuneBank(id, req.body.strategy);
   sendSuccess(res, result, 'Bank auto-tuned successfully');
 });
+
+export const getLeaderboard = catchAsync(async (req: AuthRequest, res: Response) => {
+  const scope = (req.query.scope as 'global' | 'department' | undefined) ?? 'global';
+  const limit = req.query.limit ? Number(req.query.limit) : 25;
+  let departmentId: bigint | null = null;
+  if (scope === 'department') {
+    const raw = (req.query.departmentId as string | undefined) ?? req.user?.departmentId;
+    if (raw) departmentId = BigInt(raw);
+  }
+  const entries = await svc.getLeaderboard({ scope, departmentId, limit });
+  sendSuccess(res, entries, 'Adaptive quiz leaderboard loaded');
+});
