@@ -871,10 +871,10 @@ export class CourseService {
    */
   static async findById(id: string, query: any = { expand: [] }) {
     // Parse expand parameter - already transformed by schema
-    const expand: CourseExpand[] = Array.isArray(query.expand) 
+    const expand: CourseExpand[] = Array.isArray(query.expand)
       ? (query.expand as CourseExpand[])
       : [];
-    
+
     const course = await this.getCourseOrThrow(id, expand);
 
     return this.mapCourseDetail(course, expand);
