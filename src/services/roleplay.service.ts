@@ -636,23 +636,17 @@ export const sendUserTurn = async (
     throw new AppError('Tin nhắn không được để trống.', 400);
   }
 
-  // Persist user turn first so we have stable history
   const lastIndex =
     session.turns.length > 0 ? session.turns[session.turns.length - 1].orderIndex : -1;
-  const userTurn = await prisma.roleplayTurn.create({
-    data: {
-      sessionId: session.id,
-      role: 'user',
-      content: trimmedMessage,
-      orderIndex: lastIndex + 1,
-    },
-  });
 
   const historyAfterUser = [
     ...buildHistoryForGemini(session.turns),
     { role: 'user', parts: [{ text: trimmedMessage }] },
   ];
 
+  // Call Gemini BEFORE persisting any turn. If AI fails, throw — do NOT
+  // pollute transcript with a fake apology turn that would corrupt the
+  // persona context for subsequent calls.
   let aiContent: string;
   try {
     const response = await genAI.models.generateContent({
@@ -664,20 +658,34 @@ export const sendUserTurn = async (
         maxOutputTokens: 512,
       },
     });
-    aiContent =
-      response.text?.trim() || 'Xin lỗi, hiện tại tôi chưa nghe rõ. Bạn có thể nói lại được không?';
+    aiContent = response.text?.trim() ?? '';
   } catch (error) {
     logger.error('Roleplay AI turn error:', error);
-    aiContent = 'Xin lỗi, tôi đang gặp chút sự cố kỹ thuật. Bạn có thể nói lại được không?';
+    throw new AppError('AI đang tạm thời không phản hồi. Vui lòng thử lại sau giây lát.', 503);
   }
 
-  const aiTurn = await prisma.roleplayTurn.create({
-    data: {
-      sessionId: session.id,
-      role: 'assistant',
-      content: aiContent,
-      orderIndex: lastIndex + 2,
-    },
+  if (!aiContent) {
+    throw new AppError('AI chưa trả lời được. Vui lòng thử gửi lại luợt thoại.', 503);
+  }
+
+  // Persist user turn + AI turn atomically AFTER AI succeeded.
+  const aiTurn = await prisma.$transaction(async (tx) => {
+    await tx.roleplayTurn.create({
+      data: {
+        sessionId: session.id,
+        role: 'user',
+        content: trimmedMessage,
+        orderIndex: lastIndex + 1,
+      },
+    });
+    return tx.roleplayTurn.create({
+      data: {
+        sessionId: session.id,
+        role: 'assistant',
+        content: aiContent,
+        orderIndex: lastIndex + 2,
+      },
+    });
   });
 
   const newUserTurnsCount = userTurnsCount + 1;
@@ -740,7 +748,7 @@ const evaluateWithGemini = async (
 **Persona AI đóng:** ${scenario.personaName} — ${scenario.personaRole}
 **Bối cảnh:** ${scenario.context}
 **Mục tiêu người học cần đạt:**
-${objectives.length > 0 ? objectives.map((o, i) => `- ${o}`).join('\n') : '- (Không cụ thể)'}
+${objectives.length > 0 ? objectives.map((o) => `- ${o}`).join('\n') : '- (Không cụ thể)'}
 
 **Rubric (KHÔNG được đổi key/label):**
 ${rubric.map((c) => `- key="${c.key}" label="${c.label}" weight=${c.weight} — ${c.description}`).join('\n')}
@@ -847,8 +855,10 @@ export const endSession = async (
   userId: bigint,
   sessionId: bigint,
 ): Promise<{ session: SessionDetail; evaluation: EvaluationSummary }> => {
-  await ensureModuleEnabled('chatbot', 'Voice Roleplay');
-
+  // NOTE: Intentionally do NOT call ensureModuleEnabled here. A user must
+  // always be able to end their in‑progress session and view results, even
+  // if an admin disables the chatbot module mid‑session. evaluateWithGemini
+  // already provides a deterministic fallback if AI is unavailable.
   const session = await prisma.roleplaySession.findUnique({
     where: { id: sessionId },
     include: {
