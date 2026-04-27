@@ -1,5 +1,6 @@
 import { prisma } from '@/config/database';
-import { genAI, CHAT_MODEL } from '@/config/gemini.config';
+import { genAI } from '@/config/gemini.config';
+import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils';
 
@@ -526,6 +527,7 @@ export class RiskAssessmentService {
    * For enrollments with risk ≥ medium (40), Gemini AI generates intervention suggestions.
    */
   static async calculateRiskScore(enrollmentId: string): Promise<RiskCalculationResult> {
+    await ensureModuleEnabled('dropoutPrediction', 'Dự đoán nguy cơ bỏ học');
     const db = prisma as any;
     const now = new Date();
 
@@ -645,6 +647,7 @@ export class RiskAssessmentService {
    * Processes sequentially with delay to respect Gemini rate limits.
    */
   static async calculateBatchRiskScores(): Promise<BatchResult> {
+    await ensureModuleEnabled('dropoutPrediction', 'Dự đoán nguy cơ bỏ học');
     const db = prisma as any;
 
     const activeEnrollments = await db.enrollment.findMany({
@@ -995,8 +998,9 @@ export class RiskAssessmentService {
 
 Hãy phân tích và đề xuất kế hoạch can thiệp cụ thể.`;
 
+      const cfg = await getEffectiveConfig();
       const response = await genAI.models.generateContent({
-        model: CHAT_MODEL,
+        model: cfg.chatModel,
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         config: {
           systemInstruction: RISK_INTERVENTION_PROMPT,
