@@ -167,7 +167,7 @@ const aggregateAdminData = async (): Promise<AggregatedData> => {
       by: ['courseId'],
       _count: { _all: true },
       _avg: { progressPercentCache: true },
-      orderBy: { _count: { _all: 'desc' } },
+      orderBy: { _count: { courseId: 'desc' } },
       take: 10,
     }),
   ]);
