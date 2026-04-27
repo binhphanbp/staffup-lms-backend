@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import * as gamificationService from '@/services/gamification.service';
 import type { QuizAttemptDetailResponse } from '@/interfaces/quiz.types';
 import { AppError } from '@/utils';
 
@@ -517,6 +518,13 @@ export class QuizService {
             userId: true,
           },
         },
+        quiz: {
+          select: {
+            id: true,
+            title: true,
+            passScorePercent: true,
+          },
+        },
         attemptQuestions: {
           include: {
             question: {
@@ -621,13 +629,34 @@ export class QuizService {
         });
       }
 
-      // Update attempt with objective score
+      // Detect whether this attempt has any non-objective questions awaiting manual grading
+      const totalMaxPoints = attempt.attemptQuestions.reduce(
+        (sum: number, aq: any) => sum + aq.maxPoints,
+        0,
+      );
+      const hasManualGrading = attempt.attemptQuestions.some((aq: any) =>
+        ['essay', 'short_answer'].includes(aq.question.questionType),
+      );
+
+      const updateData: Record<string, unknown> = {
+        objectiveScore: totalObjectiveScore,
+        status: 'graded',
+      };
+
+      // For objective-only quizzes, finalize totals + isPassed now
+      let computedIsPassed: boolean | null = null;
+      if (!hasManualGrading) {
+        const scorePercent = totalMaxPoints > 0 ? (totalObjectiveScore / totalMaxPoints) * 100 : 0;
+        computedIsPassed = scorePercent >= Number(attempt.quiz.passScorePercent);
+        updateData.totalScore = totalObjectiveScore;
+        updateData.manualScore = 0;
+        updateData.isPassed = computedIsPassed;
+        updateData.gradedAt = new Date();
+      }
+
       const updatedAttempt = await tx.quizAttempt.update({
         where: { id: BigInt(attemptId) },
-        data: {
-          objectiveScore: totalObjectiveScore,
-          status: 'graded', // Mark as graded (may need manual grading for essays)
-        },
+        data: updateData,
       });
 
       return {
@@ -635,8 +664,20 @@ export class QuizService {
         objectiveScore: Number(updatedAttempt.objectiveScore),
         gradedQuestionsCount: gradedCount,
         status: updatedAttempt.status,
+        isPassed: computedIsPassed,
+        quizTitle: attempt.quiz.title as string,
       };
     });
+
+    // Fire-and-forget XP award if auto-graded passed
+    if (result.isPassed) {
+      await gamificationService.awardXp(
+        attempt.enrollment.userId.toString(),
+        'quiz_passed',
+        attempt.quiz.id.toString(),
+        `Vượt qua quiz: ${result.quizTitle}`,
+      );
+    }
 
     return result;
   }
@@ -1251,6 +1292,19 @@ export class QuizService {
         gradedByUserId: BigInt(userId),
       },
     });
+
+    if (isPassed && attempt.enrollment?.userId) {
+      const quizForXp = await db.quiz.findUnique({
+        where: { id: attempt.quizId },
+        select: { id: true, title: true },
+      });
+      await gamificationService.awardXp(
+        attempt.enrollment.userId.toString(),
+        'quiz_passed',
+        quizForXp?.id?.toString() ?? null,
+        `Vượt qua quiz: ${quizForXp?.title ?? ''}`,
+      );
+    }
 
     return {
       attemptId: updatedAttempt.id.toString(),
