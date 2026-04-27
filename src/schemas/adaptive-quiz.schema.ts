@@ -26,3 +26,16 @@ export const listSessionsQuerySchema = z.object({
   status: z.enum(['in_progress', 'completed', 'abandoned']).optional(),
   questionBankId: idParam.optional(),
 });
+
+export const bankIdParamsSchema = z.object({
+  id: idParam,
+});
+
+export const bulkSetDifficultySchema = z.object({
+  questionIds: z.array(idParam).min(1, 'Phải chọn ít nhất 1 câu hỏi').max(500),
+  difficulty: z.number().int().min(1).max(5),
+});
+
+export const autoTuneSchema = z.object({
+  strategy: z.enum(['spread', 'reset']),
+});

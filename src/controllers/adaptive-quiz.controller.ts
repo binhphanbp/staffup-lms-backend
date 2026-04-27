@@ -62,3 +62,28 @@ export const listMySessions = catchAsync(async (req: AuthRequest, res: Response)
   });
   sendSuccess(res, sessions, 'Adaptive quiz sessions retrieved successfully');
 });
+
+// ---------- Admin handlers ----------
+
+export const listAdminBanks = catchAsync(async (_req: AuthRequest, res: Response) => {
+  const banks = await svc.listAdminBanks();
+  sendSuccess(res, banks, 'Adaptive admin banks retrieved successfully');
+});
+
+export const getAdminBank = catchAsync(async (req: AuthRequest, res: Response) => {
+  const id = BigInt(param(req.params.id));
+  const bank = await svc.getAdminBank(id);
+  sendSuccess(res, bank, 'Adaptive bank detail retrieved successfully');
+});
+
+export const bulkSetDifficulty = catchAsync(async (req: AuthRequest, res: Response) => {
+  const ids = (req.body.questionIds as string[]).map((s) => BigInt(s));
+  const result = await svc.bulkSetDifficulty(ids, req.body.difficulty);
+  sendSuccess(res, result, 'Difficulty updated successfully');
+});
+
+export const autoTuneBank = catchAsync(async (req: AuthRequest, res: Response) => {
+  const id = BigInt(param(req.params.id));
+  const result = await svc.autoTuneBank(id, req.body.strategy);
+  sendSuccess(res, result, 'Bank auto-tuned successfully');
+});
