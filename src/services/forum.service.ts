@@ -1,4 +1,3 @@
-import { enrollment_status } from '@prisma/client';
 import { prisma, withTransaction, type TransactionClient } from '@/config/database';
 import type {
   CreateReplyInput,
@@ -22,9 +21,9 @@ interface ForumAccess {
 }
 
 const activeEnrollmentStatuses = [
-  enrollment_status.assigned,
-  enrollment_status.in_progress,
-  enrollment_status.completed,
+  'assigned' as const,
+  'in_progress' as const,
+  'completed' as const,
 ];
 
 const userSelect = {
@@ -332,7 +331,10 @@ export class ForumService {
       ];
     }
 
-    const skip = (query.page - 1) * query.limit;
+    // Express 5 fix: ensure page and limit are numbers (middleware mutation doesn't work)
+    const page = Number(query.page ?? 1);
+    const limit = Number(query.limit ?? 10);
+    const skip = (page - 1) * limit;
     const orderBy =
       query.sort === 'popular'
         ? [
@@ -352,7 +354,7 @@ export class ForumService {
         where,
         orderBy,
         skip,
-        take: query.limit,
+        take: limit,
         include: {
           author: { select: userSelect },
           lesson: { select: { id: true, title: true } },
@@ -362,12 +364,12 @@ export class ForumService {
     ]);
 
     return {
-      data: threads.map((thread) => this.mapThreadSummary(thread)),
+      data: threads.map((thread: ThreadSummaryRecord) => this.mapThreadSummary(thread)),
       meta: {
         total,
-        page: query.page,
-        limit: query.limit,
-        totalPages: Math.ceil(total / query.limit),
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
     };
   }

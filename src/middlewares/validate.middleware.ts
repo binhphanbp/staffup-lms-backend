@@ -35,6 +35,8 @@ export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') =
 
       const parsed = schema.parse(dataToValidate);
 
+      // Express 5 fix: Store validated data in res.locals for reliable access
+      // req.query and req.params are read-only in Express 5, mutation doesn't work
       if (target === 'all') {
         const parsedAll = parsed as {
           body?: unknown;
@@ -44,41 +46,59 @@ export const validate = (schema: ZodSchema, target: ValidationTarget = 'body') =
 
         if (parsedAll.body !== undefined) {
           req.body = parsedAll.body;
+          (res.locals as any).validatedBody = parsedAll.body;
         }
 
         if (parsedAll.query !== undefined) {
+          (res.locals as any).validatedQuery = parsedAll.query;
+          // Try to mutate for backward compatibility (works in Express 4)
           const currentQuery = req.query as Record<string, unknown>;
-
           for (const key of Object.keys(currentQuery)) {
             delete currentQuery[key];
           }
-
           Object.assign(currentQuery, parsedAll.query);
         }
 
         if (parsedAll.params !== undefined) {
+          (res.locals as any).validatedParams = parsedAll.params;
+          // Try to mutate for backward compatibility (works in Express 4)
           const currentParams = req.params as Record<string, unknown>;
-
           for (const key of Object.keys(currentParams)) {
             delete currentParams[key];
           }
-
           Object.assign(currentParams, parsedAll.params);
         }
       } else if (target === 'body') {
         req.body = parsed;
-      } else {
-        // For query and params, we need to update each property individually
-        // because req.query and req.params may have special getters/setters
+        (res.locals as any).validatedBody = parsed;
+      } else if (target === 'query') {
+        (res.locals as any).validatedQuery = parsed;
+        // Try to mutate for backward compatibility (works in Express 4)
         const currentTarget = req[target] as Record<string, unknown>;
         const parsedObj = parsed as Record<string, unknown>;
 
-        // Clear all existing keys
         for (const key of Object.keys(currentTarget)) {
           delete currentTarget[key];
         }
 
-        // Set new values using Object.defineProperty to ensure they stick
+        for (const [key, value] of Object.entries(parsedObj)) {
+          Object.defineProperty(currentTarget, key, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          });
+        }
+      } else if (target === 'params') {
+        (res.locals as any).validatedParams = parsed;
+        // Try to mutate for backward compatibility (works in Express 4)
+        const currentTarget = req[target] as Record<string, unknown>;
+        const parsedObj = parsed as Record<string, unknown>;
+
+        for (const key of Object.keys(currentTarget)) {
+          delete currentTarget[key];
+        }
+
         for (const [key, value] of Object.entries(parsedObj)) {
           Object.defineProperty(currentTarget, key, {
             value,
