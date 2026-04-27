@@ -841,3 +841,68 @@ export const listSkillCourseRecommendations = async (
     priority: r.priority,
   }));
 };
+
+// ============================================================
+// Skill assessment history (per user)
+// ============================================================
+
+export interface SkillAssessmentHistoryEntry {
+  id: string;
+  skillId: string;
+  skillName: string;
+  skillCategory: string | null;
+  level: number;
+  previousLevel: number | null;
+  delta: number | null;
+  source: string;
+  notes: string | null;
+  assessor: { id: string; fullName: string } | null;
+  assessedAt: string;
+}
+
+export const listMyAssessmentHistory = async (
+  userId: bigint,
+  filters: { skillId?: bigint; source?: 'self' | 'manager' | 'auto'; limit?: number } = {},
+): Promise<SkillAssessmentHistoryEntry[]> => {
+  const limit = Math.min(Math.max(filters.limit ?? 200, 1), 500);
+
+  const rows = await prisma.skillAssessment.findMany({
+    where: {
+      userId,
+      ...(filters.skillId ? { skillId: filters.skillId } : {}),
+      ...(filters.source ? { source: filters.source } : {}),
+    },
+    include: {
+      skill: { select: { id: true, name: true, category: true } },
+      assessor: { select: { id: true, fullName: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+    take: limit,
+  });
+
+  // First pass: compute per-skill chronological delta
+  const previousBySkill = new Map<string, number>();
+  const enriched = rows.map((r) => {
+    const skillKey = r.skillId.toString();
+    const prev = previousBySkill.get(skillKey) ?? null;
+    previousBySkill.set(skillKey, r.level);
+    return {
+      id: serializeBigInt(r.id),
+      skillId: skillKey,
+      skillName: r.skill.name,
+      skillCategory: r.skill.category,
+      level: r.level,
+      previousLevel: prev,
+      delta: prev !== null ? r.level - prev : null,
+      source: r.source,
+      notes: r.notes,
+      assessor: r.assessor
+        ? { id: serializeBigInt(r.assessor.id), fullName: r.assessor.fullName }
+        : null,
+      assessedAt: r.createdAt.toISOString(),
+    } satisfies SkillAssessmentHistoryEntry;
+  });
+
+  // Return newest first for UI timeline
+  return enriched.reverse();
+};

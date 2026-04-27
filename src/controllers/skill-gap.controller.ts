@@ -152,3 +152,19 @@ export const removeSkillRecommendation = catchAsync(async (req: AuthRequest, res
     'Recommendation removed successfully',
   );
 });
+
+export const listMyAssessmentHistory = catchAsync(async (req: AuthRequest, res: Response) => {
+  const skillIdRaw = req.query.skillId as string | undefined;
+  const sourceRaw = req.query.source as string | undefined;
+  const limitRaw = req.query.limit as string | undefined;
+  const allowedSources = new Set(['self', 'manager', 'auto']);
+  const items = await svc.listMyAssessmentHistory(userId(req), {
+    skillId: skillIdRaw ? BigInt(skillIdRaw) : undefined,
+    source:
+      sourceRaw && allowedSources.has(sourceRaw)
+        ? (sourceRaw as 'self' | 'manager' | 'auto')
+        : undefined,
+    limit: limitRaw ? Number(limitRaw) : undefined,
+  });
+  sendSuccess(res, items, 'My skill assessment history loaded');
+});
