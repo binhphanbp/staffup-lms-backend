@@ -536,3 +536,187 @@ export const listMySessions = async (
   });
   return sessions.map(toSessionSummary);
 };
+
+// ============================================================
+// Admin (trainer/admin) — CRUD for adaptive bank tuning
+// ============================================================
+
+export interface AdminBankSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  isActive: boolean;
+  category: { id: string; name: string } | null;
+  totalQuestions: number;
+  eligibleQuestions: number;
+  difficultyDistribution: Record<1 | 2 | 3 | 4 | 5, number>;
+  isEligibleForAdaptive: boolean;
+  updatedAt: string;
+}
+
+const emptyDistribution = (): Record<1 | 2 | 3 | 4 | 5, number> => ({
+  1: 0,
+  2: 0,
+  3: 0,
+  4: 0,
+  5: 0,
+});
+
+const clampDifficulty = (n: number) =>
+  Math.min(MAX_DIFFICULTY, Math.max(MIN_DIFFICULTY, Math.round(n)));
+
+export const listAdminBanks = async (): Promise<AdminBankSummary[]> => {
+  const banks = await prisma.questionBank.findMany({
+    include: {
+      category: { select: { id: true, name: true } },
+      questions: {
+        select: { id: true, difficulty: true, questionType: true, isActive: true },
+      },
+    },
+    orderBy: { title: 'asc' },
+  });
+
+  return banks.map((b) => {
+    const dist = emptyDistribution();
+    let eligible = 0;
+    for (const q of b.questions) {
+      if (!q.isActive) continue;
+      if (!ELIGIBLE_QUESTION_TYPES.includes(q.questionType)) continue;
+      eligible += 1;
+      const d = clampDifficulty(q.difficulty) as 1 | 2 | 3 | 4 | 5;
+      dist[d] += 1;
+    }
+    const coverage = (Object.values(dist) as number[]).filter((c) => c > 0).length;
+    return {
+      id: serializeBigInt(b.id),
+      title: b.title,
+      description: b.description,
+      isActive: b.isActive,
+      category: b.category ? { id: serializeBigInt(b.category.id), name: b.category.name } : null,
+      totalQuestions: b.questions.length,
+      eligibleQuestions: eligible,
+      difficultyDistribution: dist,
+      isEligibleForAdaptive: eligible >= 5 && coverage >= 2,
+      updatedAt: b.updatedAt.toISOString(),
+    };
+  });
+};
+
+export interface AdminBankDetail extends AdminBankSummary {
+  questions: Array<{
+    id: string;
+    content: string;
+    questionType: string;
+    difficulty: number;
+    isActive: boolean;
+    optionsCount: number;
+    correctOptionsCount: number;
+  }>;
+}
+
+export const getAdminBank = async (bankId: bigint): Promise<AdminBankDetail> => {
+  const bank = await prisma.questionBank.findUnique({
+    where: { id: bankId },
+    include: {
+      category: { select: { id: true, name: true } },
+      questions: {
+        include: {
+          options: { select: { id: true, isCorrect: true } },
+        },
+        orderBy: [{ difficulty: 'asc' }, { id: 'asc' }],
+      },
+    },
+  });
+  if (!bank) throw new AppError('Question bank not found', 404);
+
+  const dist = emptyDistribution();
+  let eligible = 0;
+  for (const q of bank.questions) {
+    if (!q.isActive) continue;
+    if (!ELIGIBLE_QUESTION_TYPES.includes(q.questionType)) continue;
+    eligible += 1;
+    const d = clampDifficulty(q.difficulty) as 1 | 2 | 3 | 4 | 5;
+    dist[d] += 1;
+  }
+  const coverage = (Object.values(dist) as number[]).filter((c) => c > 0).length;
+
+  return {
+    id: serializeBigInt(bank.id),
+    title: bank.title,
+    description: bank.description,
+    isActive: bank.isActive,
+    category: bank.category
+      ? { id: serializeBigInt(bank.category.id), name: bank.category.name }
+      : null,
+    totalQuestions: bank.questions.length,
+    eligibleQuestions: eligible,
+    difficultyDistribution: dist,
+    isEligibleForAdaptive: eligible >= 5 && coverage >= 2,
+    updatedAt: bank.updatedAt.toISOString(),
+    questions: bank.questions.map((q) => ({
+      id: serializeBigInt(q.id),
+      content: q.content,
+      questionType: q.questionType,
+      difficulty: q.difficulty,
+      isActive: q.isActive,
+      optionsCount: q.options.length,
+      correctOptionsCount: q.options.filter((o) => o.isCorrect).length,
+    })),
+  };
+};
+
+export const bulkSetDifficulty = async (
+  questionIds: bigint[],
+  difficulty: number,
+): Promise<{ updated: number }> => {
+  const d = clampDifficulty(difficulty);
+  if (questionIds.length === 0) {
+    return { updated: 0 };
+  }
+  const result = await prisma.question.updateMany({
+    where: { id: { in: questionIds } },
+    data: { difficulty: d },
+  });
+  return { updated: result.count };
+};
+
+export type BankAutoStrategy = 'spread' | 'reset';
+
+export const autoTuneBank = async (
+  bankId: bigint,
+  strategy: BankAutoStrategy,
+): Promise<{ updated: number; strategy: BankAutoStrategy }> => {
+  const bank = await prisma.questionBank.findUnique({
+    where: { id: bankId },
+    include: {
+      questions: {
+        where: {
+          questionType: { in: ELIGIBLE_QUESTION_TYPES },
+          isActive: true,
+        },
+        select: { id: true },
+        orderBy: { id: 'asc' },
+      },
+    },
+  });
+  if (!bank) throw new AppError('Question bank not found', 404);
+
+  if (strategy === 'reset') {
+    const result = await prisma.question.updateMany({
+      where: { id: { in: bank.questions.map((q) => q.id) } },
+      data: { difficulty: 3 },
+    });
+    return { updated: result.count, strategy };
+  }
+
+  // Spread: round-robin assign difficulties 1..5 across the eligible questions
+  await prisma.$transaction(
+    bank.questions.map((q, i) =>
+      prisma.question.update({
+        where: { id: q.id },
+        data: { difficulty: ((i % MAX_DIFFICULTY) + MIN_DIFFICULTY) as number },
+      }),
+    ),
+  );
+  return { updated: bank.questions.length, strategy };
+};
