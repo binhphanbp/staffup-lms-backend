@@ -5,6 +5,7 @@ import {
   createScenario,
   deleteScenario,
   endSession,
+  getLeaderboard,
   getScenarioDetail,
   getSessionDetail,
   listMySessions,
@@ -29,6 +30,9 @@ import {
 const router: Router = Router();
 
 router.use(authenticate);
+
+// ----- Leaderboard -----
+router.get('/leaderboard', getLeaderboard);
 
 // ----- Scenarios (any authenticated user can list active scenarios) -----
 router.get('/scenarios', listScenarios);

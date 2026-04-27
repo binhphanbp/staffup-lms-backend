@@ -993,3 +993,120 @@ export const listMySessions = async (
     evaluation: s.evaluation ? toEvaluationSummary(s.evaluation) : null,
   }));
 };
+
+// ============================================================
+// Leaderboard
+// ============================================================
+
+export interface RoleplayLeaderboardEntry {
+  rank: number;
+  userId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  positionTitle: string | null;
+  department: { id: string; name: string } | null;
+  bestScore: number;
+  averageScore: number;
+  bestBand: string | null;
+  completedSessions: number;
+  lastCompletedAt: string | null;
+}
+
+export const getLeaderboard = async (params: {
+  scope?: 'global' | 'department';
+  departmentId?: bigint | null;
+  limit?: number;
+}): Promise<RoleplayLeaderboardEntry[]> => {
+  const limit = Math.min(Math.max(params.limit ?? 25, 1), 100);
+
+  const userWhere: Record<string, unknown> = { isActive: true };
+  if (params.scope === 'department' && params.departmentId) {
+    userWhere.departmentId = params.departmentId;
+  }
+
+  const sessions = await prisma.roleplaySession.findMany({
+    where: {
+      status: 'completed',
+      user: userWhere,
+      evaluation: { isNot: null },
+    },
+    select: {
+      userId: true,
+      endedAt: true,
+      evaluation: { select: { overallScore: true, band: true } },
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          avatarUrl: true,
+          positionTitle: true,
+          department: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  type Agg = {
+    user: (typeof sessions)[number]['user'];
+    bestScore: number;
+    bestBand: string | null;
+    sumScore: number;
+    completed: number;
+    lastAt: Date | null;
+  };
+  const map = new Map<string, Agg>();
+  for (const s of sessions) {
+    if (!s.evaluation) continue;
+    const score = s.evaluation.overallScore;
+    const key = s.userId.toString();
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        user: s.user,
+        bestScore: score,
+        bestBand: s.evaluation.band,
+        sumScore: score,
+        completed: 1,
+        lastAt: s.endedAt,
+      });
+    } else {
+      existing.completed += 1;
+      existing.sumScore += score;
+      if (score > existing.bestScore) {
+        existing.bestScore = score;
+        existing.bestBand = s.evaluation.band;
+      }
+      if (s.endedAt && (!existing.lastAt || s.endedAt > existing.lastAt)) {
+        existing.lastAt = s.endedAt;
+      }
+    }
+  }
+
+  const ranked = Array.from(map.values())
+    .map((r) => ({
+      ...r,
+      averageScore: r.completed > 0 ? r.sumScore / r.completed : 0,
+    }))
+    .sort((a, b) => {
+      if (b.averageScore !== a.averageScore) return b.averageScore - a.averageScore;
+      if (b.bestScore !== a.bestScore) return b.bestScore - a.bestScore;
+      return b.completed - a.completed;
+    })
+    .slice(0, limit);
+
+  return ranked.map((r, i) => ({
+    rank: i + 1,
+    userId: r.user.id.toString(),
+    fullName: r.user.fullName,
+    avatarUrl: r.user.avatarUrl,
+    positionTitle: r.user.positionTitle,
+    department: r.user.department
+      ? { id: r.user.department.id.toString(), name: r.user.department.name }
+      : null,
+    bestScore: r.bestScore,
+    averageScore: Math.round(r.averageScore * 10) / 10,
+    bestBand: r.bestBand,
+    completedSessions: r.completed,
+    lastCompletedAt: r.lastAt?.toISOString() ?? null,
+  }));
+};

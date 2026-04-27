@@ -92,3 +92,15 @@ export const listMySessions = catchAsync(async (req: AuthRequest, res: Response)
   );
   sendSuccess(res, items, 'Roleplay sessions retrieved');
 });
+
+export const getLeaderboard = catchAsync(async (req: AuthRequest, res: Response) => {
+  const scope = (req.query.scope as 'global' | 'department' | undefined) ?? 'global';
+  const limit = req.query.limit ? Number(req.query.limit) : 25;
+  let departmentId: bigint | null = null;
+  if (scope === 'department') {
+    const raw = (req.query.departmentId as string | undefined) ?? req.user?.departmentId;
+    if (raw) departmentId = BigInt(raw);
+  }
+  const entries = await roleplayService.getLeaderboard({ scope, departmentId, limit });
+  sendSuccess(res, entries, 'Roleplay leaderboard loaded');
+});
