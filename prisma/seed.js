@@ -15,6 +15,7 @@ const { seedUserSkills } = require('./seeds/core/user-skills.seed');
 const { seedForumThreads } = require('./seeds/core/forum.seed');
 const { seedGamification } = require('./seeds/core/gamification.seed');
 const { seedEngagement } = require('./seeds/core/engagement.seed');
+const { seedLearningPath } = require('./seeds/core/learning-path.seed');
 const { runDemoSeed } = require('./seeds/demo/full-demo.seed');
 const { seedRealisticRoadmaps } = require('./seeds/demo/roadmap-realistic.seed');
 const { seedCoursesFromCloudinary } = require('./seeds/demo/courses-from-cloudinary.seed');
@@ -78,6 +79,9 @@ async function runCoreSeed(context) {
 
   console.log('\n💎 Seeding engagement / activity demo data...');
   const engagementData = await seedEngagement(context);
+
+  console.log('\n🎯 Seeding adaptive learning path (curriculum DAG + demo passed sets)...');
+  const learningPathData = await seedLearningPath(context.prisma);
 
   console.log('\nCore seed completed successfully.');
   console.log(`
