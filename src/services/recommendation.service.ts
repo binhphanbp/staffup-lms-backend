@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { genAI, CHAT_MODEL, LEARNING_RECOMMENDATION_SYSTEM_PROMPT } from '@/config/gemini.config';
 import { logger } from '@/config/logger';
 import { AppError } from '@/utils';
@@ -349,7 +350,7 @@ export class RecommendationService {
 
     let aiResponse: string;
     try {
-      const response = await genAI.models.generateContent({
+      const response = await generateContentWithFallback({
         model: CHAT_MODEL,
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         config: {

@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { prisma } from '@/config/database';
 import { genAI, CHAT_MODEL, VIDEO_SUMMARY_SYSTEM_PROMPT } from '@/config/gemini.config';
 import { logger } from '@/config/logger';
@@ -395,7 +396,7 @@ export const generateVideoSummary = async (
 
   let aiResponse: string;
   try {
-    const result = await genAI.models.generateContent({
+    const result = await generateContentWithFallback({
       model: CHAT_MODEL,
       contents: [{ role: 'user' as const, parts: [{ text: userPrompt }] }],
       config: {

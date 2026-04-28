@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { genAI, CHAT_MODEL } from '@/config/gemini.config';
 import { logger } from '@/config/logger';
 
@@ -460,7 +461,7 @@ const analyzeWithGemini = async (data: AggregatedData): Promise<DashboardInsight
   const prompt = `Dưới đây là dữ liệu tổng hợp từ hệ thống đào tạo nội bộ. Hãy phân tích và tạo insights.\n\n${data.summary}`;
 
   try {
-    const result = await genAI.models.generateContent({
+    const result = await generateContentWithFallback({
       model: CHAT_MODEL,
       contents: [
         {

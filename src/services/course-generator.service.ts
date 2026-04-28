@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import {
   genAI,
   CHAT_MODEL,
@@ -239,7 +240,7 @@ export class CourseGeneratorService {
 
     let aiResponse: string;
     try {
-      const result = await genAI.models.generateContent({
+      const result = await generateContentWithFallback({
         model: CHAT_MODEL,
         contents: [{ role: 'user' as const, parts: [{ text: userPrompt }] }],
         config: {
@@ -290,7 +291,7 @@ export class CourseGeneratorService {
 
     let aiResponse: string;
     try {
-      const result = await genAI.models.generateContent({
+      const result = await generateContentWithFallback({
         model: CHAT_MODEL,
         contents: [{ role: 'user' as const, parts: [{ text: userPrompt }] }],
         config: {

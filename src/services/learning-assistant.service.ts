@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { genAI } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { searchSimilarChunksScoped, type SearchResult } from '@/services/embedding.service';
@@ -128,7 +129,7 @@ export const askAboutCourse = async (
       : `\n[Không tìm thấy nội dung bài học liên quan trong khóa học "${course.title}"]`;
 
   // Call Gemini
-  const response = await genAI.models.generateContent({
+  const response = await generateContentWithFallback({
     model: cfg.chatModel,
     contents: [
       {

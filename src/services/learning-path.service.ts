@@ -9,8 +9,9 @@
  *   - admin CRUD: addEdge / removeEdge / setTestResults
  */
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { logger } from '@/config/logger';
-import { genAI, LEARNING_ADVISOR_SYSTEM_PROMPT } from '@/config/gemini.config';
+import { LEARNING_ADVISOR_SYSTEM_PROMPT } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { AppError } from '@/utils';
 import {
@@ -269,7 +270,7 @@ export async function generateEmail(
 
   let parsed: { subject: string; body: string } | null = null;
   try {
-    const result = await genAI.models.generateContent({
+    const result = await generateContentWithFallback({
       model: cfg.chatModel,
       contents: [{ role: 'user' as const, parts: [{ text: userPrompt }] }],
       config: {

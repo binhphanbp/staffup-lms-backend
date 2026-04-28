@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { prisma } from '@/config/database';
 import { genAI } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
@@ -570,7 +571,7 @@ export const generateAiTemplateSuggestion = async (
   const fallback = () => buildFallbackSuggestion(input);
 
   try {
-    const response = await genAI.models.generateContent({
+    const response = await generateContentWithFallback({
       model: cfg.chatModel,
       contents: [{ role: 'user' as const, parts: [{ text: userPrompt }] }],
       config: {

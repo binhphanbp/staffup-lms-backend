@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { genAI } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { logger } from '@/config/logger';
@@ -200,7 +201,7 @@ export class QuestionGeneratorService {
 
     let aiResponse: string;
     try {
-      const result = await genAI.models.generateContent({
+      const result = await generateContentWithFallback({
         model: cfg.chatModel,
         contents: [{ role: 'user' as const, parts: [{ text: userPrompt }] }],
         config: {

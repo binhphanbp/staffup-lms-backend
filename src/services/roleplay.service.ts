@@ -1,4 +1,5 @@
 import type { Prisma, RoleplayScenario } from '@prisma/client';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { prisma } from '@/config/database';
 import { genAI } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
@@ -649,7 +650,7 @@ export const sendUserTurn = async (
   // persona context for subsequent calls.
   let aiContent: string;
   try {
-    const response = await genAI.models.generateContent({
+    const response = await generateContentWithFallback({
       model: cfg.chatModel,
       contents: historyAfterUser,
       config: {
@@ -787,7 +788,7 @@ Hãy chấm theo schema JSON đã quy định. Nhớ: \`criterionScores[*].key\`
   };
 
   try {
-    const response = await genAI.models.generateContent({
+    const response = await generateContentWithFallback({
       model: cfg.chatModel,
       contents: [
         {

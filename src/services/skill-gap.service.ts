@@ -1,4 +1,5 @@
 import type { Prisma, Skill, UserSkill } from '@prisma/client';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { prisma } from '@/config/database';
 import { genAI } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
@@ -751,7 +752,7 @@ export const aiSuggestSkillsForPosition = async (
     const cfg = await getEffectiveConfig();
     const prompt = `Bạn là chuyên gia L&D. Hãy gợi ý 8-10 kỹ năng cốt lõi cần có cho vị trí "${positionTitle}" tại công ty Việt Nam.${context ? `\nNgữ cảnh thêm: ${context}` : ''}\n\nTRẢ VỀ JSON ARRAY (không kèm chữ khác), mỗi phần tử có:\n{ "name": "Tên kỹ năng (tiếng Việt)", "description": "1-2 câu mô tả", "category": "Soft Skills | Technical | Domain Knowledge | Leadership | Productivity", "targetLevel": 1-5, "isCore": true|false, "weight": 0.5-2.0 }\n\nQUY TẮC:\n- Trả về đúng JSON array, không markdown, không giải thích\n- Cân bằng giữa technical (chuyên môn) và soft (mềm)\n- 3-4 skill phải là isCore=true\n- targetLevel phù hợp seniority đoán từ position`;
 
-    const result = await genAI.models.generateContent({
+    const result = await generateContentWithFallback({
       model: cfg.chatModel,
       contents: [{ role: 'user' as const, parts: [{ text: prompt }] }],
       config: {

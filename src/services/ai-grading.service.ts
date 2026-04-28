@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import type { Prisma } from '@prisma/client';
 import { genAI } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
@@ -109,7 +110,7 @@ Hãy đánh giá và trả về JSON theo format đã quy định.`;
   // Call Gemini
   let aiResponse: string;
   try {
-    const result = await genAI.models.generateContent({
+    const result = await generateContentWithFallback({
       model: cfg.chatModel,
       contents: [
         {
