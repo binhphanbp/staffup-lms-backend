@@ -36,3 +36,6 @@ coverage/
 
 # Misc
 *.tsbuildinfo
+
+# Local docker overrides (chứa secrets)
+docker-compose.override.yml
