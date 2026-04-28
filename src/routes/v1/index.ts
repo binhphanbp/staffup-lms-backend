@@ -30,6 +30,7 @@ import videoSummaryRoutes from '@/routes/v1/video-summary.routes';
 import adaptiveQuizRoutes from '@/routes/v1/adaptive-quiz.routes';
 import skillGapRoutes from '@/routes/v1/skill-gap.routes';
 import forumRoutes from '@/routes/v1/forum.routes';
+import learningPathRoutes from '@/routes/v1/learning-path.routes';
 import { openApiDocument } from '@/docs/openapi';
 import { scalarCsp, scalarHtml } from '@/docs/scalar';
 
@@ -92,5 +93,6 @@ router.use('/onboarding', onboardingRoutes);
 router.use('/lesson-summaries', videoSummaryRoutes);
 router.use('/adaptive-quiz', adaptiveQuizRoutes);
 router.use('/skill-gap', skillGapRoutes);
+router.use('/learning-path', learningPathRoutes);
 router.use('/', forumRoutes);
 export default router;

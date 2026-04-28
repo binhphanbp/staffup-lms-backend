@@ -1,698 +1,81 @@
-import { prisma } from '@/config/database';
 import type { PaginatedResult } from '@/interfaces';
 import type { CourseDetailResponse, CourseExpand } from '@/interfaces/course.types';
 import { assertPolicy, canAccessOwnedResource } from '@/policies';
 import type {
-  CreateCourseModuleInput,
-  CreateCourseLessonInput,
-  CreateLessonResourceInput,
   CourseDetailQuery,
   CourseQuery,
   CreateCourseInput,
-  ReorderCourseLessonsInput,
-  ReorderCourseModulesInput,
-  UpdateCourseStatusInput,
-  UpdateCourseLessonInput,
-  UpdateLessonResourceInput,
-  UpdateCourseModuleInput,
   UpdateCourseInput,
+  UpdateCourseStatusInput,
 } from '@/schemas/course.schema';
-import { AppError, slugify } from '@/utils';
+import { AppError } from '@/utils';
+import {
+  assertCanAssignTrainer,
+  assertCanPublish,
+  type CourseListItem,
+  DEFAULT_DETAIL_EXPANDS,
+  ensureCategoryExists,
+  ensureDepartmentExists,
+  ensureTrainerExists,
+  generateUniqueSlug,
+  getCourseOrThrow,
+  getDb,
+  getPublishedAtUpdate,
+  mapCourseListItem,
+  normalizeExpand,
+  validatePublishEligibility,
+} from './course-helpers.service';
+import { CourseLessonService } from './course-lesson.service';
+import { CourseModuleService } from './course-module.service';
+import { CourseResourceService } from './course-resource.service';
 
-type CourseStatus = 'draft' | 'published' | 'archived';
+type CourseEntity = Awaited<ReturnType<typeof getCourseOrThrow>>;
 
-type CourseEntity = Awaited<ReturnType<(typeof CourseService)['getCourseOrThrow']>>;
-
-interface CourseListItem {
-  id: string;
-  title: string;
-  slug: string;
-  description: string | null;
-  mediaFolder: string | null;
-  thumbnailUrl: string | null;
-  status: CourseStatus;
-  estimatedDurationMinutes: number | null;
-  publishedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  trainer: {
-    id: string;
-    fullName: string;
-    email?: string;
-  };
+const COURSE_LIST_INCLUDE = {
+  trainerUser: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+    },
+  },
   category: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
   ownerDepartment: {
-    id: string;
-    name: string;
-  } | null;
-  counts: {
-    modules: number;
-    enrollments: number;
-  };
-}
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  _count: {
+    select: {
+      modules: true,
+      enrollments: true,
+    },
+  },
+} as const;
 
-interface CourseModuleItem {
-  id: string;
-  courseId: string;
-  title: string;
-  orderIndex: number;
-  createdAt: string;
-  updatedAt: string;
-  lessonsCount: number;
-}
-
-interface CourseLessonItem {
-  id: string;
-  moduleId: string;
-  title: string;
-  lessonType: 'video' | 'article' | 'quiz';
-  contentText: string | null;
-  videoUrl: string | null;
-  durationSeconds: number;
-  orderIndex: number;
-  isPreview: boolean;
-  createdAt: string;
-  updatedAt: string;
-  resourcesCount: number;
-  progressCount: number;
-  hasQuiz: boolean;
-}
-
-interface LessonResourceItem {
-  id: string;
-  lessonId: string;
-  fileName: string;
-  fileUrl: string;
-  resourceType: 'file' | 'video' | 'material' | null;
-  orderIndex: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-const DEFAULT_DETAIL_EXPANDS: CourseExpand[] = ['all'];
-
-export class CourseService {
-  private static get db() {
-    return prisma as any;
-  }
-
-  private static isAdmin(roleCodes: string[]) {
-    return roleCodes.includes('admin');
-  }
-
-  private static assertCanAssignTrainer(
-    requestedTrainerUserId: string | undefined,
-    actorUserId: string,
-    roleCodes: string[],
-  ) {
-    if (!requestedTrainerUserId || requestedTrainerUserId === actorUserId) {
-      return;
-    }
-
-    if (!this.isAdmin(roleCodes)) {
-      throw new AppError('Only admin can assign a different trainer to a course.', 403);
-    }
-  }
-
-  private static assertCanPublish(status: CourseStatus | undefined, permissionCodes: string[]) {
-    if (status !== 'published') {
-      return;
-    }
-
-    if (!permissionCodes.includes('course.publish')) {
-      throw new AppError('You do not have permission to publish courses.', 403);
-    }
-  }
-
-  private static async ensureTrainerExists(trainerUserId: string) {
-    const trainer = await this.db.user.findUnique({
-      where: { id: BigInt(trainerUserId) },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    if (!trainer) {
-      throw new AppError('Trainer not found.', 404);
-    }
-
-    const isTrainer = trainer.userRoles.some((userRole: any) => userRole.role.code === 'trainer');
-    if (!isTrainer) {
-      throw new AppError('Selected user is not a trainer.', 400);
-    }
-
-    return trainer;
-  }
-
-  private static async ensureCategoryExists(categoryId: string) {
-    const category = await this.db.category.findUnique({
-      where: { id: BigInt(categoryId) },
-    });
-
-    if (!category) {
-      throw new AppError('Category not found.', 404);
-    }
-  }
-
-  private static async ensureDepartmentExists(ownerDepartmentId: string) {
-    const department = await this.db.department.findUnique({
-      where: { id: BigInt(ownerDepartmentId) },
-    });
-
-    if (!department) {
-      throw new AppError('Department not found.', 404);
-    }
-  }
-
-  private static async generateUniqueSlug(title: string, excludeCourseId?: string) {
-    const baseSlug = slugify(title);
-    let candidate = baseSlug;
-    let suffix = 1;
-
-    while (true) {
-      const existing = await this.db.course.findUnique({
-        where: { slug: candidate },
-        select: { id: true },
-      });
-
-      if (!existing || existing.id.toString() === excludeCourseId) {
-        return candidate;
-      }
-
-      candidate = `${baseSlug}-${suffix}`;
-      suffix += 1;
-    }
-  }
-
-  private static getPublishedAtUpdate(
-    currentStatus: CourseStatus,
-    nextStatus: CourseStatus | undefined,
-    currentPublishedAt: Date | null,
-  ) {
-    if (!nextStatus || nextStatus === currentStatus) {
-      return undefined;
-    }
-
-    if (nextStatus === 'published') {
-      return currentPublishedAt ?? new Date();
-    }
-
-    if (currentStatus === 'published') {
-      return null;
-    }
-
-    return undefined;
-  }
-
-  private static async validatePublishEligibility(courseId: string) {
-    const course = await this.db.course.findUnique({
-      where: { id: BigInt(courseId) },
-      include: {
-        modules: {
-          include: {
-            lessons: {
-              select: {
-                id: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!course) {
-      throw new AppError('Course not found.', 404);
-    }
-
-    if (!course.description?.trim()) {
-      throw new AppError('Course must have a description before publishing.', 400);
-    }
-
-    if (!course.thumbnailUrl?.trim()) {
-      throw new AppError('Course must have a thumbnail before publishing.', 400);
-    }
-
-    if (!course.categoryId) {
-      throw new AppError('Course must have a category before publishing.', 400);
-    }
-
-    if (!course.estimatedDurationMinutes || course.estimatedDurationMinutes <= 0) {
-      throw new AppError('Course must have an estimated duration before publishing.', 400);
-    }
-
-    if (course.modules.length === 0) {
-      throw new AppError('Course must contain at least one module before publishing.', 400);
-    }
-
-    const moduleWithoutLessons = course.modules.find((module: any) => module.lessons.length === 0);
-    if (moduleWithoutLessons) {
-      throw new AppError('Every module must contain at least one lesson before publishing.', 400);
-    }
-
-    return course;
-  }
-
-  private static mapCourseListItem(course: any): CourseListItem {
-    return {
-      id: course.id.toString(),
-      title: course.title,
-      slug: course.slug,
-      description: course.description,
-      mediaFolder: course.mediaFolder,
-      thumbnailUrl: course.thumbnailUrl,
-      status: course.status,
-      estimatedDurationMinutes: course.estimatedDurationMinutes,
-      publishedAt: course.publishedAt?.toISOString() || null,
-      createdAt: course.createdAt.toISOString(),
-      updatedAt: course.updatedAt.toISOString(),
-      trainer: {
-        id: course.trainerUser.id.toString(),
-        fullName: course.trainerUser.fullName,
-        email: course.trainerUser.email,
-      },
-      category: course.category
-        ? {
-            id: course.category.id.toString(),
-            name: course.category.name,
-            slug: course.category.slug,
-          }
-        : null,
-      ownerDepartment: course.ownerDepartment
-        ? {
-            id: course.ownerDepartment.id.toString(),
-            name: course.ownerDepartment.name,
-          }
-        : null,
-      counts: {
-        modules: course._count.modules,
-        enrollments: course._count.enrollments,
-      },
-    };
-  }
-
-  private static mapCourseModuleItem(module: any): CourseModuleItem {
-    return {
-      id: module.id.toString(),
-      courseId: module.courseId.toString(),
-      title: module.title,
-      orderIndex: module.orderIndex,
-      createdAt: module.createdAt.toISOString(),
-      updatedAt: module.updatedAt.toISOString(),
-      lessonsCount: module._count?.lessons ?? 0,
-    };
-  }
-
-  private static mapCourseLessonItem(lesson: any): CourseLessonItem {
-    return {
-      id: lesson.id.toString(),
-      moduleId: lesson.moduleId.toString(),
-      title: lesson.title,
-      lessonType: lesson.lessonType,
-      contentText: lesson.contentText,
-      videoUrl: lesson.videoUrl,
-      durationSeconds: lesson.durationSeconds,
-      orderIndex: lesson.orderIndex,
-      isPreview: lesson.isPreview,
-      createdAt: lesson.createdAt.toISOString(),
-      updatedAt: lesson.updatedAt.toISOString(),
-      resourcesCount: lesson._count?.resources ?? 0,
-      progressCount: lesson._count?.progress ?? 0,
-      hasQuiz: Boolean(lesson.quiz),
-    };
-  }
-
-  private static mapLessonResourceItem(resource: any): LessonResourceItem {
-    return {
-      id: resource.id.toString(),
-      lessonId: resource.lessonId.toString(),
-      fileName: resource.fileName,
-      fileUrl: resource.fileUrl,
-      resourceType: resource.resourceType,
-      orderIndex: resource.orderIndex,
-      createdAt: resource.createdAt.toISOString(),
-      updatedAt: resource.updatedAt.toISOString(),
-    };
-  }
-
-  private static normalizeExpand(expandItems: CourseExpand[] = []) {
-    const expanded = new Set<CourseExpand>(expandItems);
-
-    if (expanded.has('all')) {
-      expanded.add('tags');
-      expanded.add('modules');
-      expanded.add('lessons');
-      expanded.add('resources');
-      expanded.add('quiz');
-    }
-
-    if (expanded.has('resources')) {
-      expanded.add('lessons');
-      expanded.add('modules');
-    }
-
-    if (expanded.has('quiz')) {
-      expanded.add('lessons');
-      expanded.add('modules');
-    }
-
-    if (expanded.has('lessons')) {
-      expanded.add('modules');
-    }
-
-    return expanded;
-  }
-
-  private static buildCourseInclude(expands: Set<CourseExpand>) {
-    const include: Record<string, unknown> = {
-      trainerUser: {
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          avatarUrl: true,
-        },
-      },
-      category: {
+const COURSE_LIST_INCLUDE_WITH_TAGS = {
+  ...COURSE_LIST_INCLUDE,
+  courseTags: {
+    include: {
+      tag: {
         select: {
           id: true,
           name: true,
           slug: true,
         },
       },
-      ownerDepartment: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      _count: {
-        select: {
-          enrollments: true,
-        },
-      },
-    };
-
-    if (expands.has('tags')) {
-      include.courseTags = {
-        include: {
-          tag: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-        },
-      };
-    }
-
-    if (expands.has('modules')) {
-      const lessonInclude: Record<string, unknown> = {};
-
-      if (expands.has('resources')) {
-        lessonInclude.resources = {
-          orderBy: { orderIndex: 'asc' },
-          select: {
-            id: true,
-            fileName: true,
-            fileUrl: true,
-            resourceType: true,
-            orderIndex: true,
-          },
-        };
-      }
-
-      if (expands.has('quiz')) {
-        lessonInclude.quiz = {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            passScorePercent: true,
-            timeLimitMinutes: true,
-            maxAttempts: true,
-            shuffleQuestions: true,
-            shuffleOptions: true,
-            _count: {
-              select: {
-                quizQuestions: true,
-              },
-            },
-          },
-        };
-      }
-
-      include.modules = {
-        orderBy: { orderIndex: 'asc' },
-        include: {
-          ...(expands.has('lessons')
-            ? {
-                lessons: {
-                  orderBy: { orderIndex: 'asc' },
-                  include: lessonInclude,
-                },
-              }
-            : {}),
-          // Include quizzes directly linked to modules
-          quizzes: {
-            select: {
-              id: true,
-              title: true,
-              description: true,
-              passScorePercent: true,
-              timeLimitMinutes: true,
-              maxAttempts: true,
-              shuffleQuestions: true,
-              shuffleOptions: true,
-              selectionMode: true,
-              questionsToPull: true,
-              createdAt: true,
-              updatedAt: true,
-              _count: {
-                select: {
-                  quizQuestions: true,
-                },
-              },
-            },
-          },
-        },
-      };
-    }
-
-    return include;
-  }
-
-  private static async getCourseOrThrow(id: string, expandItems: CourseExpand[] = []) {
-    const expands = this.normalizeExpand(expandItems);
-    const course = await this.db.course.findUnique({
-      where: { id: BigInt(id) },
-      include: this.buildCourseInclude(expands),
-    });
-
-    if (!course) {
-      throw new AppError('Course not found.', 404);
-    }
-
-    return course;
-  }
-
-  private static async getOwnedCourseOrThrow(id: string, userId: string, roleCodes: string[]) {
-    const course = await this.db.course.findUnique({
-      where: { id: BigInt(id) },
-    });
-
-    if (!course) {
-      throw new AppError('Course not found.', 404);
-    }
-
-    assertPolicy(
-      canAccessOwnedResource({
-        actor: { userId, roleCodes },
-        ownerUserId: course.trainerUserId,
-      }),
-      'You can only update your own courses.',
-    );
-
-    return course;
-  }
-
-  private static async assertModuleOrderIndexAvailable(
-    courseId: string,
-    orderIndex: number,
-    excludeModuleId?: string,
-  ) {
-    const existingModule = await this.db.module.findUnique({
-      where: {
-        courseId_orderIndex: {
-          courseId: BigInt(courseId),
-          orderIndex,
-        },
-      },
-    });
-
-    if (existingModule && existingModule.id.toString() !== excludeModuleId) {
-      throw new AppError(
-        `Order index ${orderIndex} is already used by another module in this course.`,
-        400,
-      );
-    }
-  }
-
-  private static async getCourseModuleOrThrow(courseId: string, moduleId: string) {
-    const module = await this.db.module.findUnique({
-      where: { id: BigInt(moduleId) },
-      include: {
-        _count: {
-          select: {
-            lessons: true,
-          },
-        },
-      },
-    });
-
-    if (!module || module.courseId.toString() !== courseId) {
-      throw new AppError('Module not found in this course.', 404);
-    }
-
-    return module;
-  }
-
-  private static async assertLessonOrderIndexAvailable(
-    moduleId: string,
-    orderIndex: number,
-    excludeLessonId?: string,
-  ) {
-    const existingLesson = await this.db.lesson.findUnique({
-      where: {
-        moduleId_orderIndex: {
-          moduleId: BigInt(moduleId),
-          orderIndex,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (existingLesson && existingLesson.id.toString() !== excludeLessonId) {
-      throw new AppError(
-        `Order index ${orderIndex} is already used by another lesson in this module.`,
-        400,
-      );
-    }
-  }
-
-  private static assertLessonContentRequirement(
-    lessonType: 'video' | 'article' | 'quiz',
-    data: {
-      contentText?: string | null;
-      videoUrl?: string | null;
     },
-  ) {
-    if (lessonType === 'video' && !data.videoUrl?.trim()) {
-      throw new AppError('videoUrl is required for video lessons.', 400);
-    }
+  },
+} as const;
 
-    if (lessonType === 'article' && !data.contentText?.trim()) {
-      throw new AppError('contentText is required for article lessons.', 400);
-    }
-  }
-
-  private static async getLessonInModuleOrThrow(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-  ) {
-    await this.getCourseModuleOrThrow(courseId, moduleId);
-
-    const lesson = await this.db.lesson.findUnique({
-      where: { id: BigInt(lessonId) },
-      include: {
-        quiz: {
-          select: {
-            id: true,
-          },
-        },
-        _count: {
-          select: {
-            resources: true,
-            progress: true,
-          },
-        },
-      },
-    });
-
-    if (!lesson || lesson.moduleId.toString() !== moduleId) {
-      throw new AppError('Lesson not found in this module.', 404);
-    }
-
-    return lesson;
-  }
-
-  private static async getResourceInLessonOrThrow(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-    resourceId: string,
-  ) {
-    await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
-
-    const resource = await this.db.lessonResource.findUnique({
-      where: { id: BigInt(resourceId) },
-    });
-
-    if (!resource || resource.lessonId.toString() !== lessonId) {
-      throw new AppError('Resource not found in this lesson.', 404);
-    }
-
-    return resource;
-  }
-
-  private static async assertLessonResourceOrderIndexAvailable(
-    lessonId: string,
-    orderIndex: number,
-    excludeResourceId?: string,
-  ) {
-    const existingResource = await this.db.lessonResource.findUnique({
-      where: {
-        lessonId_orderIndex: {
-          lessonId: BigInt(lessonId),
-          orderIndex,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (existingResource && existingResource.id.toString() !== excludeResourceId) {
-      throw new AppError(
-        `Order index ${orderIndex} is already used by another resource in this lesson.`,
-        400,
-      );
-    }
-  }
-
-  private static async getNextLessonResourceOrderIndex(lessonId: string) {
-    const lastResource = await this.db.lessonResource.findFirst({
-      where: { lessonId: BigInt(lessonId) },
-      orderBy: { orderIndex: 'desc' },
-      select: {
-        orderIndex: true,
-      },
-    });
-
-    return (lastResource?.orderIndex ?? 0) + 1;
-  }
-
+export class CourseService {
   /**
    * Create a new course
    */
@@ -703,29 +86,30 @@ export class CourseService {
     permissionCodes: string[],
   ) {
     const trainerUserId = data.trainerUserId ?? requestUserId;
-    this.assertCanAssignTrainer(trainerUserId, requestUserId, roleCodes);
+    assertCanAssignTrainer(trainerUserId, requestUserId, roleCodes);
 
-    await this.ensureTrainerExists(trainerUserId);
+    await ensureTrainerExists(trainerUserId);
 
     if (data.categoryId) {
-      await this.ensureCategoryExists(data.categoryId);
+      await ensureCategoryExists(data.categoryId);
     }
 
     if (data.ownerDepartmentId) {
-      await this.ensureDepartmentExists(data.ownerDepartmentId);
+      await ensureDepartmentExists(data.ownerDepartmentId);
     }
 
     const status = data.status ?? 'draft';
-    this.assertCanPublish(status, permissionCodes);
+    assertCanPublish(status, permissionCodes);
     if (status === 'published') {
       throw new AppError(
         'Course cannot be published during creation. Create the course first, then publish after adding content.',
         400,
       );
     }
-    const slug = await this.generateUniqueSlug(data.title);
+    const slug = await generateUniqueSlug(data.title);
 
-    const created = await this.db.course.create({
+    const db = getDb();
+    const created = await db.course.create({
       data: {
         title: data.title,
         slug,
@@ -739,37 +123,10 @@ export class CourseService {
         status,
         publishedAt: null,
       },
-      include: {
-        trainerUser: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        ownerDepartment: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            modules: true,
-            enrollments: true,
-          },
-        },
-      },
+      include: COURSE_LIST_INCLUDE,
     });
 
-    return this.mapCourseListItem(created);
+    return mapCourseListItem(created);
   }
 
   /**
@@ -817,46 +174,20 @@ export class CourseService {
       ];
     }
 
+    const db = getDb();
     const [courses, total] = await Promise.all([
-      this.db.course.findMany({
+      db.course.findMany({
         where,
         skip,
         take: limitNum,
         orderBy: { [sortBy]: sortOrder },
-        include: {
-          trainerUser: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-            },
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          ownerDepartment: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          _count: {
-            select: {
-              modules: true,
-              enrollments: true,
-            },
-          },
-        },
+        include: COURSE_LIST_INCLUDE,
       }),
-      this.db.course.count({ where }),
+      db.course.count({ where }),
     ]);
 
     return {
-      data: courses.map((course: any) => this.mapCourseListItem(course)),
+      data: courses.map((course: any) => mapCourseListItem(course)),
       meta: {
         total,
         page: pageNum,
@@ -869,23 +200,15 @@ export class CourseService {
   /**
    * Get a single course by ID
    */
-  static async findById(id: string, query: CourseDetailQuery = { expand: [] }) {
-    // Parse expand parameter - handle string from query params
-    let expand: CourseExpand[] = [];
-    if (query.expand) {
-      if (Array.isArray(query.expand)) {
-        expand = query.expand as CourseExpand[];
-      } else if (typeof query.expand === 'string') {
-        // Split comma-separated string
-        expand = query.expand
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean) as CourseExpand[];
-      }
-    }
-    const course = await this.getCourseOrThrow(id, expand);
+  static async findById(id: string, query: any = { expand: [] }) {
+    // Parse expand parameter - already transformed by schema
+    const expand: CourseExpand[] = Array.isArray(query.expand)
+      ? (query.expand as CourseExpand[])
+      : [];
 
-    return this.mapCourseDetail(course, expand);
+    const course = await getCourseOrThrow(id, expand);
+
+    return CourseService.mapCourseDetail(course, expand);
   }
 
   /**
@@ -898,7 +221,8 @@ export class CourseService {
     roleCodes: string[],
     permissionCodes: string[],
   ) {
-    const existingCourse = await this.db.course.findUnique({
+    const db = getDb();
+    const existingCourse = await db.course.findUnique({
       where: { id: BigInt(id) },
     });
 
@@ -915,37 +239,37 @@ export class CourseService {
     );
 
     const nextTrainerUserId = data.trainerUserId ?? existingCourse.trainerUserId.toString();
-    this.assertCanAssignTrainer(nextTrainerUserId, userId, roleCodes);
-    this.assertCanPublish(data.status, permissionCodes);
+    assertCanAssignTrainer(nextTrainerUserId, userId, roleCodes);
+    assertCanPublish(data.status, permissionCodes);
 
     if (data.trainerUserId) {
-      await this.ensureTrainerExists(data.trainerUserId);
+      await ensureTrainerExists(data.trainerUserId);
     }
 
     if (data.categoryId) {
-      await this.ensureCategoryExists(data.categoryId);
+      await ensureCategoryExists(data.categoryId);
     }
 
     if (data.ownerDepartmentId) {
-      await this.ensureDepartmentExists(data.ownerDepartmentId);
+      await ensureDepartmentExists(data.ownerDepartmentId);
     }
 
     const nextSlug =
       data.title && data.title !== existingCourse.title
-        ? await this.generateUniqueSlug(data.title, id)
+        ? await generateUniqueSlug(data.title, id)
         : undefined;
 
     if (data.status === 'published') {
-      await this.validatePublishEligibility(id);
+      await validatePublishEligibility(id);
     }
 
-    const publishedAt = this.getPublishedAtUpdate(
+    const publishedAt = getPublishedAtUpdate(
       existingCourse.status,
       data.status,
       existingCourse.publishedAt,
     );
 
-    const updated = await this.db.course.update({
+    const updated = await db.course.update({
       where: { id: BigInt(id) },
       data: {
         title: data.title,
@@ -960,37 +284,10 @@ export class CourseService {
         status: data.status,
         publishedAt,
       },
-      include: {
-        trainerUser: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        ownerDepartment: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            modules: true,
-            enrollments: true,
-          },
-        },
-      },
+      include: COURSE_LIST_INCLUDE,
     });
 
-    return this.mapCourseListItem(updated);
+    return mapCourseListItem(updated);
   }
 
   /**
@@ -1003,36 +300,10 @@ export class CourseService {
     roleCodes: string[],
     permissionCodes: string[],
   ) {
-    const course = await this.db.course.findUnique({
+    const db = getDb();
+    const course = await db.course.findUnique({
       where: { id: BigInt(id) },
-      include: {
-        trainerUser: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        ownerDepartment: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            modules: true,
-            enrollments: true,
-          },
-        },
-      },
+      include: COURSE_LIST_INCLUDE,
     });
 
     if (!course) {
@@ -1047,96 +318,32 @@ export class CourseService {
       'You can only update your own courses.',
     );
 
-    this.assertCanPublish(status, permissionCodes);
+    assertCanPublish(status, permissionCodes);
 
     if (status === 'published') {
-      await this.validatePublishEligibility(id);
+      await validatePublishEligibility(id);
     }
 
-    const updated = await this.db.course.update({
+    const updated = await db.course.update({
       where: { id: BigInt(id) },
       data: {
         status,
-        publishedAt: this.getPublishedAtUpdate(course.status, status, course.publishedAt),
+        publishedAt: getPublishedAtUpdate(course.status, status, course.publishedAt),
       },
-      include: {
-        trainerUser: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        ownerDepartment: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            modules: true,
-            enrollments: true,
-          },
-        },
-      },
+      include: COURSE_LIST_INCLUDE,
     });
 
-    return this.mapCourseListItem(updated);
+    return mapCourseListItem(updated);
   }
 
   /**
    * Add tag to course
    */
   static async addTagToCourse(id: string, tagId: string, userId: string, roleCodes: string[]) {
-    const course = await this.db.course.findUnique({
+    const db = getDb();
+    const course = await db.course.findUnique({
       where: { id: BigInt(id) },
-      include: {
-        trainerUser: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        ownerDepartment: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        courseTags: {
-          include: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            modules: true,
-            enrollments: true,
-          },
-        },
-      },
+      include: COURSE_LIST_INCLUDE_WITH_TAGS,
     });
 
     if (!course) {
@@ -1151,7 +358,7 @@ export class CourseService {
       'You can only update your own courses.',
     );
 
-    const tag = await this.db.tag.findUnique({
+    const tag = await db.tag.findUnique({
       where: { id: BigInt(tagId) },
     });
 
@@ -1159,7 +366,7 @@ export class CourseService {
       throw new AppError('Tag not found.', 404);
     }
 
-    const existingCourseTag = await this.db.courseTag.findUnique({
+    const existingCourseTag = await db.courseTag.findUnique({
       where: {
         courseId_tagId: {
           courseId: BigInt(id),
@@ -1172,58 +379,20 @@ export class CourseService {
       throw new AppError('Tag is already assigned to this course.', 400);
     }
 
-    await this.db.courseTag.create({
+    await db.courseTag.create({
       data: {
         courseId: BigInt(id),
         tagId: BigInt(tagId),
       },
     });
 
-    const updatedCourse = await this.db.course.findUnique({
+    const updatedCourse = await db.course.findUnique({
       where: { id: BigInt(id) },
-      include: {
-        trainerUser: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        ownerDepartment: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        courseTags: {
-          include: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            modules: true,
-            enrollments: true,
-          },
-        },
-      },
+      include: COURSE_LIST_INCLUDE_WITH_TAGS,
     });
 
     return {
-      ...this.mapCourseListItem(updatedCourse),
+      ...mapCourseListItem(updatedCourse),
       tags: updatedCourse.courseTags.map((courseTag: any) => ({
         id: courseTag.tag.id.toString(),
         name: courseTag.tag.name,
@@ -1236,7 +405,8 @@ export class CourseService {
    * Remove tag from course
    */
   static async removeTagFromCourse(id: string, tagId: string, userId: string, roleCodes: string[]) {
-    const course = await this.db.course.findUnique({
+    const db = getDb();
+    const course = await db.course.findUnique({
       where: { id: BigInt(id) },
     });
 
@@ -1252,7 +422,7 @@ export class CourseService {
       'You can only update your own courses.',
     );
 
-    const existingCourseTag = await this.db.courseTag.findUnique({
+    const existingCourseTag = await db.courseTag.findUnique({
       where: {
         courseId_tagId: {
           courseId: BigInt(id),
@@ -1265,7 +435,7 @@ export class CourseService {
       throw new AppError('Tag is not assigned to this course.', 404);
     }
 
-    await this.db.courseTag.delete({
+    await db.courseTag.delete({
       where: {
         courseId_tagId: {
           courseId: BigInt(id),
@@ -1282,550 +452,11 @@ export class CourseService {
   }
 
   /**
-   * List course modules
-   */
-  static async listModules(courseId: string) {
-    await this.getCourseOrThrow(courseId);
-
-    const modules = await this.db.module.findMany({
-      where: { courseId: BigInt(courseId) },
-      orderBy: { orderIndex: 'asc' },
-      include: {
-        _count: {
-          select: {
-            lessons: true,
-          },
-        },
-      },
-    });
-
-    return modules.map((module: any) => this.mapCourseModuleItem(module));
-  }
-
-  /**
-   * Create course module
-   */
-  static async createModule(
-    courseId: string,
-    data: CreateCourseModuleInput,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    await this.assertModuleOrderIndexAvailable(courseId, data.orderIndex);
-
-    const module = await this.db.module.create({
-      data: {
-        courseId: BigInt(courseId),
-        title: data.title,
-        orderIndex: data.orderIndex,
-      },
-      include: {
-        _count: {
-          select: {
-            lessons: true,
-          },
-        },
-      },
-    });
-
-    return this.mapCourseModuleItem(module);
-  }
-
-  /**
-   * Update course module
-   */
-  static async updateModule(
-    courseId: string,
-    moduleId: string,
-    data: UpdateCourseModuleInput,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    const existingModule = await this.getCourseModuleOrThrow(courseId, moduleId);
-
-    if (data.orderIndex !== undefined) {
-      await this.assertModuleOrderIndexAvailable(courseId, data.orderIndex, moduleId);
-    }
-
-    const updatedModule = await this.db.module.update({
-      where: { id: BigInt(moduleId) },
-      data: {
-        title: data.title,
-        orderIndex: data.orderIndex,
-      },
-      include: {
-        _count: {
-          select: {
-            lessons: true,
-          },
-        },
-      },
-    });
-
-    if (
-      updatedModule.orderIndex !== existingModule.orderIndex ||
-      updatedModule.title !== existingModule.title
-    ) {
-      return this.mapCourseModuleItem(updatedModule);
-    }
-
-    return this.mapCourseModuleItem(updatedModule);
-  }
-
-  /**
-   * Delete course module
-   */
-  static async deleteModule(
-    courseId: string,
-    moduleId: string,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    const module = await this.getCourseModuleOrThrow(courseId, moduleId);
-
-    if (module._count.lessons > 0) {
-      throw new AppError('Cannot delete module because it already contains lessons.', 400);
-    }
-
-    await this.db.module.delete({
-      where: { id: BigInt(moduleId) },
-    });
-
-    return {
-      courseId,
-      moduleId,
-      removed: true,
-    };
-  }
-
-  /**
-   * Reorder course modules
-   */
-  static async reorderModules(
-    courseId: string,
-    moduleOrders: ReorderCourseModulesInput['moduleOrders'],
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-
-    const modules = await this.db.module.findMany({
-      where: {
-        courseId: BigInt(courseId),
-        id: {
-          in: moduleOrders.map((item) => BigInt(item.moduleId)),
-        },
-      },
-      include: {
-        _count: {
-          select: {
-            lessons: true,
-          },
-        },
-      },
-    });
-
-    if (modules.length !== moduleOrders.length) {
-      const foundModuleIds = new Set(modules.map((module: any) => module.id.toString()));
-      const missingModuleIds = moduleOrders
-        .map((item) => item.moduleId)
-        .filter((moduleId) => !foundModuleIds.has(moduleId));
-
-      throw new AppError(`Modules not found in this course: ${missingModuleIds.join(', ')}`, 404);
-    }
-
-    await this.db.$transaction(async (tx: any) => {
-      for (let index = 0; index < moduleOrders.length; index += 1) {
-        const item = moduleOrders[index];
-        await tx.module.update({
-          where: { id: BigInt(item.moduleId) },
-          data: {
-            orderIndex: -1 * (index + 1),
-          },
-        });
-      }
-
-      for (const item of moduleOrders) {
-        await tx.module.update({
-          where: { id: BigInt(item.moduleId) },
-          data: {
-            orderIndex: item.orderIndex,
-          },
-        });
-      }
-    });
-
-    const reorderedModules = await this.db.module.findMany({
-      where: { courseId: BigInt(courseId) },
-      orderBy: { orderIndex: 'asc' },
-      include: {
-        _count: {
-          select: {
-            lessons: true,
-          },
-        },
-      },
-    });
-
-    return reorderedModules.map((module: any) => this.mapCourseModuleItem(module));
-  }
-
-  /**
-   * List module lessons
-   */
-  static async listLessons(courseId: string, moduleId: string) {
-    await this.getCourseModuleOrThrow(courseId, moduleId);
-
-    const lessons = await this.db.lesson.findMany({
-      where: { moduleId: BigInt(moduleId) },
-      orderBy: { orderIndex: 'asc' },
-      include: {
-        quiz: {
-          select: {
-            id: true,
-          },
-        },
-        _count: {
-          select: {
-            resources: true,
-            progress: true,
-          },
-        },
-      },
-    });
-
-    return lessons.map((lesson: any) => this.mapCourseLessonItem(lesson));
-  }
-
-  /**
-   * Create lesson in module
-   */
-  static async createLesson(
-    courseId: string,
-    moduleId: string,
-    data: CreateCourseLessonInput,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    await this.getCourseModuleOrThrow(courseId, moduleId);
-    await this.assertLessonOrderIndexAvailable(moduleId, data.orderIndex);
-    this.assertLessonContentRequirement(data.lessonType, {
-      contentText: data.contentText,
-      videoUrl: data.videoUrl,
-    });
-
-    const lesson = await this.db.lesson.create({
-      data: {
-        moduleId: BigInt(moduleId),
-        title: data.title,
-        lessonType: data.lessonType,
-        contentText: data.contentText ?? null,
-        videoUrl: data.videoUrl ?? null,
-        durationSeconds: data.durationSeconds,
-        orderIndex: data.orderIndex,
-        isPreview: data.isPreview ?? false,
-      },
-      include: {
-        quiz: {
-          select: {
-            id: true,
-          },
-        },
-        _count: {
-          select: {
-            resources: true,
-            progress: true,
-          },
-        },
-      },
-    });
-
-    return this.mapCourseLessonItem(lesson);
-  }
-
-  /**
-   * Update lesson in module
-   */
-  static async updateLesson(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-    data: UpdateCourseLessonInput,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    const lesson = await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
-
-    if (data.orderIndex !== undefined) {
-      await this.assertLessonOrderIndexAvailable(moduleId, data.orderIndex, lessonId);
-    }
-
-    const nextLessonType = data.lessonType ?? lesson.lessonType;
-    this.assertLessonContentRequirement(nextLessonType, {
-      contentText: data.contentText ?? lesson.contentText,
-      videoUrl: data.videoUrl ?? lesson.videoUrl,
-    });
-
-    const updatedLesson = await this.db.lesson.update({
-      where: { id: BigInt(lessonId) },
-      data: {
-        title: data.title,
-        lessonType: data.lessonType,
-        contentText: data.contentText,
-        videoUrl: data.videoUrl,
-        durationSeconds: data.durationSeconds,
-        orderIndex: data.orderIndex,
-        isPreview: data.isPreview,
-      },
-      include: {
-        quiz: {
-          select: {
-            id: true,
-          },
-        },
-        _count: {
-          select: {
-            resources: true,
-            progress: true,
-          },
-        },
-      },
-    });
-
-    return this.mapCourseLessonItem(updatedLesson);
-  }
-
-  /**
-   * Delete lesson in module
-   */
-  static async deleteLesson(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    const lesson = await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
-
-    if (lesson._count.resources > 0 || lesson._count.progress > 0 || lesson.quiz) {
-      throw new AppError(
-        'Cannot delete lesson because it is linked to resources, learner progress, or a quiz.',
-        400,
-      );
-    }
-
-    await this.db.lesson.delete({
-      where: { id: BigInt(lessonId) },
-    });
-
-    return {
-      courseId,
-      moduleId,
-      lessonId,
-      removed: true,
-    };
-  }
-
-  /**
-   * Reorder module lessons
-   */
-  static async reorderLessons(
-    courseId: string,
-    moduleId: string,
-    lessonOrders: ReorderCourseLessonsInput['lessonOrders'],
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    await this.getCourseModuleOrThrow(courseId, moduleId);
-
-    const lessons = await this.db.lesson.findMany({
-      where: {
-        moduleId: BigInt(moduleId),
-        id: {
-          in: lessonOrders.map((item) => BigInt(item.lessonId)),
-        },
-      },
-      include: {
-        quiz: {
-          select: {
-            id: true,
-          },
-        },
-        _count: {
-          select: {
-            resources: true,
-            progress: true,
-          },
-        },
-      },
-    });
-
-    if (lessons.length !== lessonOrders.length) {
-      const foundLessonIds = new Set(lessons.map((lesson: any) => lesson.id.toString()));
-      const missingLessonIds = lessonOrders
-        .map((item) => item.lessonId)
-        .filter((lessonId) => !foundLessonIds.has(lessonId));
-
-      throw new AppError(`Lessons not found in this module: ${missingLessonIds.join(', ')}`, 404);
-    }
-
-    await this.db.$transaction(async (tx: any) => {
-      for (let index = 0; index < lessonOrders.length; index += 1) {
-        const item = lessonOrders[index];
-        await tx.lesson.update({
-          where: { id: BigInt(item.lessonId) },
-          data: {
-            orderIndex: -1 * (index + 1),
-          },
-        });
-      }
-
-      for (const item of lessonOrders) {
-        await tx.lesson.update({
-          where: { id: BigInt(item.lessonId) },
-          data: {
-            orderIndex: item.orderIndex,
-          },
-        });
-      }
-    });
-
-    const reorderedLessons = await this.db.lesson.findMany({
-      where: { moduleId: BigInt(moduleId) },
-      orderBy: { orderIndex: 'asc' },
-      include: {
-        quiz: {
-          select: {
-            id: true,
-          },
-        },
-        _count: {
-          select: {
-            resources: true,
-            progress: true,
-          },
-        },
-      },
-    });
-
-    return reorderedLessons.map((lesson: any) => this.mapCourseLessonItem(lesson));
-  }
-
-  /**
-   * List lesson resources
-   */
-  static async listLessonResources(courseId: string, moduleId: string, lessonId: string) {
-    await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
-
-    const resources = await this.db.lessonResource.findMany({
-      where: { lessonId: BigInt(lessonId) },
-      orderBy: { orderIndex: 'asc' },
-    });
-
-    return resources.map((resource: any) => this.mapLessonResourceItem(resource));
-  }
-
-  /**
-   * Create lesson resource metadata
-   */
-  static async createLessonResource(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-    data: CreateLessonResourceInput,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    await this.getLessonInModuleOrThrow(courseId, moduleId, lessonId);
-
-    const orderIndex = data.orderIndex ?? (await this.getNextLessonResourceOrderIndex(lessonId));
-    await this.assertLessonResourceOrderIndexAvailable(lessonId, orderIndex);
-
-    const resource = await this.db.lessonResource.create({
-      data: {
-        lessonId: BigInt(lessonId),
-        fileName: data.fileName,
-        fileUrl: data.fileUrl,
-        resourceType: data.resourceType ?? null,
-        orderIndex,
-      },
-    });
-
-    return this.mapLessonResourceItem(resource);
-  }
-
-  /**
-   * Update lesson resource metadata
-   */
-  static async updateLessonResource(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-    resourceId: string,
-    data: UpdateLessonResourceInput,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    await this.getResourceInLessonOrThrow(courseId, moduleId, lessonId, resourceId);
-
-    if (data.orderIndex !== undefined) {
-      await this.assertLessonResourceOrderIndexAvailable(lessonId, data.orderIndex, resourceId);
-    }
-
-    const updatedResource = await this.db.lessonResource.update({
-      where: { id: BigInt(resourceId) },
-      data: {
-        fileName: data.fileName,
-        fileUrl: data.fileUrl,
-        resourceType: data.resourceType,
-        orderIndex: data.orderIndex,
-      },
-    });
-
-    return this.mapLessonResourceItem(updatedResource);
-  }
-
-  /**
-   * Delete lesson resource metadata
-   */
-  static async deleteLessonResource(
-    courseId: string,
-    moduleId: string,
-    lessonId: string,
-    resourceId: string,
-    userId: string,
-    roleCodes: string[],
-  ) {
-    await this.getOwnedCourseOrThrow(courseId, userId, roleCodes);
-    await this.getResourceInLessonOrThrow(courseId, moduleId, lessonId, resourceId);
-
-    await this.db.lessonResource.delete({
-      where: { id: BigInt(resourceId) },
-    });
-
-    return {
-      courseId,
-      moduleId,
-      lessonId,
-      resourceId,
-      removed: true,
-    };
-  }
-
-  /**
    * Delete a course
    */
   static async delete(id: string, userId: string, roleCodes: string[]) {
-    const course = await this.db.course.findUnique({
+    const db = getDb();
+    const course = await db.course.findUnique({
       where: { id: BigInt(id) },
       include: {
         _count: {
@@ -1863,7 +494,7 @@ export class CourseService {
       );
     }
 
-    await this.db.course.delete({
+    await db.course.delete({
       where: { id: BigInt(id) },
     });
   }
@@ -1879,16 +510,16 @@ export class CourseService {
       query.expand && Array.isArray(query.expand) && query.expand.length > 0
         ? (query.expand as CourseExpand[])
         : DEFAULT_DETAIL_EXPANDS;
-    const course = await this.getCourseOrThrow(id, expandItems);
+    const course = await getCourseOrThrow(id, expandItems);
 
-    return this.mapCourseDetail(course, expandItems);
+    return CourseService.mapCourseDetail(course, expandItems);
   }
 
   private static mapCourseDetail(
     course: CourseEntity,
     expandItems: CourseExpand[] = [],
   ): CourseDetailResponse {
-    const expands = this.normalizeExpand(expandItems);
+    const expands = normalizeExpand(expandItems);
     const modules = Array.isArray(course.modules) ? course.modules : [];
     const totalModules = modules.length;
     const totalLessons = expands.has('lessons')
@@ -2023,4 +654,38 @@ export class CourseService {
 
     return response;
   }
+
+  // ---------------------------------------------------------------------------
+  // Backward-compatible facade: re-expose module/lesson/resource operations so
+  // existing callers using `CourseService.<methodName>` keep working without
+  // having to update import sites. New code should prefer the granular
+  // services directly.
+  // ---------------------------------------------------------------------------
+
+  static listModules = CourseModuleService.listModules;
+  static createModule = CourseModuleService.createModule;
+  static updateModule = CourseModuleService.updateModule;
+  static deleteModule = CourseModuleService.deleteModule;
+  static reorderModules = CourseModuleService.reorderModules;
+
+  static listLessons = CourseLessonService.listLessons;
+  static createLesson = CourseLessonService.createLesson;
+  static updateLesson = CourseLessonService.updateLesson;
+  static deleteLesson = CourseLessonService.deleteLesson;
+  static reorderLessons = CourseLessonService.reorderLessons;
+
+  static listLessonResources = CourseResourceService.listLessonResources;
+  static createLessonResource = CourseResourceService.createLessonResource;
+  static updateLessonResource = CourseResourceService.updateLessonResource;
+  static deleteLessonResource = CourseResourceService.deleteLessonResource;
 }
+
+// Re-export granular services + helper types so callers can opt into them.
+export { CourseLessonService, CourseModuleService, CourseResourceService };
+export type {
+  CourseLessonItem,
+  CourseListItem,
+  CourseModuleItem,
+  CourseStatus,
+  LessonResourceItem,
+} from './course-helpers.service';

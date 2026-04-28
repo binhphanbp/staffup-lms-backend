@@ -1,6 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import { CompanyDocumentService } from '@/services/company-document.service';
-import { catchAsync, sendSuccess, sendCreated, sendNoContent } from '@/utils';
+import { catchAsync, sendSuccess, sendCreated, sendNoContent, AppError } from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 import type { CompanyDocumentListQuery } from '@/schemas/company-document.schema';
 
@@ -73,7 +73,7 @@ export class CompanyDocumentController {
     async (req: AuthRequest, res: Response, next: NextFunction) => {
       const file = req.file;
       if (!file) {
-        return next(new (await import('@/utils')).AppError('Vui lòng trỏ file cần upload', 400));
+        return next(new AppError('Vui lòng trỏ file cần upload', 400));
       }
 
       let text: string;
@@ -81,10 +81,9 @@ export class CompanyDocumentController {
 
       try {
         if (ext === 'pdf') {
-          const pdfParse = (await import('pdf-parse')).default || (await import('pdf-parse'));
-          const data = await (typeof pdfParse === 'function'
-            ? pdfParse(file.buffer)
-            : (pdfParse as any).default(file.buffer));
+          const pdfParse = await import('pdf-parse');
+          const parseFn = (pdfParse as any).default || pdfParse;
+          const data = await parseFn(file.buffer);
           text = data.text;
         } else if (ext === 'docx') {
           const mammoth = (await import('mammoth')).default || (await import('mammoth'));
@@ -94,7 +93,7 @@ export class CompanyDocumentController {
           text = file.buffer.toString('utf-8');
         } else {
           return next(
-            new (await import('@/utils')).AppError(
+            new AppError(
               'Định dạng file không được hỗ trợ (chỉ hỗ trợ pdf, docx, txt, md, csv).',
               400,
             ),
@@ -105,7 +104,7 @@ export class CompanyDocumentController {
       } catch (error) {
         console.error('File extract error:', error);
         return next(
-          new (await import('@/utils')).AppError(
+          new AppError(
             'Không thể trích xuất văn bản từ file này. Có thể file bị lỗi hoặc có mật khẩu.',
             500,
           ),
