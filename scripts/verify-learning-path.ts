@@ -1,8 +1,10 @@
 /**
  * Verify thuật toán cho test scenario bắt buộc đề thi mục 5.
- * Chạy: pnpm tsx scripts/verify-learning-path.ts
+ * Chạy: pnpm verify:learning-path
+ *
+ * Import từ pure-algo module để KHÔNG cần DATABASE_URL/GEMINI_API_KEY.
  */
-import { prune } from '../src/services/learning-path.service';
+import { prune } from '../src/utils/learning-path.algo';
 
 const nodes = [
   { id: 'A', title: 'A', category: 'company', estimatedHours: 1, description: '' },

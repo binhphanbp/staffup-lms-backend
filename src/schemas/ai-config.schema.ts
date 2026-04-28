@@ -21,6 +21,7 @@ export const updateAiConfigSchema = z
         dropoutPrediction: z.boolean().optional(),
         autoGrader: z.boolean().optional(),
         questionGenerator: z.boolean().optional(),
+        learningAdvisor: z.boolean().optional(),
       })
       .optional(),
     prompts: z
@@ -33,6 +34,7 @@ export const updateAiConfigSchema = z
         lessonContentSystemPrompt: promptField,
         learningRecommendationSystemPrompt: promptField,
         codeLabReviewSystemPrompt: promptField,
+        learningAdvisorSystemPrompt: promptField,
       })
       .optional(),
   })
