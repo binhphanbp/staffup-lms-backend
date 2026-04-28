@@ -1006,30 +1006,55 @@ Hãy phân tích và đề xuất kế hoạch can thiệp cụ thể.`;
           systemInstruction: RISK_INTERVENTION_PROMPT,
           temperature: 0.4,
           maxOutputTokens: 1024,
+          responseMimeType: 'application/json',
         },
       });
 
       const text = response.text?.trim() ?? null;
       if (!text) return null;
 
-      // Validate JSON output
+      // Strip markdown code fences (Gemini occasionally adds ```json ... ``` despite
+      // the prompt + responseMimeType=application/json).
+      const cleaned = text
+        .replace(/```(?:json)?/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+      // Try the cleaned text first, then fall back to a slice between { and } if needed.
+      let parsed: unknown = null;
       try {
-        JSON.parse(text);
-        return text;
+        parsed = JSON.parse(cleaned);
       } catch {
-        // If Gemini returns non-JSON, wrap it
-        logger.warn(`[RiskAI] Non-JSON response from Gemini, wrapping: ${text.substring(0, 100)}`);
-        return JSON.stringify({
-          summary: text.substring(0, 200),
-          actions: [
-            {
-              type: 'meeting',
-              priority: riskScore >= RISK_THRESHOLDS.high ? 'urgent' : 'high',
-              description: text,
-            },
-          ],
-        });
+        const objStart = cleaned.indexOf('{');
+        const objEnd = cleaned.lastIndexOf('}');
+        if (objStart !== -1 && objEnd > objStart) {
+          try {
+            parsed = JSON.parse(cleaned.slice(objStart, objEnd + 1));
+          } catch {
+            parsed = null;
+          }
+        }
       }
+
+      if (parsed && typeof parsed === 'object') {
+        // Re-stringify so callers always get a stable JSON string (no accidental
+        // markdown fences, no nested escape characters).
+        return JSON.stringify(parsed);
+      }
+
+      // Last-resort fallback: Gemini returned plain prose, wrap it as a
+      // single-action plan. Use the truncated cleaned text in summary only.
+      logger.warn(`[RiskAI] Non-JSON response from Gemini, wrapping: ${cleaned.substring(0, 100)}`);
+      return JSON.stringify({
+        summary: cleaned.substring(0, 200),
+        actions: [
+          {
+            type: 'meeting',
+            priority: riskScore >= RISK_THRESHOLDS.high ? 'urgent' : 'high',
+            description: cleaned.substring(0, 500),
+          },
+        ],
+      });
     } catch (error: any) {
       logger.error(`[RiskAI] Gemini intervention generation failed: ${error.message}`);
       return null;
