@@ -706,35 +706,104 @@ const FALLBACK_SUGGESTIONS: AiSkillSuggestion[] = [
   },
 ];
 
-const parseAiSkills = (raw: string): AiSkillSuggestion[] | null => {
-  try {
-    const cleaned = raw
-      .replace(/```(?:json)?/gi, '')
-      .replace(/```/g, '')
-      .trim();
-    const start = cleaned.indexOf('[');
-    const end = cleaned.lastIndexOf(']');
-    if (start === -1 || end === -1) return null;
-    const arr = JSON.parse(cleaned.slice(start, end + 1));
-    if (!Array.isArray(arr)) return null;
-    return arr
-      .filter((s) => s && typeof s.name === 'string' && s.name.length > 0)
-      .map((s) => ({
-        name: String(s.name).trim().slice(0, 120),
-        description: String(s.description ?? '')
-          .trim()
-          .slice(0, 500),
-        category: String(s.category ?? 'General')
-          .trim()
-          .slice(0, 60),
-        targetLevel: clampLevel(Number(s.targetLevel ?? 3)),
-        isCore: Boolean(s.isCore),
-        weight: Math.max(0.1, Math.min(3, Number(s.weight ?? 1))),
-      }))
-      .slice(0, 12);
-  } catch {
-    return null;
+/**
+ * Extract a skill array from Gemini's response. Gemini may return:
+ *   1. A plain JSON array `[...]`
+ *   2. A JSON object `{ "suggestions": [...] }` / `{ "skills": [...] }` / `{ "data": [...] }`
+ *   3. Any of the above wrapped in markdown ```json ... ``` fences
+ *   4. The above with leading/trailing prose
+ * This helper tries each strategy in order and returns null only if none match.
+ */
+const extractSkillArray = (raw: string): unknown[] | null => {
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/```(?:json)?/gi, '')
+    .replace(/```/g, '')
+    .trim();
+  if (!cleaned) return null;
+
+  // Strategy A: try parsing the whole thing — works for clean JSON (responseMimeType=application/json).
+  const tryParse = (text: string): unknown => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const candidates: unknown[] = [];
+  const direct = tryParse(cleaned);
+  if (direct !== undefined) candidates.push(direct);
+
+  // Strategy B: slice from first `[` to last `]` (legacy behavior).
+  const arrStart = cleaned.indexOf('[');
+  const arrEnd = cleaned.lastIndexOf(']');
+  if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {
+    const sliced = tryParse(cleaned.slice(arrStart, arrEnd + 1));
+    if (sliced !== undefined) candidates.push(sliced);
   }
+
+  // Strategy C: slice from first `{` to last `}` (in case AI wraps in object).
+  const objStart = cleaned.indexOf('{');
+  const objEnd = cleaned.lastIndexOf('}');
+  if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+    const sliced = tryParse(cleaned.slice(objStart, objEnd + 1));
+    if (sliced !== undefined) candidates.push(sliced);
+  }
+
+  // Strategy D: recover from truncated array — Gemini sometimes hits maxOutputTokens
+  // mid-object. Find the last complete `}` before the truncation and close the array.
+  if (arrStart !== -1 && candidates.length === 0) {
+    const lastObjEnd = cleaned.lastIndexOf('}');
+    if (lastObjEnd > arrStart) {
+      const recovered = tryParse(cleaned.slice(arrStart, lastObjEnd + 1) + ']');
+      if (recovered !== undefined) candidates.push(recovered);
+    }
+  }
+
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c;
+    if (c && typeof c === 'object') {
+      const obj = c as Record<string, unknown>;
+      // Common keys Gemini tends to use.
+      const preferredKeys = ['suggestions', 'skills', 'data', 'items', 'result', 'results'];
+      for (const k of preferredKeys) {
+        if (Array.isArray(obj[k])) return obj[k] as unknown[];
+      }
+      // Fallback: first value that is an array.
+      for (const v of Object.values(obj)) {
+        if (Array.isArray(v)) return v;
+      }
+    }
+  }
+  return null;
+};
+
+const parseAiSkills = (raw: string): AiSkillSuggestion[] | null => {
+  const arr = extractSkillArray(raw);
+  if (!arr) return null;
+  const mapped = arr
+    .filter(
+      (s): s is Record<string, unknown> =>
+        Boolean(s) &&
+        typeof s === 'object' &&
+        typeof (s as Record<string, unknown>).name === 'string' &&
+        ((s as Record<string, unknown>).name as string).length > 0,
+    )
+    .map((s) => ({
+      name: String(s.name).trim().slice(0, 120),
+      description: String(s.description ?? '')
+        .trim()
+        .slice(0, 500),
+      category: String(s.category ?? 'General')
+        .trim()
+        .slice(0, 60),
+      targetLevel: clampLevel(Number(s.targetLevel ?? 3)),
+      isCore: Boolean(s.isCore),
+      weight: Math.max(0.1, Math.min(3, Number(s.weight ?? 1))),
+    }))
+    .slice(0, 12);
+  return mapped.length > 0 ? mapped : null;
 };
 
 export const aiSuggestSkillsForPosition = async (
@@ -749,21 +818,24 @@ export const aiSuggestSkillsForPosition = async (
 
   try {
     const cfg = await getEffectiveConfig();
-    const prompt = `Bạn là chuyên gia L&D. Hãy gợi ý 8-10 kỹ năng cốt lõi cần có cho vị trí "${positionTitle}" tại công ty Việt Nam.${context ? `\nNgữ cảnh thêm: ${context}` : ''}\n\nTRẢ VỀ JSON ARRAY (không kèm chữ khác), mỗi phần tử có:\n{ "name": "Tên kỹ năng (tiếng Việt)", "description": "1-2 câu mô tả", "category": "Soft Skills | Technical | Domain Knowledge | Leadership | Productivity", "targetLevel": 1-5, "isCore": true|false, "weight": 0.5-2.0 }\n\nQUY TẮC:\n- Trả về đúng JSON array, không markdown, không giải thích\n- Cân bằng giữa technical (chuyên môn) và soft (mềm)\n- 3-4 skill phải là isCore=true\n- targetLevel phù hợp seniority đoán từ position`;
+    const prompt = `Bạn là chuyên gia L&D. Hãy gợi ý 8-10 kỹ năng cốt lõi cần có cho vị trí "${positionTitle}" tại công ty Việt Nam.${context ? `\nNgữ cảnh thêm: ${context}` : ''}\n\nTRẢ VỀ JSON ARRAY (không kèm chữ khác), mỗi phần tử có:\n{ "name": "Tên kỹ năng (tiếng Việt, dưới 60 ký tự)", "description": "1 câu ngắn dưới 200 ký tự", "category": "Soft Skills | Technical | Domain Knowledge | Leadership | Productivity", "targetLevel": 1-5, "isCore": true|false, "weight": 0.5-2.0 }\n\nQUY TẮC:\n- Trả về đúng JSON array, không markdown, không giải thích\n- Mỗi description PHẢI ngắn (1 câu, dưới 200 ký tự)\n- Cân bằng giữa technical (chuyên môn) và soft (mềm)\n- 3-4 skill phải là isCore=true\n- targetLevel phù hợp seniority đoán từ position`;
 
     const result = await genAI.models.generateContent({
       model: cfg.chatModel,
       contents: [{ role: 'user' as const, parts: [{ text: prompt }] }],
       config: {
         temperature: 0.4,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192,
         responseMimeType: 'application/json',
       },
     });
     const text = result.text ?? '';
     const parsed = parseAiSkills(text);
     if (!parsed || parsed.length === 0) {
-      logger.warn('skill-gap.ai_suggest: failed to parse, using fallback', { positionTitle });
+      logger.warn('skill-gap.ai_suggest: failed to parse, using fallback', {
+        positionTitle,
+        textPreview: text.slice(0, 200),
+      });
       return { suggestions: FALLBACK_SUGGESTIONS, source: 'fallback' };
     }
     return { suggestions: parsed, source: 'ai' };
