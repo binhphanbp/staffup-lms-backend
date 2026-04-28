@@ -17,7 +17,7 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().trim().optional(),
   CLOUDINARY_API_SECRET: z.string().trim().optional(),
   CLOUDINARY_UPLOAD_FOLDER: z.string().trim().default('staffup-lms'),
-  GEMINI_MODEL: z.string().default('gemini-3.1-pro-preview'),
+  GEMINI_MODEL: z.string().default('gemini-3-flash-preview'),
 });
 
 const parsed = envSchema.safeParse(process.env);
