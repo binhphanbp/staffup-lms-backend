@@ -1,65 +1,34 @@
 /**
- * Module 1 — Lộ trình Học tập Thích ứng
+ * Module 1 — Lộ trình Học tập Thích ứng (DB + AI orchestration).
  *
- * Algorithm:
- *   - classify(): O(V+E) — phân loại 3 trạng thái (exempt/available/locked) cho mọi node.
- *   - topoSortToLearn(): Kahn's BFS deterministic — sắp xếp các bài chưa pass theo prereq.
- *   - prune(): orchestrator — gọi classify rồi topoSort.
+ * Pure algorithm (classify / topoSortToLearn / prune / wouldCreateCycle) đã được
+ * tách ra `@/utils/learning-path.algo` để chạy verify script không cần env DB/AI.
  *
- * Quy ước nghiệp vụ quan trọng:
- *   - KHÔNG bắc cầu prerequisite. Pass B không tự suy ra biết A (dù A là prereq B).
- *     Lý do: bài test chỉ kiểm B, nhân viên có thể đã làm B trong job cũ nhưng chưa
- *     học A bài bản.
- *   - Topo deterministic: sort alphabetical trong cùng layer để demo lặp lại được.
- *
- * Public API:
- *   - getGraph(), getPassedSetForUser(), previewForUser(), generateEmail(),
- *     plus admin CRUD: addEdge / removeEdge / setTestResults / removeTestResult.
+ * Public API ở file này:
+ *   - getGraph(), getPassedSetForUser(), previewForUser(), generateEmail()
+ *   - admin CRUD: addEdge / removeEdge / setTestResults
  */
 import { prisma } from '@/config/database';
 import { logger } from '@/config/logger';
-import { genAI } from '@/config/gemini.config';
+import { genAI, LEARNING_ADVISOR_SYSTEM_PROMPT } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { AppError } from '@/utils';
+import {
+  classify,
+  prune,
+  topoSortToLearn,
+  wouldCreateCycle,
+  type ClassifiedNode,
+  type CurriculumEdgeDto,
+  type CurriculumNodeDto,
+  type NodeStatus,
+  type PreviewResult,
+} from '@/utils/learning-path.algo';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-export type NodeStatus = 'exempt' | 'available' | 'locked';
-
-export interface CurriculumNodeDto {
-  id: string;
-  title: string;
-  category: string;
-  estimatedHours: number;
-  description: string;
-}
-
-export interface CurriculumEdgeDto {
-  id: number;
-  fromId: string;
-  toId: string;
-}
-
-export interface ClassifiedNode {
-  id: string;
-  title: string;
-  category: string;
-  estimatedHours: number;
-  description: string;
-  status: NodeStatus;
-  unmetPrereqs: string[];
-  layer: number;
-}
-
-export interface PreviewResult {
-  totalLessons: number;
-  exempted: ClassifiedNode[];
-  available: ClassifiedNode[];
-  locked: ClassifiedNode[];
-  toLearnInOrder: ClassifiedNode[]; // available + locked, đã topo sort
-  prunedPercent: number; // làm tròn 0 chữ số
-  classified: Record<string, ClassifiedNode>;
-}
+// Re-export pure algorithm + types để các caller bên ngoài tiếp tục import
+// từ '@/services/learning-path.service' không bị break.
+export { classify, prune, topoSortToLearn, wouldCreateCycle };
+export type { ClassifiedNode, CurriculumEdgeDto, CurriculumNodeDto, NodeStatus, PreviewResult };
 
 export interface EmployeeSnapshot {
   fullName: string;
@@ -78,134 +47,6 @@ export interface GeneratedEmail {
     exemptedCount: number;
     toLearnCount: number;
     prunedPercent: number;
-  };
-}
-
-// ─── Algorithm ──────────────────────────────────────────────────────────────
-
-/**
- * Phân loại 3 trạng thái KHÔNG bắc cầu.
- * - exempt: passedSet.has(node)
- * - available: prereqs trực tiếp đều exempt
- * - locked: còn ≥1 prereq chưa exempt
- */
-export function classify(
-  nodes: CurriculumNodeDto[],
-  edges: { fromId: string; toId: string }[],
-  passedSet: Set<string>,
-): Map<string, ClassifiedNode> {
-  const prereqsOf = new Map<string, string[]>();
-  for (const n of nodes) prereqsOf.set(n.id, []);
-  for (const e of edges) {
-    if (!prereqsOf.has(e.toId)) prereqsOf.set(e.toId, []);
-    prereqsOf.get(e.toId)!.push(e.fromId);
-  }
-
-  const result = new Map<string, ClassifiedNode>();
-  for (const node of nodes) {
-    if (passedSet.has(node.id)) {
-      result.set(node.id, { ...node, status: 'exempt', unmetPrereqs: [], layer: -1 });
-      continue;
-    }
-    const prereqs = prereqsOf.get(node.id) ?? [];
-    const unmet = prereqs.filter((p) => !passedSet.has(p));
-    if (unmet.length === 0) {
-      result.set(node.id, { ...node, status: 'available', unmetPrereqs: [], layer: 0 });
-    } else {
-      result.set(node.id, { ...node, status: 'locked', unmetPrereqs: unmet.sort(), layer: -1 });
-    }
-  }
-  return result;
-}
-
-/**
- * Topo sort Kahn's BFS — chỉ trên subgraph các node CHƯA pass.
- * Trả về thứ tự học chính xác, ghi `layer` cho mỗi node để FE có thể group "theo tuần".
- * Throw nếu subgraph có chu trình.
- */
-export function topoSortToLearn(
-  nodes: CurriculumNodeDto[],
-  edges: { fromId: string; toId: string }[],
-  classified: Map<string, ClassifiedNode>,
-): ClassifiedNode[] {
-  // Subgraph: các node không exempt
-  const inSub = new Set<string>();
-  for (const [id, c] of classified) {
-    if (c.status !== 'exempt') inSub.add(id);
-  }
-
-  // Chỉ giữ edges từ→đến đều ở trong subgraph
-  const subEdges = edges.filter((e) => inSub.has(e.fromId) && inSub.has(e.toId));
-
-  // In-degree
-  const inDegree = new Map<string, number>();
-  for (const id of inSub) inDegree.set(id, 0);
-  for (const e of subEdges) inDegree.set(e.toId, (inDegree.get(e.toId) ?? 0) + 1);
-
-  // Adjacency
-  const adj = new Map<string, string[]>();
-  for (const id of inSub) adj.set(id, []);
-  for (const e of subEdges) adj.get(e.fromId)!.push(e.toId);
-
-  const sorted: ClassifiedNode[] = [];
-  let frontier = [...inSub].filter((id) => inDegree.get(id) === 0).sort();
-  let layer = 0;
-
-  while (frontier.length > 0) {
-    const next: string[] = [];
-    for (const id of frontier) {
-      const node = classified.get(id)!;
-      node.layer = layer;
-      sorted.push(node);
-      for (const v of adj.get(id) ?? []) {
-        const d = (inDegree.get(v) ?? 0) - 1;
-        inDegree.set(v, d);
-        if (d === 0) next.push(v);
-      }
-    }
-    frontier = next.sort();
-    layer++;
-  }
-
-  if (sorted.length !== inSub.size) {
-    throw new AppError('Graph chứa chu trình — không thể tạo lộ trình.', 400);
-  }
-  return sorted;
-}
-
-/**
- * Composer: gom classify + topoSort + thống kê.
- */
-export function prune(
-  nodes: CurriculumNodeDto[],
-  edges: { fromId: string; toId: string }[],
-  passedSet: Set<string>,
-): PreviewResult {
-  const classified = classify(nodes, edges, passedSet);
-  const toLearnInOrder = topoSortToLearn(nodes, edges, classified);
-
-  const exempted: ClassifiedNode[] = [];
-  const available: ClassifiedNode[] = [];
-  const locked: ClassifiedNode[] = [];
-  const obj: Record<string, ClassifiedNode> = {};
-  for (const [id, c] of classified) {
-    obj[id] = c;
-    if (c.status === 'exempt') exempted.push(c);
-    else if (c.status === 'available') available.push(c);
-    else locked.push(c);
-  }
-
-  const total = nodes.length;
-  const prunedPercent = total === 0 ? 0 : Math.round((exempted.length / total) * 100);
-
-  return {
-    totalLessons: total,
-    exempted: exempted.sort((a, b) => a.id.localeCompare(b.id)),
-    available: available.sort((a, b) => a.id.localeCompare(b.id)),
-    locked: locked.sort((a, b) => a.id.localeCompare(b.id)),
-    toLearnInOrder,
-    prunedPercent,
-    classified: obj,
   };
 }
 
@@ -253,35 +94,17 @@ export async function previewForUser(
 // ─── Admin CRUD (BGK đổi data live) ─────────────────────────────────────────
 
 /**
- * Validate cycle BEFORE insert: thêm cạnh tạm vào graph rồi topo-sort all,
- * nếu kết quả size < |V| → có cycle → throw 400.
+ * Validate cycle BEFORE insert: dùng pure-algo `wouldCreateCycle` trên graph hiện có.
  */
 async function validateNoCycleWithEdge(fromId: string, toId: string): Promise<void> {
   const { nodes, edges } = await getGraph();
-  const all = [...edges.map((e) => ({ fromId: e.fromId, toId: e.toId })), { fromId, toId }];
-
-  const inDeg = new Map<string, number>();
-  for (const n of nodes) inDeg.set(n.id, 0);
-  for (const e of all) inDeg.set(e.toId, (inDeg.get(e.toId) ?? 0) + 1);
-  const adj = new Map<string, string[]>();
-  for (const n of nodes) adj.set(n.id, []);
-  for (const e of all) adj.get(e.fromId)?.push(e.toId);
-
-  let queue = nodes.filter((n) => inDeg.get(n.id) === 0).map((n) => n.id);
-  let visited = 0;
-  while (queue.length) {
-    const next: string[] = [];
-    for (const id of queue) {
-      visited++;
-      for (const v of adj.get(id) ?? []) {
-        const d = (inDeg.get(v) ?? 0) - 1;
-        inDeg.set(v, d);
-        if (d === 0) next.push(v);
-      }
-    }
-    queue = next;
-  }
-  if (visited !== nodes.length) {
+  if (
+    wouldCreateCycle(
+      nodes,
+      edges.map((e) => ({ fromId: e.fromId, toId: e.toId })),
+      { fromId, toId },
+    )
+  ) {
     throw new AppError('Cạnh này tạo chu trình trong DAG, không thể thêm.', 400);
   }
 }
@@ -328,31 +151,9 @@ export async function setTestResults(userId: bigint, nodeIds: string[]) {
 
 // ─── AI: Generate Email ─────────────────────────────────────────────────────
 
-/**
- * Default prompt cho Learning Advisor — admin có thể override qua AiConfig.prompts.learningAdvisorSystemPrompt.
- */
-export const DEFAULT_LEARNING_ADVISOR_PROMPT = `Bạn là **Staffup Learning Advisor** — Cố vấn Đào tạo của bộ phận L&D công ty.
-
-VAI TRÒ: Soạn email "Chào mừng & Hướng dẫn Lộ trình cá nhân hóa" gửi cho nhân viên mới sau khi họ hoàn thành Bài Test đánh giá năng lực đầu vào.
-
-NGUYÊN TẮC BẮT BUỘC:
-1. Tone: chuyên nghiệp, ấm áp, động viên — KHÔNG sáo rỗng AI-speak.
-2. Cá nhân hóa: gọi tên thật, công nhận cụ thể kỹ năng đã có.
-3. Ngữ cảnh nghiệp vụ: liên kết kỹ năng với công việc thực tế của vị trí.
-4. Cấu trúc 4 đoạn:
-   §1. Lời chào + chúc mừng vượt qua test (1-2 câu)
-   §2. Công nhận skill: liệt kê bài MIỄN, giải thích vì sao có ý nghĩa (2-3 câu)
-   §3. Lộ trình tinh gọn: chia theo TUẦN (gom layer 0 → tuần 1, layer 1 → tuần 2, …)
-       với CTA cụ thể từng tuần.
-   §4. Lời động viên + chữ ký (Trân trọng, Phòng L&D — Staffup)
-5. Nhắc % rút ngắn cụ thể.
-6. KHÔNG bịa bài học hay deadline ngoài data được cung cấp.
-
-ĐẦU RA: trả về CHỈ MỘT object JSON thuần với 2 field:
-{ "subject": "...", "body": "..." }
-- subject: ≤80 ký tự, có chứa tên nhân viên.
-- body: markdown thuần (## heading, ** bold, - bullet).
-KHÔNG kèm giải thích thừa, KHÔNG markdown fence.`;
+// Default prompt: re-export tu gemini.config de caller cu van doc duoc. Override that
+// la qua cfg.prompts.learningAdvisorSystemPrompt (admin chinh o /ai-configuration).
+export const DEFAULT_LEARNING_ADVISOR_PROMPT = LEARNING_ADVISOR_SYSTEM_PROMPT;
 
 function groupByLayer(toLearn: ClassifiedNode[]): ClassifiedNode[][] {
   const byLayer = new Map<number, ClassifiedNode[]>();
@@ -459,12 +260,10 @@ export async function generateEmail(
   employee: EmployeeSnapshot,
   preview: PreviewResult,
 ): Promise<GeneratedEmail> {
-  await ensureModuleEnabled('chatbot', 'Cố vấn Đào tạo (Learning Advisor)');
+  await ensureModuleEnabled('learningAdvisor', 'Cố vấn Đào tạo (Learning Advisor)');
 
   const cfg = await getEffectiveConfig();
-  const systemInstruction =
-    (cfg as unknown as { prompts?: Record<string, string> }).prompts?.learningAdvisorSystemPrompt ||
-    DEFAULT_LEARNING_ADVISOR_PROMPT;
+  const systemInstruction = cfg.prompts.learningAdvisorSystemPrompt;
 
   const userPrompt = buildUserPrompt(employee, preview);
 

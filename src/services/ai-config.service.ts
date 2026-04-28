@@ -11,6 +11,7 @@ import {
   LESSON_CONTENT_SYSTEM_PROMPT,
   LEARNING_RECOMMENDATION_SYSTEM_PROMPT,
   CODE_LAB_REVIEW_SYSTEM_PROMPT,
+  LEARNING_ADVISOR_SYSTEM_PROMPT,
   TOP_K_RESULTS,
   MAX_MESSAGES_PER_MINUTE,
 } from '@/config/gemini.config';
@@ -26,6 +27,7 @@ export interface AiModuleFlags {
   dropoutPrediction: boolean;
   autoGrader: boolean;
   questionGenerator: boolean;
+  learningAdvisor: boolean;
 }
 
 /**
@@ -41,6 +43,7 @@ export interface AiPromptOverrides {
   lessonContentSystemPrompt?: string | null;
   learningRecommendationSystemPrompt?: string | null;
   codeLabReviewSystemPrompt?: string | null;
+  learningAdvisorSystemPrompt?: string | null;
 }
 
 export interface EffectiveAiConfig {
@@ -60,6 +63,7 @@ export interface EffectiveAiConfig {
     lessonContentSystemPrompt: string;
     learningRecommendationSystemPrompt: string;
     codeLabReviewSystemPrompt: string;
+    learningAdvisorSystemPrompt: string;
   };
   updatedAt: string;
 }
@@ -69,6 +73,7 @@ const DEFAULT_MODULES: AiModuleFlags = {
   dropoutPrediction: true,
   autoGrader: true,
   questionGenerator: true,
+  learningAdvisor: true,
 };
 
 const DEFAULT_PROMPTS = {
@@ -80,6 +85,7 @@ const DEFAULT_PROMPTS = {
   lessonContentSystemPrompt: LESSON_CONTENT_SYSTEM_PROMPT,
   learningRecommendationSystemPrompt: LEARNING_RECOMMENDATION_SYSTEM_PROMPT,
   codeLabReviewSystemPrompt: CODE_LAB_REVIEW_SYSTEM_PROMPT,
+  learningAdvisorSystemPrompt: LEARNING_ADVISOR_SYSTEM_PROMPT,
 };
 
 const CACHE_TTL_MS = 60_000;
@@ -100,6 +106,8 @@ const sanitizeModules = (raw: unknown): AiModuleFlags => {
       typeof r.questionGenerator === 'boolean'
         ? r.questionGenerator
         : DEFAULT_MODULES.questionGenerator,
+    learningAdvisor:
+      typeof r.learningAdvisor === 'boolean' ? r.learningAdvisor : DEFAULT_MODULES.learningAdvisor,
   };
 };
 
@@ -166,6 +174,11 @@ const buildEffective = (row: {
       row.prompts,
       'codeLabReviewSystemPrompt',
       DEFAULT_PROMPTS.codeLabReviewSystemPrompt,
+    ),
+    learningAdvisorSystemPrompt: pickPrompt(
+      row.prompts,
+      'learningAdvisorSystemPrompt',
+      DEFAULT_PROMPTS.learningAdvisorSystemPrompt,
     ),
   },
   updatedAt: row.updatedAt.toISOString(),
