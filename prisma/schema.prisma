@@ -23,46 +23,47 @@ model Department {
 }
 
 model User {
-  id                         BigInt                @id @default(autoincrement())
-  departmentId               BigInt                @map("department_id")
-  fullName                   String                @map("full_name") @db.VarChar(150)
-  positionTitle              String?               @map("position_title") @db.VarChar(150)
-  email                      String                @unique @db.Citext
-  passwordHash               String                @map("password_hash") @db.VarChar(255)
-  avatarUrl                  String?               @map("avatar_url") @db.VarChar(500)
-  isActive                   Boolean               @default(true) @map("is_active")
-  createdAt                  DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                  DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  gradedAttemptResponses     AttemptResponse[]     @relation("AttemptResponseGradedBy")
+  id                         BigInt                    @id @default(autoincrement())
+  departmentId               BigInt                    @map("department_id")
+  fullName                   String                    @map("full_name") @db.VarChar(150)
+  positionTitle              String?                   @map("position_title") @db.VarChar(150)
+  email                      String                    @unique @db.Citext
+  passwordHash               String                    @map("password_hash") @db.VarChar(255)
+  avatarUrl                  String?                   @map("avatar_url") @db.VarChar(500)
+  isActive                   Boolean                   @default(true) @map("is_active")
+  createdAt                  DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  gradedAttemptResponses     AttemptResponse[]         @relation("AttemptResponseGradedBy")
   authSessions               AuthSession[]
   chatSessions               ChatSession[]
-  trainerCourses             Course[]              @relation("CourseTrainer")
-  managedDepartments         Department[]          @relation("DepartmentManager")
-  assignedEnrollments        Enrollment[]          @relation("EnrollmentAssignedBy")
-  enrollments                Enrollment[]          @relation("EnrollmentUser")
+  trainerCourses             Course[]                  @relation("CourseTrainer")
+  managedDepartments         Department[]              @relation("DepartmentManager")
+  assignedEnrollments        Enrollment[]              @relation("EnrollmentAssignedBy")
+  enrollments                Enrollment[]              @relation("EnrollmentUser")
   questionBanks              QuestionBank[]
-  gradedQuizAttempts         QuizAttempt[]         @relation("QuizAttemptGradedBy")
-  assignedRoadmaps           RoadmapAssignment[]   @relation("RoadmapAssignmentAssignedBy")
-  roadmapAssignments         RoadmapAssignment[]   @relation("RoadmapAssignmentUser")
-  createdRoadmaps            Roadmap[]             @relation("RoadmapCreatedBy")
-  assignedUserRoles          UserRole[]            @relation("UserRoleAssignedBy")
+  gradedQuizAttempts         QuizAttempt[]             @relation("QuizAttemptGradedBy")
+  assignedRoadmaps           RoadmapAssignment[]       @relation("RoadmapAssignmentAssignedBy")
+  roadmapAssignments         RoadmapAssignment[]       @relation("RoadmapAssignmentUser")
+  createdRoadmaps            Roadmap[]                 @relation("RoadmapCreatedBy")
+  assignedUserRoles          UserRole[]                @relation("UserRoleAssignedBy")
   userRoles                  UserRole[]
-  department                 Department            @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  department                 Department                @relation("DepartmentUsers", fields: [departmentId], references: [id])
   gamification               UserGamification?
   xpTransactions             XpTransaction[]
   earnedBadges               UserBadge[]
   roleplaySessions           RoleplaySession[]
-  createdOnboardingTemplates OnboardingTemplate[]  @relation("OnboardingTemplateCreator")
-  onboardingPlansAsAssignee  OnboardingPlan[]      @relation("OnboardingPlanAssignee")
-  onboardingPlansAsManager   OnboardingPlan[]      @relation("OnboardingPlanManager")
-  completedOnboardingTasks   OnboardingTask[]      @relation("OnboardingTaskCompletedBy")
+  createdOnboardingTemplates OnboardingTemplate[]      @relation("OnboardingTemplateCreator")
+  onboardingPlansAsAssignee  OnboardingPlan[]          @relation("OnboardingPlanAssignee")
+  onboardingPlansAsManager   OnboardingPlan[]          @relation("OnboardingPlanManager")
+  completedOnboardingTasks   OnboardingTask[]          @relation("OnboardingTaskCompletedBy")
   codeSubmissions            CodeSubmission[]
   adaptiveQuizSessions       AdaptiveQuizSession[]
   userSkills                 UserSkill[]
-  skillAssessments           SkillAssessment[]     @relation("SkillAssessmentUser")
-  performedSkillAssessments  SkillAssessment[]     @relation("SkillAssessmentAssessor")
-  discussionThreads          DiscussionThread[]    @relation("DiscussionThreadAuthor")
-  discussionReplies          DiscussionReply[]     @relation("DiscussionReplyAuthor")
+  skillAssessments           SkillAssessment[]         @relation("SkillAssessmentUser")
+  performedSkillAssessments  SkillAssessment[]         @relation("SkillAssessmentAssessor")
+  discussionThreads          DiscussionThread[]        @relation("DiscussionThreadAuthor")
+  discussionReplies          DiscussionReply[]         @relation("DiscussionReplyAuthor")
+  curriculumTestResults      EmployeeSkillTestResult[]
 
   @@index([departmentId])
   @@map("users")
@@ -225,24 +226,24 @@ model RoadmapAssignment {
 }
 
 model Course {
-  id                       BigInt           @id @default(autoincrement())
-  ownerDepartmentId        BigInt?          @map("owner_department_id")
-  trainerUserId            BigInt           @map("trainer_user_id")
-  categoryId               BigInt?          @map("category_id")
-  title                    String           @db.VarChar(200)
-  slug                     String           @unique @db.VarChar(220)
+  id                       BigInt                      @id @default(autoincrement())
+  ownerDepartmentId        BigInt?                     @map("owner_department_id")
+  trainerUserId            BigInt                      @map("trainer_user_id")
+  categoryId               BigInt?                     @map("category_id")
+  title                    String                      @db.VarChar(200)
+  slug                     String                      @unique @db.VarChar(220)
   description              String?
-  thumbnailUrl             String?          @map("thumbnail_url") @db.VarChar(500)
-  status                   course_status    @default(draft)
-  estimatedDurationMinutes Int?             @map("estimated_duration_minutes")
-  publishedAt              DateTime?        @map("published_at") @db.Timestamptz(6)
-  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  mediaFolder              String?          @map("media_folder") @db.VarChar(255)
+  thumbnailUrl             String?                     @map("thumbnail_url") @db.VarChar(500)
+  status                   course_status               @default(draft)
+  estimatedDurationMinutes Int?                        @map("estimated_duration_minutes")
+  publishedAt              DateTime?                   @map("published_at") @db.Timestamptz(6)
+  createdAt                DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  mediaFolder              String?                     @map("media_folder") @db.VarChar(255)
   courseTags               CourseTag[]
-  category                 Category?        @relation(fields: [categoryId], references: [id])
-  ownerDepartment          Department?      @relation("DepartmentOwnedCourses", fields: [ownerDepartmentId], references: [id])
-  trainerUser              User             @relation("CourseTrainer", fields: [trainerUserId], references: [id])
+  category                 Category?                   @relation(fields: [categoryId], references: [id])
+  ownerDepartment          Department?                 @relation("DepartmentOwnedCourses", fields: [ownerDepartmentId], references: [id])
+  trainerUser              User                        @relation("CourseTrainer", fields: [trainerUserId], references: [id])
   enrollments              Enrollment[]
   modules                  Module[]
   quizzes                  Quiz[]
@@ -282,22 +283,22 @@ model Module {
 }
 
 model Lesson {
-  id              BigInt              @id @default(autoincrement())
-  moduleId        BigInt              @map("module_id")
-  title           String              @db.VarChar(200)
-  lessonType      lesson_kind         @map("lesson_type")
-  contentText     String?             @map("content_text")
-  videoUrl        String?             @map("video_url") @db.VarChar(500)
-  durationSeconds Int                 @default(0) @map("duration_seconds")
-  orderIndex      Int                 @map("order_index")
-  isPreview       Boolean             @default(false) @map("is_preview")
-  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  progress        LessonProgress[]
-  resources       LessonResource[]
-  module          Module              @relation(fields: [moduleId], references: [id])
-  quiz            Quiz?
-  videoSummary    VideoLessonSummary?
+  id                BigInt              @id @default(autoincrement())
+  moduleId          BigInt              @map("module_id")
+  title             String              @db.VarChar(200)
+  lessonType        lesson_kind         @map("lesson_type")
+  contentText       String?             @map("content_text")
+  videoUrl          String?             @map("video_url") @db.VarChar(500)
+  durationSeconds   Int                 @default(0) @map("duration_seconds")
+  orderIndex        Int                 @map("order_index")
+  isPreview         Boolean             @default(false) @map("is_preview")
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  progress          LessonProgress[]
+  resources         LessonResource[]
+  module            Module              @relation(fields: [moduleId], references: [id])
+  quiz              Quiz?
+  videoSummary      VideoLessonSummary?
   discussionThreads DiscussionThread[]
 
   @@unique([moduleId, orderIndex])
@@ -1064,16 +1065,16 @@ model AdaptiveQuizSession {
 }
 
 model AdaptiveQuizItem {
-  id              BigInt   @id @default(autoincrement())
-  sessionId       BigInt   @map("session_id")
-  questionId      BigInt   @map("question_id")
-  orderIndex      Int      @map("order_index") @db.SmallInt
-  difficulty      Int      @db.SmallInt
-  isCorrect       Boolean  @default(false) @map("is_correct")
-  selectedOptions Json?    @map("selected_options")
-  abilityBefore   Float    @map("ability_before")
-  abilityAfter    Float    @map("ability_after")
-  timeSpentMs     Int?     @map("time_spent_ms")
+  id              BigInt    @id @default(autoincrement())
+  sessionId       BigInt    @map("session_id")
+  questionId      BigInt    @map("question_id")
+  orderIndex      Int       @map("order_index") @db.SmallInt
+  difficulty      Int       @db.SmallInt
+  isCorrect       Boolean   @default(false) @map("is_correct")
+  selectedOptions Json?     @map("selected_options")
+  abilityBefore   Float     @map("ability_before")
+  abilityAfter    Float     @map("ability_after")
+  timeSpentMs     Int?      @map("time_spent_ms")
   answeredAt      DateTime? @map("answered_at") @db.Timestamptz(6)
 
   session  AdaptiveQuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -1099,9 +1100,9 @@ model Skill {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  positionSkills    PositionSkill[]
-  userSkills        UserSkill[]
-  assessments       SkillAssessment[]
+  positionSkills     PositionSkill[]
+  userSkills         UserSkill[]
+  assessments        SkillAssessment[]
   recommendedCourses SkillCourseRecommendation[]
 
   @@index([category, isActive])
@@ -1156,9 +1157,9 @@ model SkillAssessment {
   notes        String?  @db.Text
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user      User  @relation("SkillAssessmentUser", fields: [userId], references: [id], onDelete: Cascade)
-  assessor  User? @relation("SkillAssessmentAssessor", fields: [assessedById], references: [id])
-  skill     Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user     User  @relation("SkillAssessmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  assessor User? @relation("SkillAssessmentAssessor", fields: [assessedById], references: [id])
+  skill    Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([skillId])
@@ -1166,13 +1167,13 @@ model SkillAssessment {
 }
 
 model SkillCourseRecommendation {
-  id          BigInt   @id @default(autoincrement())
-  skillId     BigInt   @map("skill_id")
-  courseId    BigInt   @map("course_id")
-  minLevel    Int      @default(1) @map("min_level") @db.SmallInt
-  maxLevel    Int      @default(5) @map("max_level") @db.SmallInt
-  priority    Int      @default(0)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id        BigInt   @id @default(autoincrement())
+  skillId   BigInt   @map("skill_id")
+  courseId  BigInt   @map("course_id")
+  minLevel  Int      @default(1) @map("min_level") @db.SmallInt
+  maxLevel  Int      @default(5) @map("max_level") @db.SmallInt
+  priority  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -1180,4 +1181,65 @@ model SkillCourseRecommendation {
   @@unique([skillId, courseId])
   @@index([skillId])
   @@map("skill_course_recommendations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Module 1 — Lộ trình Học tập Thích ứng (Adaptive Learning Path)
+// 50-node DAG of onboarding lessons + employee test results.
+// Algorithms: Kahn's topological sort + 3-state classifier (exempt/available/locked).
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CurriculumNodeCategory {
+  soft_skills
+  company
+  professional
+  compliance
+  leadership
+}
+
+model CurriculumNode {
+  id             String                 @id @db.VarChar(10) // "L01"…"L50"
+  title          String                 @db.VarChar(200)
+  category       CurriculumNodeCategory
+  estimatedHours Int                    @default(2) @map("estimated_hours")
+  description    String                 @db.Text
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  edgesFrom   CurriculumEdge[]          @relation("CurriculumEdgeFrom")
+  edgesTo     CurriculumEdge[]          @relation("CurriculumEdgeTo")
+  testResults EmployeeSkillTestResult[]
+
+  @@index([category])
+  @@map("curriculum_nodes")
+}
+
+model CurriculumEdge {
+  id        Int      @id @default(autoincrement())
+  fromId    String   @map("from_id") @db.VarChar(10)
+  toId      String   @map("to_id") @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  from CurriculumNode @relation("CurriculumEdgeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   CurriculumNode @relation("CurriculumEdgeTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId])
+  @@index([toId])
+  @@map("curriculum_edges")
+}
+
+model EmployeeSkillTestResult {
+  id       Int      @id @default(autoincrement())
+  userId   BigInt   @map("user_id")
+  nodeId   String   @map("node_id") @db.VarChar(10)
+  score    Int?     @db.SmallInt
+  source   String   @default("entry_test") @db.VarChar(20)
+  passedAt DateTime @default(now()) @map("passed_at") @db.Timestamptz(6)
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  node CurriculumNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, nodeId])
+  @@index([userId])
+  @@map("employee_skill_test_results")
 }
