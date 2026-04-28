@@ -9,9 +9,8 @@ export class CompanyDocumentController {
    * GET /api/v1/company-documents
    */
   static getDocuments = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    const result = await CompanyDocumentService.getDocuments(
-      req.query as unknown as CompanyDocumentListQuery,
-    );
+    const query = (res.locals.validatedQuery ?? (req.query as unknown)) as CompanyDocumentListQuery;
+    const result = await CompanyDocumentService.getDocuments(query);
     sendSuccess(res, result, 'Lấy danh sách tài liệu thành công');
   });
 
