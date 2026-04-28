@@ -12,6 +12,9 @@ const { seedCodeLabProblems } = require('./seeds/core/code-lab-problems.seed');
 const { seedSkills } = require('./seeds/core/skills.seed');
 const { seedPositionSkills } = require('./seeds/core/position-skills.seed');
 const { seedUserSkills } = require('./seeds/core/user-skills.seed');
+const { seedForumThreads } = require('./seeds/core/forum.seed');
+const { seedGamification } = require('./seeds/core/gamification.seed');
+const { seedEngagement } = require('./seeds/core/engagement.seed');
 const { runDemoSeed } = require('./seeds/demo/full-demo.seed');
 const { seedRealisticRoadmaps } = require('./seeds/demo/roadmap-realistic.seed');
 const { seedCoursesFromCloudinary } = require('./seeds/demo/courses-from-cloudinary.seed');
@@ -65,6 +68,17 @@ async function runCoreSeed(context) {
   const positionSkillsData = await seedPositionSkills(context);
   const userSkillsData = await seedUserSkills(context);
 
+  // Demo activity data (forum threads, gamification, engagement) — adds depth
+  // to dashboards / leaderboards / analytics on first boot. All idempotent.
+  console.log('\n💬 Seeding discussion forum...');
+  const forumData = await seedForumThreads(context);
+
+  console.log('\n🎮 Seeding gamification (XP / streak / badges)...');
+  const gamificationData = await seedGamification(context);
+
+  console.log('\n💎 Seeding engagement / activity demo data...');
+  const engagementData = await seedEngagement(context);
+
   console.log('\nCore seed completed successfully.');
   console.log(`
 Summary:
@@ -89,6 +103,17 @@ Summary:
 - Skills: ${skillsData?.total || 0} (${skillsData?.created || 0} created, ${skillsData?.updated || 0} updated)
 - Position-Skill matrix: ${positionSkillsData?.total || 0} rows across ${positionSkillsData?.positions || 0} positions
 - User-Skill assessments: ${userSkillsData?.total || 0} rows across ${userSkillsData?.users || 0} users
+- Forum threads / replies: ${forumData?.threads || 0} / ${forumData?.replies || 0}
+- Gamification: ${gamificationData?.learners || 0} learners, ${gamificationData?.transactions || 0} XP transactions, ${gamificationData?.badges || 0} badges awarded
+- Certificates: ${engagementData?.certificates || 0}
+- Risk assessments: ${engagementData?.risks || 0}
+- Video lesson summaries: ${engagementData?.summaries || 0}
+- Roleplay sessions: ${engagementData?.sessions || 0}
+- Onboarding plans (assigned): ${engagementData?.onboarding || 0}
+- Adaptive quiz sessions: ${engagementData?.adaptive || 0}
+- Code submissions: ${engagementData?.submissions || 0}
+- AI chat sessions: ${engagementData?.chats || 0}
+- Skill assessment history rows: ${engagementData?.assessments || 0}
 
 Seed scope:
 - System roles and permissions
