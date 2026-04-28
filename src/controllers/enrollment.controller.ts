@@ -1,6 +1,6 @@
 import type { Response } from 'express';
 import { EnrollmentService } from '@/services/enrollment.service';
-import { catchAsync, sendSuccess, sendCreated } from '@/utils';
+import { catchAsync, sendSuccess, sendCreated, getValidatedQuery } from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 
 export class EnrollmentController {
@@ -31,8 +31,9 @@ export class EnrollmentController {
   });
 
   static listEnrollments = catchAsync(async (req: AuthRequest, res: Response) => {
+    const query = getValidatedQuery(req, res);
     const result = await EnrollmentService.listEnrollments(
-      req.query as any,
+      query,
       req.user!.userId,
       req.user!.roleCodes,
     );

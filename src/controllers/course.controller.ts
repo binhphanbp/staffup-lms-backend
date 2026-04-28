@@ -1,6 +1,13 @@
 import type { Response, NextFunction } from 'express';
 import { CourseService } from '@/services/course.service';
-import { catchAsync, sendSuccess, sendCreated, sendNoContent } from '@/utils';
+import {
+  catchAsync,
+  sendSuccess,
+  sendCreated,
+  sendNoContent,
+  getValidatedQuery,
+  getValidatedParams,
+} from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 import type { CourseDetailQuery, CourseQuery } from '@/schemas/course.schema';
 export class CourseController {
@@ -29,7 +36,9 @@ export class CourseController {
    * GET /api/v1/courses/:id
    */
   static findById = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    const course = await CourseService.findById(req.params.id as string, req.query as any);
+    const query = getValidatedQuery(req, res);
+    const params = getValidatedParams(req, res);
+    const course = await CourseService.findById(params.id as string, query);
     sendSuccess(res, course, 'Course retrieved successfully');
   });
 

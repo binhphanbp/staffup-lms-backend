@@ -1,6 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import { QuestionBankService } from '@/services/question-bank.service';
-import { catchAsync, sendSuccess, sendCreated, sendNoContent } from '@/utils';
+import { catchAsync, sendSuccess, sendCreated, sendNoContent, getValidatedQuery } from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 
 export class QuestionBankController {
@@ -10,11 +10,8 @@ export class QuestionBankController {
   });
 
   static findAll = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    const result = await QuestionBankService.findAll(
-      req.query as any,
-      req.user!.userId,
-      req.user!.roleCodes,
-    );
+    const query = getValidatedQuery(req, res);
+    const result = await QuestionBankService.findAll(query, req.user!.userId, req.user!.roleCodes);
     sendSuccess(res, result, 'Question banks retrieved successfully');
   });
 
