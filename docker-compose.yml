@@ -37,6 +37,7 @@ services:
       - '5555:5555'
     environment:
       - BROWSER=none
+      - DATABASE_URL=postgresql://admin:password123@db:5432/staffup_lms?schema=public
     depends_on:
       db:
         condition: service_healthy

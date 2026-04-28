@@ -1,6 +1,13 @@
 import type { Response, NextFunction } from 'express';
 import { QuestionService } from '@/services/question.service';
-import { catchAsync, sendSuccess, sendCreated, sendNoContent } from '@/utils';
+import {
+  catchAsync,
+  sendSuccess,
+  sendCreated,
+  sendNoContent,
+  getValidatedQuery,
+  getValidatedParams,
+} from '@/utils';
 import type { AuthRequest } from '@/interfaces';
 
 export class QuestionController {
@@ -16,9 +23,11 @@ export class QuestionController {
   });
 
   static findAll = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
+    const query = getValidatedQuery(req, res);
+    const params = getValidatedParams(req, res);
     const result = await QuestionService.findAll(
-      req.params.bankId as string,
-      req.query as any,
+      params.bankId as string,
+      query,
       req.user!.userId,
       req.user!.roleCodes,
     );
