@@ -2,6 +2,7 @@ import type { Response, NextFunction } from 'express';
 import { QuestionBankService } from '@/services/question-bank.service';
 import { catchAsync, sendSuccess, sendCreated, sendNoContent } from '@/utils';
 import type { AuthRequest } from '@/interfaces';
+import type { ListQuestionBanksQuery } from '@/schemas/question-bank.schema';
 
 export class QuestionBankController {
   static create = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
@@ -10,11 +11,12 @@ export class QuestionBankController {
   });
 
   static findAll = catchAsync(async (req: AuthRequest, res: Response, _next: NextFunction) => {
-    const result = await QuestionBankService.findAll(
-      req.query as any,
-      req.user!.userId,
-      req.user!.roleCodes,
-    );
+    // Express 5: req.query is read-only, so the validate() middleware stores
+    // the Zod-coerced query (with proper int types for page/limit) in
+    // res.locals.validatedQuery. Fall back to req.query for safety.
+    const query = ((res.locals as { validatedQuery?: unknown }).validatedQuery ??
+      req.query) as ListQuestionBanksQuery;
+    const result = await QuestionBankService.findAll(query, req.user!.userId, req.user!.roleCodes);
     sendSuccess(res, result, 'Question banks retrieved successfully');
   });
 
