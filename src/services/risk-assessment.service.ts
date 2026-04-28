@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { genAI } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { logger } from '@/config/logger';
@@ -999,7 +1000,7 @@ export class RiskAssessmentService {
 Hãy phân tích và đề xuất kế hoạch can thiệp cụ thể.`;
 
       const cfg = await getEffectiveConfig();
-      const response = await genAI.models.generateContent({
+      const response = await generateContentWithFallback({
         model: cfg.chatModel,
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         config: {

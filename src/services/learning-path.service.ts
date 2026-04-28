@@ -9,9 +9,9 @@
  *   - admin CRUD: addEdge / removeEdge / setTestResults
  */
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { logger } from '@/config/logger';
-import { genAI, LEARNING_ADVISOR_SYSTEM_PROMPT } from '@/config/gemini.config';
-import { groqGenerateJson } from '@/services/groq.service';
+import { LEARNING_ADVISOR_SYSTEM_PROMPT } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { AppError } from '@/utils';
 import {
@@ -270,7 +270,7 @@ export async function generateEmail(
 
   let parsed: { subject: string; body: string } | null = null;
   try {
-    const result = await genAI.models.generateContent({
+    const result = await generateContentWithFallback({
       model: cfg.chatModel,
       contents: [{ role: 'user' as const, parts: [{ text: userPrompt }] }],
       config: {
@@ -294,23 +294,6 @@ export async function generateEmail(
     }
   } catch (err) {
     logger.error('[learning-path] Gemini generateContent failed:', err);
-  }
-
-  // Fallback layer 2: Groq (OpenAI-compatible) khi Gemini fail/parse-miss.
-  if (!parsed) {
-    const groqText = await groqGenerateJson({
-      systemPrompt: systemInstruction,
-      userPrompt,
-      temperature: 0.7,
-    });
-    if (groqText) {
-      parsed = tryParseEmailJson(groqText);
-      if (!parsed) {
-        logger.warn(`[learning-path] Groq fallback parse fail. preview=${groqText.slice(0, 200)}`);
-      } else {
-        logger.info('[learning-path] Groq fallback succeeded');
-      }
-    }
   }
 
   const email = parsed ?? buildFallbackEmail(employee, preview);

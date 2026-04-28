@@ -1,4 +1,5 @@
 import { genAI, CHAT_MODEL } from '@/config/gemini.config';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { logger } from '@/config/logger';
 import { prisma } from '@/config/database';
 
@@ -531,7 +532,7 @@ export const chat = async (
     .join('\n');
 
   try {
-    const result = await genAI.models.generateContent({
+    const result = await generateContentWithFallback({
       model: CHAT_MODEL,
       contents: [
         {
@@ -589,7 +590,7 @@ export const generateWeeklyBriefing = async (
   const now = new Date();
 
   try {
-    const result = await genAI.models.generateContent({
+    const result = await generateContentWithFallback({
       model: CHAT_MODEL,
       contents: [
         {

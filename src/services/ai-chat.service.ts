@@ -1,4 +1,5 @@
 import { prisma } from '@/config/database';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { genAI } from '@/config/gemini.config';
 import { ensureModuleEnabled, getEffectiveConfig } from '@/services/ai-config.service';
 import { searchSimilarChunks, type SearchResult } from '@/services/embedding.service';
@@ -251,7 +252,7 @@ export const chat = async (
       : '\n[Không tìm thấy tài liệu liên quan trong hệ thống]';
 
   // Step 4: Call Gemini
-  const response = await genAI.models.generateContent({
+  const response = await generateContentWithFallback({
     model: cfg.chatModel,
     contents: [
       ...history.slice(0, -1).map((msg) => ({

@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { generateContentWithFallback } from '@/utils/ai-generate';
 import { prisma } from '@/config/database';
 import { genAI, CHAT_MODEL, CODE_LAB_REVIEW_SYSTEM_PROMPT } from '@/config/gemini.config';
 import { logger } from '@/config/logger';
@@ -107,7 +108,7 @@ export class CodeLabService {
 
     let aiResponse: string;
     try {
-      const response = await genAI.models.generateContent({
+      const response = await generateContentWithFallback({
         model: CHAT_MODEL,
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         config: {
